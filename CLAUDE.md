@@ -26,3 +26,15 @@ discuss? → propose → apply ⇄ ingest → archive
 Changes can be parked（暫存）— temporarily moved out of `openspec/changes/`. Parked changes won't appear in `spectra list` but can be found with `spectra list --parked`. To restore: `spectra unpark <name>`. The `/spectra-apply` and `/spectra-ingest` skills handle parked changes automatically.
 
 <!-- SPECTRA:END -->
+
+<!-- PROJECT-SDD:START -->
+
+# Project SDD Overlay
+
+Prefer `/sdd-agentflow` for non-trivial feature work before going directly to `/spectra-propose` or `/spectra-apply`. It layers Discuss, Explore, Prototype, Usage/API Contract, and Review/Rating/Fix gates over Spectra's generated workflow.
+
+Use `/sdd-spectra-refresh` after `spectra update --force` or a Spectra upgrade to verify project-owned `sdd-*` skills and `openspec/config.yaml` rules still exist.
+
+Do not put project-specific Agentflow-SDD rules inside generated `spectra-*` skills. Keep custom behavior in project-owned `sdd-*` skills and outside the `SPECTRA:START` / `SPECTRA:END` block.
+
+<!-- PROJECT-SDD:END -->

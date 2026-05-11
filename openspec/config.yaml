@@ -1,20 +1,33 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  This project uses a project-local Agentflow-SDD overlay on top of Spectra.
+  For non-trivial changes, prefer the sdd-agentflow skill before writing or
+  applying Spectra artifacts. Treat Spectra as the artifact/state backend and
+  the Agentflow-SDD overlay as the quality gate.
+  Each Agentflow-SDD step must produce a supporting markdown document under
+  openspec/changes/<change>/agentflow/ so the decision trail survives handoff,
+  parked changes, and Spectra refreshes.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - Capture the Discuss outcome: goals, non-goals, assumptions, open questions, and concrete acceptance examples when available.
+    - Include Explore findings for non-trivial changes: product/domain, architecture/data flow, security/privacy, UI/UX, performance/reliability, testing, and platform/dependency risks.
+    - If a prototype or spike is needed, state the prototype question and expected learning before implementation starts.
+    - Keep scope boundaries explicit. Do not let nice-to-have work enter the change silently.
+  design:
+    - Include Explore Findings for material risks and the decision each risk drove.
+    - Include Prototype Findings when a spike was run or intentionally skipped. If skipped, name why the risk is low enough.
+    - Include a Working Backwards Usage/API Contract that describes the future user-facing behavior, command/API shape, input/output, errors, and privacy expectations before code exists.
+    - Include an Implementation Contract for each implementation area: observable behavior, data shape, failure modes, acceptance criteria, verification target, and out-of-scope items.
+    - Avoid line-number-coupled instructions. Name modules, functions, commands, behavior, and contracts instead.
+  specs:
+    - Use normative SHALL/MUST language and include scenario examples that can become tests.
+    - Every user-visible behavior, privacy boundary, and failure mode introduced by the proposal needs a testable requirement.
+    - Do not invent requirements that were not present in Discuss, Explore, Prototype, or explicit user direction.
+  tasks:
+    - Every task must name an observable outcome and a concrete verification target such as a test, command, analyzer check, or manual assertion.
+    - Tasks must be small enough for one focused implementation pass and must not rely on vague phrases such as "handle edge cases" without naming the cases.
+    - Mark independent tasks with [P] only when they can run in parallel without depending on unfinished tasks or overlapping the same code region.
+    - Include tasks or subtasks to update required Agentflow-SDD step documents when implementation changes the decision trail.
+    - Add a final review task that compares implementation against specs, design contracts, tests, and Spectra validation before archive.
