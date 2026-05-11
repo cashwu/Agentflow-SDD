@@ -31,9 +31,15 @@ Changes can be parked（暫存）— temporarily moved out of `openspec/changes/
 
 # Project SDD Overlay
 
-Prefer `/sdd-agentflow` for non-trivial feature work before going directly to `/spectra-propose` or `/spectra-apply`. It layers Discuss, Explore, Prototype, Usage/API Contract, and Review/Rating/Fix gates over Spectra's generated workflow.
+Use `/sdd-*` Agentflow wrappers for non-trivial feature work before going directly to `/spectra-*`. Direct `/spectra-*` usage is allowed only when a `/sdd-*` wrapper delegates to Spectra, or for tiny mechanical edits and pure queries.
+
+The 9-step Agentflow is `/sdd-discuss` → `/sdd-explore` → `/sdd-prototype` → `/sdd-spec` → `/sdd-usage` → `/sdd-ticket` → `/sdd-dev` → `/sdd-review` → `/sdd-wrap`. `/sdd-agentflow` is the end-to-end entry point that coordinates those steps.
+
+Each review/rating/fix round must produce its own file under `openspec/changes/<change>/agentflow/reviews/`; step files only summarize and link those round records. Passing requires `quality_score > 9/10` with no critical gap.
 
 Use `/sdd-spectra-refresh` after `spectra update --force` or a Spectra upgrade to verify project-owned `sdd-*` skills and `openspec/config.yaml` rules still exist.
+
+Use `./install-agentflow-sdd.fish --target <project-dir>` to install the Agentflow-SDD overlay into another project. Add `--with-spectra` only when the target project does not already have generated Spectra skills.
 
 Do not put project-specific Agentflow-SDD rules inside generated `spectra-*` skills. Keep custom behavior in project-owned `sdd-*` skills and outside the `SPECTRA:START` / `SPECTRA:END` block.
 

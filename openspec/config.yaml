@@ -2,19 +2,31 @@ schema: spec-driven
 
 context: |
   This project uses a project-local Agentflow-SDD overlay on top of Spectra.
-  For non-trivial changes, prefer the sdd-agentflow skill before writing or
-  applying Spectra artifacts. Treat Spectra as the artifact/state backend and
-  the Agentflow-SDD overlay as the quality gate.
+  For non-trivial changes, use the 9-step sdd-* Agentflow wrappers before
+  writing or applying Spectra artifacts. Treat Spectra as the artifact/state
+  backend and the Agentflow-SDD overlay as the quality gate.
+  Direct spectra-* usage is allowed only when delegated by an sdd-* wrapper,
+  or for tiny mechanical edits and pure queries.
+  The 9 steps are Discuss, Explore, Prototype, Spec, Usage, Ticket, Dev,
+  Review, and Wrap.
   Each Agentflow-SDD step must produce a supporting markdown document under
   openspec/changes/<change>/agentflow/ so the decision trail survives handoff,
   parked changes, and Spectra refreshes.
+  Every Agentflow-SDD major step must run its own review/rating/fix loop before
+  the next step starts. Passing means quality_score > 9/10 and no critical gap.
+  Every review/rating/fix round must also produce a dedicated markdown document
+  under openspec/changes/<change>/agentflow/reviews/. Step documents summarize
+  and link review round documents, but they do not replace them.
 
 rules:
   proposal:
     - Capture the Discuss outcome: goals, non-goals, assumptions, open questions, and concrete acceptance examples when available.
     - Include Explore findings for non-trivial changes: product/domain, architecture/data flow, security/privacy, UI/UX, performance/reliability, testing, and platform/dependency risks.
     - If a prototype or spike is needed, state the prototype question and expected learning before implementation starts.
+    - Preserve the 9-step Agentflow decision trail: Discuss, Explore, Prototype, Spec, Usage, Ticket, Dev, Review, and Wrap.
     - Keep scope boundaries explicit. Do not let nice-to-have work enter the change silently.
+    - Preserve the per-step review/rating/fix decisions from Agentflow-SDD support documents when they affect scope or requirements.
+    - Do not collapse review/rating/fix activity into a single summary only. Preserve dedicated review round files under agentflow/reviews/.
   design:
     - Include Explore Findings for material risks and the decision each risk drove.
     - Include Prototype Findings when a spike was run or intentionally skipped. If skipped, name why the risk is low enough.
@@ -30,4 +42,7 @@ rules:
     - Tasks must be small enough for one focused implementation pass and must not rely on vague phrases such as "handle edge cases" without naming the cases.
     - Mark independent tasks with [P] only when they can run in parallel without depending on unfinished tasks or overlapping the same code region.
     - Include tasks or subtasks to update required Agentflow-SDD step documents when implementation changes the decision trail.
+    - Include tasks or subtasks to update required Agentflow-SDD review round documents when implementation changes review evidence or decisions.
+    - Do not mark an implementation task complete until its own review/rating/fix loop passes with quality_score > 9/10 and no critical gap.
+    - Do not mark an implementation task complete until its review round files exist under agentflow/reviews/ using 07-dev-task-<task-id>-r<round>.md naming.
     - Add a final review task that compares implementation against specs, design contracts, tests, and Spectra validation before archive.
