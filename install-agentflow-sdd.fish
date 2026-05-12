@@ -177,7 +177,7 @@ function migrate_from_spectra --argument-names target_dir
         end
     end
 
-    # 3. Remove old openspec/config.yaml (replaced by agentflow/config.yaml)
+    # 4. Remove old openspec/config.yaml (replaced by agentflow/config.yaml)
     if test -f "$target_dir/openspec/config.yaml"
         set has_migration 1
         echo "  - 移除舊的 openspec/config.yaml（由 agentflow/config.yaml 取代）"
@@ -186,7 +186,7 @@ function migrate_from_spectra --argument-names target_dir
         end
     end
 
-    # 3. Remove old spectra-* skill directories
+    # 5. Remove old spectra-* skill directories
     for skill_root in "$target_dir/.claude/skills" "$target_dir/.agents/skills"
         if test -d "$skill_root"
             for spectra_dir in "$skill_root"/spectra-*/
@@ -201,7 +201,7 @@ function migrate_from_spectra --argument-names target_dir
         end
     end
 
-    # 4. Remove old sdd-spectra-refresh skill directories
+    # 6. Remove old sdd-spectra-refresh skill directories
     for skill_root in "$target_dir/.claude/skills" "$target_dir/.agents/skills"
         if test -d "$skill_root/sdd-spectra-refresh"
             set has_migration 1
@@ -212,7 +212,7 @@ function migrate_from_spectra --argument-names target_dir
         end
     end
 
-    # 5. Strip SPECTRA:START/END blocks from CLAUDE.md and AGENTS.md
+    # 7. Strip SPECTRA:START/END blocks from CLAUDE.md and AGENTS.md
     for md_file in "$target_dir/CLAUDE.md" "$target_dir/AGENTS.md"
         if test -f "$md_file"; and grep -q "SPECTRA:START" "$md_file"
             set has_migration 1
