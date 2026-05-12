@@ -16,7 +16,7 @@ Use this skill as the default end-to-end entry point for non-trivial SDD work. I
 
 - Answer and write user-facing summaries in Traditional Chinese.
 - Use `/sdd-*` skills for all non-trivial work. There are no backend delegations to external tools.
-- Write user-facing artifact content in Traditional Chinese. `spec.md` uses English normative language (SHALL/MUST).
+- 所有 artifact 和 step file 以繁體中文撰寫。只有規範性關鍵字（SHALL / MUST / GIVEN / WHEN / THEN）和技術專有名詞維持英文。
 - Do not implement production code before `/sdd-dev`.
 - Prefer small, explicit, testable decisions over broad architecture prose.
 

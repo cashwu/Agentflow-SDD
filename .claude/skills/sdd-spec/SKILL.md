@@ -76,53 +76,53 @@ Run Agentflow step 4: Spec. This step creates the change directory and spec.md �
 
 ## Spec Template
 
-spec.md uses English normative language (SHALL/MUST) for requirements. Implementation Contract and other sections use the project locale (Traditional Chinese).
+spec.md 以繁體中文撰寫。只有規範性語句使用英文關鍵字（SHALL / MUST / GIVEN / WHEN / THEN），其餘標題、描述、說明全用繁體中文。技術專有名詞（API 名稱、型別、指令等）維持原文。
 
 ```markdown
-# <Change Name> - Specification
+# <Change Name> - 規格
 
 ## 類型
 
 Feature | Bug Fix | Refactor
 
-## 範圍邊界（Scope Boundaries）
+## 範圍邊界
 
-- In Scope: ...
-- Out of Scope: ...
+- 在範圍內: ...
+- 不在範圍: ...
 
-## Requirements
+## 需求
 
-### <Capability Name>
+### <能力名稱>
 
-#### Purpose
+#### 目的
 
-<!-- One sentence -->
+<!-- 一句話描述 -->
 
-#### Requirement: <requirement-name>
+#### 需求: <需求名稱>
 
-The system SHALL ...
+系統 SHALL ...（以繁體中文描述行為，保留 SHALL / MUST 關鍵字）
 
-##### Scenario: <scenario-name>
+##### 情境: <情境名稱>
 
-GIVEN ...
-WHEN ...
-THEN ...
+GIVEN <前置條件，繁體中文描述>
+WHEN <操作，繁體中文描述>
+THEN <預期結果，繁體中文描述>
 
-###### Example:
+###### 範例:
 
-| Input | Expected Output |
-|-------|-----------------|
-| ...   | ...             |
+| 輸入 | 預期輸出 |
+|------|----------|
+| ...  | ...      |
 
-## Usage Contract
+## 使用契約（Usage Contract）
 
 <!-- Step 5 (Usage) 將填寫此區段 -->
 
-## Usage Scenarios
+## 使用情境（Usage Scenarios）
 
 <!-- Step 5 (Usage) 將補充此區段 -->
 
-## Implementation Contract
+## 實作契約（Implementation Contract）
 
 ### <實作區域 1>
 
@@ -135,9 +135,9 @@ THEN ...
 
 ### <實作區域 2>
 
-(同上格式)
+（同上格式）
 
-## 影響範圍（Impact）
+## 影響範圍
 
 - 受影響的 specs: <新增或修改的能力>
 - 受影響的程式碼:

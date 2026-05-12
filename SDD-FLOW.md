@@ -142,7 +142,7 @@ agentflow/changes/<change>/agentflow/reviews/
 
 | Artifact | 建立者 | 更新者 | 語言 |
 | --- | --- | --- | --- |
-| `spec.md` | Step 4 (Spec) | Step 5 (Usage) | 英文（SHALL/MUST）+ 繁體中文（Contract） |
+| `spec.md` | Step 4 (Spec) | Step 5 (Usage) | 繁體中文（規範性關鍵字 SHALL/MUST/GIVEN/WHEN/THEN 和技術專有名詞維持英文） |
 | `tasks.md` | Step 6 (Ticket) | Step 7 (Dev) | 繁體中文 |
 | `status.yaml` | Step 4 (Spec) | 各 step 更新 | YAML |
 

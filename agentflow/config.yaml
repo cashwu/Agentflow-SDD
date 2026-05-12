@@ -55,7 +55,7 @@ rules:
     - Include an Implementation Contract for each implementation area: observable behavior, data shape, failure modes, acceptance criteria, verification target, and out-of-scope items.
     - Avoid line-number-coupled instructions. Name modules, functions, commands, behavior, and contracts instead.
   specs:
-    - Use normative SHALL/MUST language in English and include scenario examples that can become tests.
+    - Write in Traditional Chinese. Only normative keywords (SHALL/MUST/GIVEN/WHEN/THEN) and technical terms stay in English.
     - Every user-visible behavior, privacy boundary, and failure mode introduced by the proposal needs a testable requirement.
     - Do not invent requirements not present in Discuss, Explore, Prototype, or explicit user direction.
   tasks:
