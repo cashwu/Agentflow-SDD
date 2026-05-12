@@ -111,6 +111,95 @@ function ensure_agentflow_config --argument-names source_file target_file
     echo "  - agentflow/config.yaml：已更新為最新設定"
 end
 
+function migrate_from_spectra --argument-names target_dir
+    set has_migration 0
+
+    # 1. Move active changes from openspec/changes/ to agentflow/changes/
+    if test -d "$target_dir/openspec/changes"
+        for change_dir in "$target_dir"/openspec/changes/*/
+            set change_name (basename "$change_dir")
+            if test "$change_name" = "archive"
+                continue
+            end
+            if test -d "$change_dir"
+                set has_migration 1
+                echo "  - 遷移 change：$change_name → agentflow/changes/$change_name"
+                if test $dry_run -eq 0
+                    run_cmd mkdir -p "$target_dir/agentflow/changes"
+                    run_cmd mv "$change_dir" "$target_dir/agentflow/changes/$change_name"
+                end
+            end
+        end
+
+        # Move archived changes
+        if test -d "$target_dir/openspec/changes/archive"
+            for archive_dir in "$target_dir"/openspec/changes/archive/*/
+                if test -d "$archive_dir"
+                    set archive_name (basename "$archive_dir")
+                    set has_migration 1
+                    echo "  - 遷移 archive：$archive_name → agentflow/changes/archive/$archive_name"
+                    if test $dry_run -eq 0
+                        run_cmd mkdir -p "$target_dir/agentflow/changes/archive"
+                        run_cmd mv "$archive_dir" "$target_dir/agentflow/changes/archive/$archive_name"
+                    end
+                end
+            end
+        end
+    end
+
+    # 2. Remove old openspec/config.yaml (replaced by agentflow/config.yaml)
+    if test -f "$target_dir/openspec/config.yaml"
+        set has_migration 1
+        echo "  - 移除舊的 openspec/config.yaml（由 agentflow/config.yaml 取代）"
+        if test $dry_run -eq 0
+            run_cmd rm "$target_dir/openspec/config.yaml"
+        end
+    end
+
+    # 3. Remove old spectra-* skill directories
+    for skill_root in "$target_dir/.claude/skills" "$target_dir/.agents/skills"
+        if test -d "$skill_root"
+            for spectra_dir in "$skill_root"/spectra-*/
+                if test -d "$spectra_dir"
+                    set has_migration 1
+                    echo "  - 移除舊的 skill："(basename "$spectra_dir")
+                    if test $dry_run -eq 0
+                        run_cmd rm -rf "$spectra_dir"
+                    end
+                end
+            end
+        end
+    end
+
+    # 4. Remove old sdd-spectra-refresh skill directories
+    for skill_root in "$target_dir/.claude/skills" "$target_dir/.agents/skills"
+        if test -d "$skill_root/sdd-spectra-refresh"
+            set has_migration 1
+            echo "  - 移除舊的 sdd-spectra-refresh（由 sdd-refresh 取代）"
+            if test $dry_run -eq 0
+                run_cmd rm -rf "$skill_root/sdd-spectra-refresh"
+            end
+        end
+    end
+
+    # 5. Strip SPECTRA:START/END blocks from CLAUDE.md and AGENTS.md
+    for md_file in "$target_dir/CLAUDE.md" "$target_dir/AGENTS.md"
+        if test -f "$md_file"; and grep -q "SPECTRA:START" "$md_file"
+            set has_migration 1
+            echo "  - 移除 "(basename "$md_file")" 中的 SPECTRA:START/END 區塊"
+            if test $dry_run -eq 0
+                set tmp_strip (mktemp)
+                awk '/<!-- SPECTRA:START/{skip=1; next} /<!-- SPECTRA:END/{skip=0; next} !skip{print}' "$md_file" >"$tmp_strip"
+                command mv -f "$tmp_strip" "$md_file"
+            end
+        end
+    end
+
+    if test $has_migration -eq 0
+        echo "  - 未偵測到需要遷移的舊版內容"
+    end
+end
+
 function install_skill_set --argument-names source_root dest_root label
     if not test -d "$source_root"
         fail "找不到來源 skill 根目錄：$source_root"
@@ -180,6 +269,10 @@ end
 if not test -d "$target"
     run_cmd mkdir -p "$target"
 end
+
+echo ""
+echo "正在檢查是否有舊版 Spectra 內容需要遷移..."
+migrate_from_spectra "$target"
 
 if test $install_codex -eq 1
     install_skill_set "$script_dir/.agents/skills" "$target/.agents/skills" "Codex"
