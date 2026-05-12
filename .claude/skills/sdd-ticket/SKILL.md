@@ -21,7 +21,7 @@ Run Agentflow step 6: Ticket. This step owns task quality and creates the implem
 
 ## Workflow
 
-1. Read `proposal.md`, `design.md`, `spec.md`, and step files `01-discuss` through `05-usage`.
+1. Read `spec.md` and step files `01-discuss` through `05-usage`.
 
 2. Read `agentflow/config.yaml` for `preferences.parallel_tasks`.
 
@@ -29,7 +29,7 @@ Run Agentflow step 6: Ticket. This step owns task quality and creates the implem
    - Observable outcome description
    - Concrete verification target (test name, CLI invocation, analyzer check, or manual assertion)
    - Files involved
-   - Implementation Contract reference from `design.md`
+   - Implementation Contract reference from `spec.md`
 
 4. Apply `[P]` markers only for tasks that are truly independent: different files, no dependency on unfinished tasks in the same group.
 
@@ -55,7 +55,7 @@ Run Agentflow step 6: Ticket. This step owns task quality and creates the implem
 - [ ] **Task 1**: <可觀測行為描述>
   - 驗證目標: <test name / CLI invocation / manual assertion>
   - 涉及檔案: `path/to/file.ts`
-  - Contract 參照: <design.md 中的實作區域名稱>
+  - Contract 參照: <spec.md 中的實作區域名稱>
 
 - [ ] [P] **Task 2**: <可觀測行為描述>
   - 驗證目標: ...

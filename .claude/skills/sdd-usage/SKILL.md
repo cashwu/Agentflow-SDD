@@ -1,6 +1,6 @@
 ---
 name: sdd-usage
-description: "Agentflow step 5/9: Usage. Defines user stories, API/CLI contracts, examples, failure modes, and acceptance behavior, then updates design.md and spec.md."
+description: "Agentflow step 5/9: Usage. Defines user stories, API/CLI contracts, examples, failure modes, and acceptance behavior, then updates spec.md."
 compatibility: Project-local skill for Agentflow-SDD.
 metadata:
   author: project
@@ -16,16 +16,16 @@ Run Agentflow step 5: Usage. This step turns the spec into working-backwards usa
 
 - Step file: `agentflow/changes/<change>/agentflow/05-usage.md`
 - Review round files: `agentflow/changes/<change>/agentflow/reviews/05-usage-r<round>.md`
-- Artifacts updated: `design.md` (Working Backwards Usage/API Contract), `spec.md` (Usage Scenarios)
+- Artifact updated: `spec.md` (Usage Contract + Usage Scenarios sections)
 - Passing requires `quality_score > 9/10`, no critical gap, and a review round file for every round.
 
 ## Workflow
 
-1. Read `proposal.md`, `design.md`, `spec.md` from `agentflow/changes/<change>/`.
+1. Read `spec.md` from `agentflow/changes/<change>/`.
 
 2. Define user stories, commands/APIs, inputs, outputs, errors, privacy expectations, and observable acceptance examples.
 
-3. Update `design.md`: fill in the "Working Backwards Usage/API Contract" section, replacing the Step 5 placeholder. Include:
+3. Update `spec.md`: fill in the "Usage Contract" section, replacing the Step 5 placeholder. Include:
    - User stories (as <role>, I want <action>, so that <purpose>)
    - Command/API interface shape with arguments
    - Input/output table with types

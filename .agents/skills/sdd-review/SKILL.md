@@ -20,13 +20,13 @@ Run Agentflow step 8: Review. This is the post-development review gate before wr
 
 ## Workflow
 
-1. Compare implementation diff (`git diff`) against `proposal.md`, `design.md`, `spec.md`, and `tasks.md`.
+1. Compare implementation diff (`git diff`) against `spec.md` and `tasks.md`.
 
 2. Run the task verification targets listed in `tasks.md` and relevant project tests.
 
 3. Spawn sub-agent: **Artifact Consistency Check**
-   - Coverage: every capability in `proposal.md` has a corresponding spec requirement in `spec.md`.
-   - Consistency: `design.md` references only capabilities from `proposal.md`; tasks cover all design decisions.
+   - Coverage: every capability in `spec.md` has a corresponding requirement and implementation contract.
+   - Consistency: tasks cover all implementation contracts in `spec.md`.
    - Ambiguity: success/failure conditions testable and specific.
    - Gaps: file paths consistent across all artifacts.
    - Completeness: all tasks in `tasks.md` marked `[x]`.
@@ -41,7 +41,7 @@ Run Agentflow step 8: Review. This is the post-development review gate before wr
 
 5. Spawn sub-agent: **Drift Detection**
    - Time dormancy: check `status.yaml` created date vs now.
-   - Design anchor validity: do file paths, functions, symbols referenced in `design.md` still exist in the codebase?
+   - Spec anchor validity: do file paths, functions, symbols referenced in `spec.md` still exist in the codebase?
    - Task collision: were files referenced by tasks modified by external commits since the change was created?
    - Report severity: light / medium / heavy with recommendation.
 

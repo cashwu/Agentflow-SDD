@@ -27,8 +27,8 @@ Use this skill as the default end-to-end entry point for non-trivial SDD work. I
 | 1 | Discuss | `/sdd-discuss` | `01-discuss.md` |
 | 2 | Explore | `/sdd-explore` | `02-explore.md` |
 | 3 | Prototype | `/sdd-prototype` | `03-prototype.md` |
-| 4 | Spec | `/sdd-spec` | `proposal.md`, `design.md`, `spec.md`, `04-spec.md` |
-| 5 | Usage | `/sdd-usage` | updates `design.md`, `spec.md`, `05-usage.md` |
+| 4 | Spec | `/sdd-spec` | `spec.md`, `04-spec.md` |
+| 5 | Usage | `/sdd-usage` | updates `spec.md`, `05-usage.md` |
 | 6 | Ticket | `/sdd-ticket` | `tasks.md`, `06-ticket.md` |
 | 7 | Dev | `/sdd-dev` | implements tasks, marks done, `07-dev.md` |
 | 8 | Review | `/sdd-review` | consistency/security/drift checks, `08-review.md` |

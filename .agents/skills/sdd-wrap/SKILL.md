@@ -28,7 +28,7 @@ Run Agentflow step 9: Wrap. This is the final step that archives the change. No 
 3. Confirm implementation, artifacts, and tests agree.
 
 4. Master Spec Sync Decision:
-   - Check `spec.md` for capability changes (new or modified capabilities from `proposal.md`).
+   - Check `spec.md` for capability changes (new or modified capabilities).
    - Compare with existing master specs at `openspec/specs/<capability>/spec.md`.
    - If delta exists, ask the user: "Sync to master specs?" / "Archive without syncing".
    - If sync: merge `spec.md` content into `openspec/specs/<capability>/spec.md` (create the capability directory if new).

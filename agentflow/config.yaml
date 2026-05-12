@@ -10,25 +10,16 @@ directories:
   master_specs: openspec/specs
 
 artifacts:
-  - id: proposal
-    file: proposal.md
-    created_by: step-4-spec
-    dependencies: []
-  - id: design
-    file: design.md
-    created_by: step-4-spec
-    updated_by: [step-5-usage]
-    dependencies: [proposal]
   - id: spec
     file: spec.md
     created_by: step-4-spec
     updated_by: [step-5-usage]
-    dependencies: [proposal]
+    dependencies: []
   - id: tasks
     file: tasks.md
     created_by: step-6-ticket
     updated_by: [step-7-dev]
-    dependencies: [proposal, design, spec]
+    dependencies: [spec]
 
 preferences:
   tdd: false

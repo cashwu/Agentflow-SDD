@@ -25,7 +25,7 @@ Run Agentflow step 7: Dev. Full task execution engine with no external CLI depen
 2. Read `agentflow/config.yaml` for preferences: `tdd`, `parallel_tasks`, `audit`.
 
 3. Read context files from `agentflow/changes/<change>/`:
-   - `proposal.md`, `design.md`, `spec.md`, `tasks.md`
+   - `spec.md`, `tasks.md`
 
 4. Show current progress:
    - Parse `tasks.md` checkboxes: count `- [ ]` vs `- [x]`
@@ -33,7 +33,7 @@ Run Agentflow step 7: Dev. Full task execution engine with no external CLI depen
 
 5. Task implementation loop — for each pending task (`- [ ]`):
    a. Announce which task is being worked on.
-   b. Re-read the relevant sections of `design.md` (Implementation Contract for this task's area) and `spec.md`.
+   b. Re-read the relevant sections of `spec.md` (Implementation Contract for this task's area and related requirements).
    c. Detect unclear tasks: file-path-only description, vague outcome, conflicting with contract. Pause and ask if found.
    d. Pre-implementation checks:
       - **Reuse**: search for existing implementations that solve the same problem.
@@ -56,7 +56,7 @@ Run Agentflow step 7: Dev. Full task execution engine with no external CLI depen
    If any parallel task fails review, pause and report before continuing.
 
 7. Artifact drift detection:
-   If implementation reveals that `design.md`, `spec.md`, or `tasks.md` are wrong or incomplete:
+   If implementation reveals that `spec.md` or `tasks.md` are wrong or incomplete:
    - Stop implementation.
    - Suggest returning to `$sdd-spec`, `$sdd-usage`, or `$sdd-ticket` to update artifacts.
    - Resume after artifacts are corrected.

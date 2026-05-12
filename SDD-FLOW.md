@@ -17,8 +17,8 @@
 | 1 | Discuss | `$sdd-discuss` | `/sdd-discuss` | `01-discuss.md` |
 | 2 | Explore | `$sdd-explore` | `/sdd-explore` | `02-explore.md` |
 | 3 | Prototype | `$sdd-prototype` | `/sdd-prototype` | `03-prototype.md` |
-| 4 | Spec | `$sdd-spec` | `/sdd-spec` | `proposal.md`, `design.md`, `spec.md`, `04-spec.md` |
-| 5 | Usage | `$sdd-usage` | `/sdd-usage` | 更新 `design.md`, `spec.md`, `05-usage.md` |
+| 4 | Spec | `$sdd-spec` | `/sdd-spec` | `spec.md`, `04-spec.md` |
+| 5 | Usage | `$sdd-usage` | `/sdd-usage` | 更新 `spec.md`, `05-usage.md` |
 | 6 | Tkt / Ticket | `$sdd-ticket` | `/sdd-ticket` | `tasks.md`, `06-ticket.md` |
 | 7 | Dev | `$sdd-dev` | `/sdd-dev` | 實作 + 標記 tasks 完成, `07-dev.md` |
 | 8 | Review | `$sdd-review` | `/sdd-review` | 一致性/安全/drift 檢查, `08-review.md` |
@@ -64,8 +64,6 @@ agentflow/
   config.yaml                          # Agentflow 設定
   changes/
     <change-name>/
-      proposal.md                      # Step 4 建立
-      design.md                        # Step 4 建立，Step 5 更新
       spec.md                          # Step 4 建立，Step 5 更新
       tasks.md                         # Step 6 建立，Step 7 更新
       status.yaml                      # 輕量狀態檔
@@ -144,9 +142,7 @@ agentflow/changes/<change>/agentflow/reviews/
 
 | Artifact | 建立者 | 更新者 | 語言 |
 | --- | --- | --- | --- |
-| `proposal.md` | Step 4 (Spec) | — | 繁體中文 |
-| `design.md` | Step 4 (Spec) | Step 5 (Usage) | 繁體中文 |
-| `spec.md` | Step 4 (Spec) | Step 5 (Usage) | 英文（SHALL/MUST） |
+| `spec.md` | Step 4 (Spec) | Step 5 (Usage) | 英文（SHALL/MUST）+ 繁體中文（Contract） |
 | `tasks.md` | Step 6 (Ticket) | Step 7 (Dev) | 繁體中文 |
 | `status.yaml` | Step 4 (Spec) | 各 step 更新 | YAML |
 
