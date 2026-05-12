@@ -1,10 +1,10 @@
 ---
 name: sdd-prototype
-description: "Agentflow step 3/9: Prototype. Use to decide whether a throwaway spike is needed, run the smallest experiment when needed, and preserve learnings with quality-loop review."
-compatibility: Project-local skill for Spectra projects.
+description: "Agentflow step 3/9: Prototype. Decides whether a throwaway spike is needed, runs the smallest experiment when needed, and preserves learnings with quality-loop review."
+compatibility: Project-local skill for Agentflow-SDD.
 metadata:
   author: project
-  version: "1.0"
+  version: "3.0"
   generatedBy: "project"
 ---
 
@@ -14,9 +14,9 @@ Run Agentflow step 3: Prototype. Prototype code is learning material, not produc
 
 ## Output Contract
 
-- Step file: `openspec/changes/<change>/agentflow/03-prototype.md`
-- Review round files: `openspec/changes/<change>/agentflow/reviews/03-prototype-r<round>.md`
-- If no Spectra change exists yet, keep the step and review round output in the response, then transfer it after `/sdd-spec` creates the change.
+- Step file: `agentflow/changes/<change>/agentflow/03-prototype.md`
+- Review round files: `agentflow/changes/<change>/agentflow/reviews/03-prototype-r<round>.md`
+- If no change directory exists yet, keep the step and review round output in the response, then transfer it after `/sdd-spec` creates the change.
 - Passing requires `quality_score > 9/10`, no critical gap, and a review round file for every round.
 
 ## Workflow

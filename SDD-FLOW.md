@@ -1,29 +1,28 @@
 # Agentflow-SDD 流程
 
-本專案在 Spectra 原生 SDD 流程上，加了一層專案自有的 9-step Agentflow-SDD overlay。Spectra 負責 artifact/state backend；Agentflow-SDD 負責流程入口、每一步品質循環、review/rating/fix 文件與是否能進下一步。
+本專案使用自包含的 9-step Agentflow-SDD 流程。Agentflow 自行管理 artifact 格式、目錄結構、workflow 引擎和生命週期，不依賴外部 CLI。
 
 ## 核心原則
 
-- 不直接修改 generated `spectra-*` skills。
-- 非 trivial work 必須從 `$sdd-*` / `/sdd-*` Agentflow wrapper 進入。
-- Direct `$spectra-*` / `/spectra-*` 只允許在 wrapper delegation、tiny mechanical edit、或 pure query 使用。
+- 非 trivial work 必須從 `$sdd-*` / `/sdd-*` Agentflow skills 進入。
 - 每個 Agentflow step 都有自己的 Review -> Rating -> Fix quality loop。
 - 通過條件是 `quality_score > 9/10`，也就是必須高於 9 分。
 - 每一輪 review/rating/fix 都必須輸出獨立文件。
+- 每一輪 review/rating 都必須委派給獨立的 sub-agent，不得在主 agent context 中進行。
 
 ## 9-Step Agentflow
 
-| # | Agentflow step | Codex skill | Claude skill | Spectra backend |
+| # | Agentflow step | Codex skill | Claude skill | 產出 |
 | --- | --- | --- | --- | --- |
-| 1 | Discuss | `$sdd-discuss` | `/sdd-discuss` | `$spectra-discuss` / `/spectra-discuss` when useful |
-| 2 | Explore | `$sdd-explore` | `/sdd-explore` | none |
-| 3 | Prototype | `$sdd-prototype` | `/sdd-prototype` | none |
-| 4 | Spec | `$sdd-spec` | `/sdd-spec` | `$spectra-propose` or `$spectra-ingest` |
-| 5 | Usage | `$sdd-usage` | `/sdd-usage` | `$spectra-ingest` when artifacts change |
-| 6 | Tkt / Ticket | `$sdd-ticket` | `/sdd-ticket` | `$spectra-ingest` for `tasks.md` |
-| 7 | Dev | `$sdd-dev` | `/sdd-dev` | `$spectra-apply` |
-| 8 | Review | `$sdd-review` | `/sdd-review` | Spectra validate/analyze/audit/drift when available |
-| 9 | Wrap | `$sdd-wrap` | `/sdd-wrap` | `$spectra-archive` |
+| 1 | Discuss | `$sdd-discuss` | `/sdd-discuss` | `01-discuss.md` |
+| 2 | Explore | `$sdd-explore` | `/sdd-explore` | `02-explore.md` |
+| 3 | Prototype | `$sdd-prototype` | `/sdd-prototype` | `03-prototype.md` |
+| 4 | Spec | `$sdd-spec` | `/sdd-spec` | `proposal.md`, `design.md`, `spec.md`, `04-spec.md` |
+| 5 | Usage | `$sdd-usage` | `/sdd-usage` | 更新 `design.md`, `spec.md`, `05-usage.md` |
+| 6 | Tkt / Ticket | `$sdd-ticket` | `/sdd-ticket` | `tasks.md`, `06-ticket.md` |
+| 7 | Dev | `$sdd-dev` | `/sdd-dev` | 實作 + 標記 tasks 完成, `07-dev.md` |
+| 8 | Review | `$sdd-review` | `/sdd-review` | 一致性/安全/drift 檢查, `08-review.md` |
+| 9 | Wrap | `$sdd-wrap` | `/sdd-wrap` | 歸檔 + master spec sync, `09-wrap.md` |
 
 `$sdd-agentflow` / `/sdd-agentflow` 是完整端到端入口，會依序協調上面 9 個 step。若只要接續其中一步，就使用對應的 `$sdd-*` wrapper。
 
@@ -58,12 +57,34 @@ Critical gap 包含：
 - artifact、step 文件、review round 文件互相不一致
 - 缺少必要 review round 文件
 
-## Step 文件輸出契約
-
-對於 active Spectra change `<change>`，step 文件放在：
+## 目錄結構
 
 ```text
-openspec/changes/<change>/agentflow/
+agentflow/
+  config.yaml                          # Agentflow 設定
+  changes/
+    <change-name>/
+      proposal.md                      # Step 4 建立
+      design.md                        # Step 4 建立，Step 5 更新
+      spec.md                          # Step 4 建立，Step 5 更新
+      tasks.md                         # Step 6 建立，Step 7 更新
+      status.yaml                      # 輕量狀態檔
+      agentflow/
+        01-discuss.md ~ 09-wrap.md
+        reviews/
+          01-discuss-r<round>.md ...
+    archive/
+      YYYY-MM-DD-<change-name>/        # sdd-wrap 歸檔目的地
+openspec/
+  specs/                               # 保留 — master capability specs
+```
+
+## Step 文件輸出契約
+
+對於 active change `<change>`，step 文件放在：
+
+```text
+agentflow/changes/<change>/agentflow/
 ```
 
 固定檔名：
@@ -87,7 +108,7 @@ openspec/changes/<change>/agentflow/
 Review round 文件放在：
 
 ```text
-openspec/changes/<change>/agentflow/reviews/
+agentflow/changes/<change>/agentflow/reviews/
 ```
 
 固定檔名：
@@ -119,47 +140,15 @@ openspec/changes/<change>/agentflow/reviews/
 
 如果 change 還沒建立，先在回覆中保留 step output 與 review round output；一旦 `$sdd-spec` / `/sdd-spec` 建立 change，就補進 `agentflow/` 與 `agentflow/reviews/`。
 
-## 對應到演講流程
+## Artifact 格式
 
-| 演講流程 | 本專案位置 |
-| --- | --- |
-| Discuss | `$sdd-discuss` / `/sdd-discuss` |
-| Explore | `$sdd-explore` / `/sdd-explore` |
-| Prototype | `$sdd-prototype` / `/sdd-prototype` |
-| Spec | `$sdd-spec` / `/sdd-spec` |
-| Usage | `$sdd-usage` / `/sdd-usage` |
-| Tkt | `$sdd-ticket` / `/sdd-ticket` |
-| Dev | `$sdd-dev` / `/sdd-dev` |
-| Review | `$sdd-review` / `/sdd-review` |
-| Wrap | `$sdd-wrap` / `/sdd-wrap` |
-
-## Spectra 更新後的維護流程
-
-如果升級 Spectra 或執行：
-
-```text
-spectra update --force
-```
-
-接著使用：
-
-```text
-$sdd-spectra-refresh
-```
-
-Claude 版本：
-
-```text
-/sdd-spectra-refresh
-```
-
-它要確認：
-
-- `.agents/skills/sdd-*` 9-step wrapper 與 maintenance skill 還存在。
-- `.claude/skills/sdd-*` 9-step wrapper 與 maintenance skill 還存在。
-- `openspec/config.yaml` 仍保留 Agentflow-SDD context、artifact rules、review round output rules。
-- `AGENTS.md` / `CLAUDE.md` 的 project overlay note 仍在 `SPECTRA:START` / `SPECTRA:END` generated block 外。
-- Active change 的 `agentflow/` step 文件與 `agentflow/reviews/` review round 文件仍存在。
+| Artifact | 建立者 | 更新者 | 語言 |
+| --- | --- | --- | --- |
+| `proposal.md` | Step 4 (Spec) | — | 繁體中文 |
+| `design.md` | Step 4 (Spec) | Step 5 (Usage) | 繁體中文 |
+| `spec.md` | Step 4 (Spec) | Step 5 (Usage) | 英文（SHALL/MUST） |
+| `tasks.md` | Step 6 (Ticket) | Step 7 (Dev) | 繁體中文 |
+| `status.yaml` | Step 4 (Spec) | 各 step 更新 | YAML |
 
 ## 安裝到其他專案
 
@@ -169,20 +158,6 @@ Claude 版本：
 ./install-agentflow-sdd.fish --target /path/to/project
 ```
 
-預設模式適合「目標專案已經有 Spectra skills」的情況，只會安裝專案自有的 `sdd-*` skills：
-
-```fish
-./install-agentflow-sdd.fish --target /path/to/project --sdd-only
-```
-
-如果目標專案還沒有 Spectra skills，可以一起安裝目前資料夾內的 generated `spectra-*` skills：
-
-```fish
-./install-agentflow-sdd.fish --target /path/to/project --with-spectra
-```
-
-`--with-spectra` 只安裝 skill 檔案，不會安裝 Spectra CLI 本體；目標環境仍需要可執行 `spectra`。
-
 常用選項：
 
 - `--both`：同時安裝 `.agents/skills` 與 `.claude/skills`，預設值。
@@ -191,11 +166,23 @@ Claude 版本：
 - `--docs`：額外複製 `SDD-FLOW.md`。
 - `--dry-run`：只顯示會複製什麼，不改檔案。
 
-Installer 不會自動覆蓋目標專案的 `AGENTS.md`、`CLAUDE.md`、`openspec/config.yaml`。這些通常有專案自己的設定，應該由工程師檢查後手動合併 Project SDD Overlay 與 review round rules。
+Installer 不會自動覆蓋目標專案的 `AGENTS.md`、`CLAUDE.md`、`agentflow/config.yaml`。這些通常有專案自己的設定，應該由工程師檢查後手動合併。
+
+## Agentflow 完整性檢查
+
+使用 `$sdd-refresh` / `/sdd-refresh` 驗證：
+
+- 11 個必要的 `sdd-*` skills 都存在（`.agents/skills/` 和 `.claude/skills/`）
+- `agentflow/config.yaml` 存在且格式正確
+- `AGENTS.md` / `CLAUDE.md` 有 `PROJECT-SDD` overlay block
+- `install-agentflow-sdd.fish` 存在且通過 `fish -n` 語法檢查
+- Active change 的 step 文件和 review round 文件存在
+- `sdd-*` skills 中沒有殘留的 Spectra 引用
 
 ## 什麼不要做
 
-- 不要直接改 `.agents/skills/spectra-*` 或 `.claude/skills/spectra-*` 來塞專案規則。
-- 不要在 Agentflow step 未通過時直接 `$spectra-apply` / `/spectra-apply`。
+- 不要繞過 `sdd-*` skills 直接操作 `agentflow/changes/` 目錄。
+- 不要在 Agentflow step 未通過時直接實作。
 - 不要讓 prototype code 默默變成正式 implementation。
 - 不要把 review/rating/fix 只寫成 step 文件的一個摘要；每一輪都要有獨立 review round 文件。
+- 不要在主 agent context 中做 review 或 rating；必須委派給獨立 sub-agent。

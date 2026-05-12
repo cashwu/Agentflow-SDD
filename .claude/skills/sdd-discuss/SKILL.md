@@ -1,22 +1,22 @@
 ---
 name: sdd-discuss
-description: "Agentflow step 1/9: Discuss. Use before Spectra proposal work to clarify goals, non-goals, assumptions, open questions, and success examples, with per-round review/rating/fix output."
-compatibility: Project-local skill for Spectra projects.
+description: "Agentflow step 1/9: Discuss. Clarifies goals, non-goals, assumptions, open questions, and success examples before spec work, with per-round review/rating/fix output."
+compatibility: Project-local skill for Agentflow-SDD.
 metadata:
   author: project
-  version: "1.0"
+  version: "3.0"
   generatedBy: "project"
 ---
 
 # SDD Discuss
 
-Run Agentflow step 1: Discuss. This is the entry step for non-trivial work and may delegate to `/spectra-discuss` for structured conversation, but the Agentflow quality loop is owned here.
+Run Agentflow step 1: Discuss. This is the entry step for non-trivial work. The Agentflow quality loop is owned here.
 
 ## Output Contract
 
-- Step file: `openspec/changes/<change>/agentflow/01-discuss.md`
-- Review round files: `openspec/changes/<change>/agentflow/reviews/01-discuss-r<round>.md`
-- If no Spectra change exists yet, keep the step and review round output in the response, then transfer it after `/sdd-spec` creates the change.
+- Step file: `agentflow/changes/<change>/agentflow/01-discuss.md`
+- Review round files: `agentflow/changes/<change>/agentflow/reviews/01-discuss-r<round>.md`
+- If no change directory exists yet, keep the step and review round output in the response, then transfer it after `/sdd-spec` creates the change.
 - Passing requires `quality_score > 9/10`, no critical gap, and a review round file for every round.
 
 ## Question Framework
@@ -111,6 +111,5 @@ If the user signals impatience ("直接做就好", "不用想太多", "往下走
 2. In Assumptions mode: present assumptions with evidence and ask what's wrong. In Interview mode: ask targeted questions one at a time from uncovered Question Framework categories.
 3. When answers are vague or surface-level, push for specifics to reach actionable detail. Do not accept "handle edge cases" without naming the cases.
 4. After sufficient coverage, summarize the discuss outcome: goal, non-goals, assumptions (with confirmation status), open questions, observable success examples, user scenarios, constraints, dependencies, and likely affected specs/code.
-5. If deeper structured discussion is useful, delegate to `/spectra-discuss`, then capture the result in the Agentflow files.
-6. Run review/rating/fix for up to 3 rounds. Each round MUST spawn a fresh sub-agent for review and rating — never review inline or reuse a prior round's sub-agent.
-7. Do not proceed to `/sdd-explore` until the step passes.
+5. Run review/rating/fix for up to 3 rounds. Each round MUST spawn a fresh sub-agent for review and rating — never review inline or reuse a prior round's sub-agent.
+6. Do not proceed to `/sdd-explore` until the step passes.

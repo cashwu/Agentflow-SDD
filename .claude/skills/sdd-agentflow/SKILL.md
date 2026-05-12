@@ -1,38 +1,38 @@
 ---
 name: sdd-agentflow
-description: "Project-local 9-step Agentflow-style SDD overlay for Spectra. Use for non-trivial changes that need Discuss, Explore, Prototype, Spec, Usage, Ticket, Dev, Review, and Wrap quality loops before or around /spectra-* workflows."
-compatibility: Project-local skill for Spectra projects.
+description: "Self-contained 9-step Agentflow SDD workflow. Use for non-trivial changes that need Discuss, Explore, Prototype, Spec, Usage, Ticket, Dev, Review, and Wrap quality loops."
+compatibility: Project-local skill for Agentflow-SDD.
 metadata:
   author: project
-  version: "2.0"
+  version: "3.0"
   generatedBy: "project"
 ---
 
 # SDD Agentflow
 
-Use this skill as the default end-to-end entry point for non-trivial SDD work in this project. It does not replace Spectra. It wraps Spectra with a 9-step Agentflow discipline so artifacts are created and used only after requirements, risks, prototype learnings, usage contracts, tickets, implementation, and wrap decisions pass a quality loop.
-
-This is a project-owned skill. Do not edit generated `spectra-*` skills to add project-specific SDD behavior.
+Use this skill as the default end-to-end entry point for non-trivial SDD work. It manages its own artifact formats, directory structure, and workflow engine with no external CLI dependency.
 
 ## Operating Rules
 
 - Answer and write user-facing summaries in Traditional Chinese.
-- Use `/sdd-*` Agentflow wrappers for non-trivial work. Direct `/spectra-*` usage is allowed only when a `/sdd-*` wrapper delegates to Spectra, or for tiny mechanical edits and pure queries.
-- Keep generated Spectra artifacts in the language requested by Spectra instructions. Spec requirement files may need English normative language.
+- Use `/sdd-*` skills for all non-trivial work. There are no backend delegations to external tools.
+- Write user-facing artifact content in Traditional Chinese. `spec.md` uses English normative language (SHALL/MUST).
 - Do not implement production code before `/sdd-dev`.
 - Prefer small, explicit, testable decisions over broad architecture prose.
 
 ## 9-Step Flow
 
-1. `/sdd-discuss` -> Discuss
-2. `/sdd-explore` -> Explore
-3. `/sdd-prototype` -> Prototype
-4. `/sdd-spec` -> Spec, backed by `/spectra-propose` or `/spectra-ingest`
-5. `/sdd-usage` -> Usage and Working Backwards Usage/API Contract
-6. `/sdd-ticket` -> Ticket, backed by `/spectra-ingest` for `tasks.md`
-7. `/sdd-dev` -> Dev, backed by `/spectra-apply`
-8. `/sdd-review` -> Review, backed by Spectra validation/analyze/audit/drift checks when available
-9. `/sdd-wrap` -> Wrap, backed by `/spectra-archive`
+| # | Step | Skill | Creates/Updates |
+|---|------|-------|-----------------|
+| 1 | Discuss | `/sdd-discuss` | `01-discuss.md` |
+| 2 | Explore | `/sdd-explore` | `02-explore.md` |
+| 3 | Prototype | `/sdd-prototype` | `03-prototype.md` |
+| 4 | Spec | `/sdd-spec` | `proposal.md`, `design.md`, `spec.md`, `04-spec.md` |
+| 5 | Usage | `/sdd-usage` | updates `design.md`, `spec.md`, `05-usage.md` |
+| 6 | Ticket | `/sdd-ticket` | `tasks.md`, `06-ticket.md` |
+| 7 | Dev | `/sdd-dev` | implements tasks, marks done, `07-dev.md` |
+| 8 | Review | `/sdd-review` | consistency/security/drift checks, `08-review.md` |
+| 9 | Wrap | `/sdd-wrap` | archives change, `09-wrap.md` |
 
 ## Quality Loop
 
@@ -65,10 +65,10 @@ Rules:
 
 ## Output Files
 
-For an active Spectra change named `<change>`, write step documents under:
+For an active change named `<change>`, write step documents under:
 
 ```text
-openspec/changes/<change>/agentflow/
+agentflow/changes/<change>/agentflow/
 ```
 
 Use these filenames:
@@ -86,7 +86,7 @@ Use these filenames:
 Every review/rating/fix round must write a dedicated review round document under:
 
 ```text
-openspec/changes/<change>/agentflow/reviews/
+agentflow/changes/<change>/agentflow/reviews/
 ```
 
 Use these filenames:
@@ -114,7 +114,7 @@ Each review round document must include:
 - decision: `pass`, `fix-and-rerun`, or `blocked`
 - next action
 
-If the Spectra change does not exist yet, keep both step output and review round output in the response, then transfer them into the `agentflow/` directory immediately after `/sdd-spec` creates the change.
+If the change directory does not exist yet, keep both step output and review round output in the response, then transfer them into the `agentflow/` directory immediately after `/sdd-spec` creates the change.
 
 ## Rubric
 
@@ -133,8 +133,8 @@ Use the relevant parts of this rubric for every step:
 
 ## Step Delegation
 
-When running the full flow, execute the 9 `/sdd-*` step skills in order. Do not skip to Spectra backend skills directly. If an existing change is already mid-flow, resume at the earliest incomplete or failing Agentflow step.
+When running the full flow, execute the 9 `/sdd-*` step skills in order. If an existing change is already mid-flow, resume at the earliest incomplete or failing Agentflow step.
 
 ## When To Skip This Skill
 
-Skip this skill for tiny mechanical edits, typo fixes, generated-file refreshes, or questions that only need `/spectra-ask`.
+Skip this skill for tiny mechanical edits, typo fixes, generated-file refreshes, or simple queries.

@@ -1,10 +1,10 @@
 ---
 name: sdd-explore
-description: "Agentflow step 2/9: Explore. Use to inspect existing specs/code and identify product, architecture, security, UX, performance, testability, and platform risks before spec writing."
-compatibility: Project-local skill for Spectra projects.
+description: "Agentflow step 2/9: Explore. Inspects existing specs/code and identifies product, architecture, security, UX, performance, testability, and platform risks before spec writing."
+compatibility: Project-local skill for Agentflow-SDD.
 metadata:
   author: project
-  version: "1.0"
+  version: "3.0"
   generatedBy: "project"
 ---
 
@@ -14,9 +14,9 @@ Run Agentflow step 2: Explore. This step is project analysis before final specs 
 
 ## Output Contract
 
-- Step file: `openspec/changes/<change>/agentflow/02-explore.md`
-- Review round files: `openspec/changes/<change>/agentflow/reviews/02-explore-r<round>.md`
-- If no Spectra change exists yet, keep the step and review round output in the response, then transfer it after `/sdd-spec` creates the change.
+- Step file: `agentflow/changes/<change>/agentflow/02-explore.md`
+- Review round files: `agentflow/changes/<change>/agentflow/reviews/02-explore-r<round>.md`
+- If no change directory exists yet, keep the step and review round output in the response, then transfer it after `/sdd-spec` creates the change.
 - Passing requires `quality_score > 9/10`, no critical gap, and a review round file for every round.
 
 ## Workflow
