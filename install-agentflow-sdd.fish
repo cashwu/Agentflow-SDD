@@ -147,7 +147,37 @@ function migrate_from_spectra --argument-names target_dir
         end
     end
 
-    # 2. Remove old openspec/config.yaml (replaced by agentflow/config.yaml)
+    # 2. Remove deprecated proposal.md and design.md from migrated changes
+    for change_dir in "$target_dir"/agentflow/changes/*/
+        if test -d "$change_dir"
+            for old_artifact in proposal.md design.md
+                if test -f "$change_dir/$old_artifact"
+                    set has_migration 1
+                    echo "  - 移除已棄用的 "(basename "$change_dir")"/$old_artifact（已合併至 spec.md）"
+                    if test $dry_run -eq 0
+                        run_cmd rm "$change_dir/$old_artifact"
+                    end
+                end
+            end
+        end
+    end
+
+    # Also clean deprecated artifacts from archived changes
+    for archive_dir in "$target_dir"/agentflow/changes/archive/*/
+        if test -d "$archive_dir"
+            for old_artifact in proposal.md design.md
+                if test -f "$archive_dir/$old_artifact"
+                    set has_migration 1
+                    echo "  - 移除已棄用的 archive/"(basename "$archive_dir")"/$old_artifact"
+                    if test $dry_run -eq 0
+                        run_cmd rm "$archive_dir/$old_artifact"
+                    end
+                end
+            end
+        end
+    end
+
+    # 3. Remove old openspec/config.yaml (replaced by agentflow/config.yaml)
     if test -f "$target_dir/openspec/config.yaml"
         set has_migration 1
         echo "  - 移除舊的 openspec/config.yaml（由 agentflow/config.yaml 取代）"
