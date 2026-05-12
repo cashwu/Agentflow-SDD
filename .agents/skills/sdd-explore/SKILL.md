@@ -24,5 +24,5 @@ Run Agentflow step 2: Explore. This step is project analysis before final specs 
 1. Inspect relevant `openspec/specs/`, current change artifacts, and code.
 2. Evaluate product/domain behavior, architecture/data flow, security/privacy, UI/UX, performance/reliability, testability/observability, and platform/dependency constraints.
 3. For each finding, record evidence, risk level, and whether it should affect spec, usage contract, ticket, implementation, or become a non-goal.
-4. Run review/rating/fix for up to 3 rounds.
+4. Run review/rating/fix for up to 3 rounds. Each round MUST spawn a fresh sub-agent for review and rating — never review inline or reuse a prior round's sub-agent.
 5. Do not proceed to `$sdd-prototype` until the step passes.

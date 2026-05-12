@@ -42,12 +42,26 @@ For each step:
 
 1. Execute the step.
 2. Write or update the step output document.
-3. Review that step's output against the rubric.
-4. Rate the step from 1 to 10.
-5. Fix non-blocking findings and re-review, up to 3 rounds.
-6. Stop and report blockers if round 3 is still `quality_score <= 9/10` or has any critical gap.
+3. Spawn a **fresh sub-agent** to review and rate that step's output against the rubric.
+4. The sub-agent writes the review round file and returns the result.
+5. The main agent reads the result; if fixes are needed, apply them and spawn a **new sub-agent** for the next round.
+6. Repeat up to 3 rounds. Each round MUST use a different sub-agent.
+7. Stop and report blockers if round 3 is still `quality_score <= 9/10` or has any critical gap.
 
 Critical gaps include missing safety/privacy requirements, contradictory requirements, absent verification for user-visible behavior, instructions that require guessing, or missing/contradictory review round records.
+
+## Review/Rating Sub-Agent Isolation
+
+Every review and rating MUST be delegated to a fresh, independent sub-agent. This is mandatory for all 9 steps and every round within each step.
+
+Rules:
+
+- Each review/rating round spawns a **new** sub-agent. Do NOT reuse a previous round's sub-agent via SendMessage.
+- The sub-agent MUST NOT share context with the step execution agent. This prevents confirmation bias from implementation context leaking into the review.
+- The sub-agent prompt must include: step name, change name, files/artifacts to review, rubric criteria, and the target review round file path.
+- The sub-agent is responsible for: reading the artifacts, evaluating against the rubric, writing the review round file, and returning the `quality_score` and decision.
+- The main agent only reads the sub-agent's returned result, applies fixes if `decision` is `fix-and-rerun`, and spawns another new sub-agent for the next round.
+- Never perform review or rating inline in the main agent context.
 
 ## Output Files
 

@@ -25,5 +25,5 @@ Run Agentflow step 4: Spec. This is the first step that normally creates or upda
 2. Use `$spectra-propose` to create a new change, or `$spectra-ingest` to update an existing/parked change.
 3. Ensure `proposal.md`, `design.md`, and `spec.md` reflect goals, non-goals, risks, prototype learnings, scope boundaries, and normative testable requirements.
 4. Do not treat generated `tasks.md` as final here; `$sdd-ticket` owns ticket quality.
-5. Run review/rating/fix for up to 3 rounds.
+5. Run review/rating/fix for up to 3 rounds. Each round MUST spawn a fresh sub-agent for review and rating — never review inline or reuse a prior round's sub-agent.
 6. Do not proceed to `$sdd-usage` until the step passes.

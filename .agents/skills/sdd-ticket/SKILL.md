@@ -26,5 +26,5 @@ Run Agentflow step 6: Ticket. This step owns task quality, even when `tasks.md` 
 3. Use `[P]` only for tasks that are truly independent and do not overlap the same files or unfinished dependencies.
 4. Add explicit tasks for updating Agentflow step files and review round files when implementation changes decisions.
 5. Use `$spectra-ingest` to update `tasks.md` when needed.
-6. Run review/rating/fix for up to 3 rounds.
+6. Run review/rating/fix for up to 3 rounds. Each round MUST spawn a fresh sub-agent for review and rating — never review inline or reuse a prior round's sub-agent.
 7. Do not proceed to `$sdd-dev` until the step passes.

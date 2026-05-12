@@ -25,5 +25,5 @@ Run Agentflow step 5: Usage. This step turns the spec into working-backwards usa
 2. Ensure `design.md` contains a Working Backwards Usage/API Contract for user-facing or API-facing behavior.
 3. Ensure `spec.md` has testable scenarios for the usage contract.
 4. Use `$spectra-ingest` if usage work changes proposal/design/spec/tasks.
-5. Run review/rating/fix for up to 3 rounds.
+5. Run review/rating/fix for up to 3 rounds. Each round MUST spawn a fresh sub-agent for review and rating — never review inline or reuse a prior round's sub-agent.
 6. Do not proceed to `$sdd-ticket` until the step passes.

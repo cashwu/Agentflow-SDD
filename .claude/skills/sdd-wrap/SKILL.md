@@ -24,6 +24,6 @@ Run Agentflow step 9: Wrap. This is the wrapper for `/spectra-archive`.
 1. Confirm all prior Agentflow step files and review round files exist and passed.
 2. Confirm implementation, artifacts, tests, and Spectra validation agree.
 3. Record known residual risks, verification results, and archive readiness.
-4. Run review/rating/fix for up to 3 rounds.
+4. Run review/rating/fix for up to 3 rounds. Each round MUST spawn a fresh sub-agent for review and rating — never review inline or reuse a prior round's sub-agent.
 5. Delegate to `/spectra-archive` only after the wrap review passes.
 6. Final response should summarize what changed, verification performed, and any residual risk.

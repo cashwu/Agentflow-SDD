@@ -37,6 +37,18 @@ Review -> Rating -> Fix
 
 最多 3 輪。每一輪都要輸出 review round 文件。若第 3 輪仍 `quality_score <= 9/10` 或存在 critical gap，就停止並回報 blocker，不得硬過。
 
+### Sub-Agent 隔離規則
+
+Review 和 Rating **必須**委派給獨立的 sub-agent 執行，不得在主 agent context 中進行。
+
+- 每一輪 review/rating 都要開一個**全新的** sub-agent。不得透過 SendMessage 重用前一輪的 sub-agent。
+- Sub-agent 不帶任何實作階段的 context，確保 reviewer 以獨立視角審查，避免確認偏誤。
+- Sub-agent prompt 必須包含：step 名稱、change 名稱、要 review 的檔案/artifact 清單、rubric 標準、目標 review round 文件路徑。
+- Sub-agent 負責：讀取 artifact、根據 rubric 評分、撰寫 review round 文件、回傳 `quality_score` 與 decision。
+- 主 agent 只讀取 sub-agent 回傳的結果，若 decision 為 `fix-and-rerun`，主 agent 修正後再開**另一個新的** sub-agent 進行下一輪。
+
+### Critical Gap
+
 Critical gap 包含：
 
 - 安全或隱私要求缺失

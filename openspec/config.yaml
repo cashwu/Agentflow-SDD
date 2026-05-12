@@ -17,6 +17,10 @@ context: |
   Every review/rating/fix round must also produce a dedicated markdown document
   under openspec/changes/<change>/agentflow/reviews/. Step documents summarize
   and link review round documents, but they do not replace them.
+  Every review and rating must be delegated to a fresh, independent sub-agent.
+  Each round must use a different sub-agent — never review inline in the main
+  agent context and never reuse a prior round's sub-agent. This prevents
+  confirmation bias from implementation context leaking into the review.
 
 rules:
   proposal:
@@ -43,6 +47,6 @@ rules:
     - Mark independent tasks with [P] only when they can run in parallel without depending on unfinished tasks or overlapping the same code region.
     - Include tasks or subtasks to update required Agentflow-SDD step documents when implementation changes the decision trail.
     - Include tasks or subtasks to update required Agentflow-SDD review round documents when implementation changes review evidence or decisions.
-    - Do not mark an implementation task complete until its own review/rating/fix loop passes with quality_score > 9/10 and no critical gap.
+    - Do not mark an implementation task complete until its own review/rating/fix loop passes with quality_score > 9/10 and no critical gap. Each review/rating round must use a fresh sub-agent.
     - Do not mark an implementation task complete until its review round files exist under agentflow/reviews/ using 07-dev-task-<task-id>-r<round>.md naming.
     - Add a final review task that compares implementation against specs, design contracts, tests, and Spectra validation before archive.

@@ -25,5 +25,5 @@ Run Agentflow step 8: Review. This is the post-development review gate before ar
 2. Run the task verification targets and relevant project tests.
 3. Run Spectra validation/analyze/audit/drift checks when available.
 4. Fix non-blocking findings and update artifacts through `/spectra-ingest` when review discovers spec/design/task drift.
-5. Run review/rating/fix for up to 3 rounds.
+5. Run review/rating/fix for up to 3 rounds. Each round MUST spawn a fresh sub-agent for review and rating — never review inline or reuse a prior round's sub-agent.
 6. Do not proceed to `/sdd-wrap` until the review gate passes.

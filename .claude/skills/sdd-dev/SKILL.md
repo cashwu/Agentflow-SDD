@@ -25,6 +25,6 @@ Run Agentflow step 7: Dev. This is the wrapper for `/spectra-apply`.
 2. Delegate implementation to `/spectra-apply`.
 3. Before each task, re-read the relevant spec, usage contract, implementation contract, and task verification target.
 4. If `tdd: true`, write or update tests before production code.
-5. For each task, verify behavior, run review/rating/fix for up to 3 rounds, and write the task review round file before marking the task complete.
+5. For each task, verify behavior, run review/rating/fix for up to 3 rounds, and write the task review round file before marking the task complete. Each round MUST spawn a fresh sub-agent for review and rating — never review inline or reuse a prior round's sub-agent.
 6. If implementation reveals artifact drift, stop and use `/sdd-spec`, `/sdd-usage`, or `/sdd-ticket` with `/spectra-ingest` before continuing.
 7. Do not proceed to `/sdd-review` until implementation tasks pass.

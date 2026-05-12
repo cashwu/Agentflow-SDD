@@ -25,5 +25,5 @@ Run Agentflow step 3: Prototype. Prototype code is learning material, not produc
 2. Prototype when external APIs, platform behavior, file formats, algorithms, data shape, rendering behavior, or model output are materially uncertain.
 3. Define the question, smallest experiment, pass/fail evidence, files or scratch area touched, and cleanup/promotion decision.
 4. Record results and whether spike code is discarded or converted into a `$sdd-ticket` task.
-5. Run review/rating/fix for up to 3 rounds.
+5. Run review/rating/fix for up to 3 rounds. Each round MUST spawn a fresh sub-agent for review and rating — never review inline or reuse a prior round's sub-agent.
 6. Do not proceed to `$sdd-spec` until the step passes.
