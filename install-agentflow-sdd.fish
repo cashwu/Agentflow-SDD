@@ -63,8 +63,14 @@ function ensure_project_sdd_block --argument-names source_file target_file label
     end
 
     if grep -q "PROJECT-SDD:START" "$target_file"
-        echo "  - $label：$target_file 已包含 Project SDD Overlay，略過"
-        return
+        echo "  - $label：偵測到既有 Project SDD Overlay，將更新為最新內容"
+        if test $dry_run -eq 1
+            echo "+ 移除 $target_file 中舊的 PROJECT-SDD 區塊後重新附加"
+            return
+        end
+        set tmp_strip (mktemp)
+        awk '/<!-- PROJECT-SDD:START -->/{skip=1; next} /<!-- PROJECT-SDD:END -->/{skip=0; next} !skip{print}' "$target_file" >"$tmp_strip"
+        command mv -f "$tmp_strip" "$target_file"
     end
 
     if test $dry_run -eq 1
@@ -95,8 +101,14 @@ function ensure_openspec_config --argument-names source_file target_file
     end
 
     if grep -q "AGENTFLOW-SDD:START" "$target_file"
-        echo "  - openspec/config.yaml：已包含 Agentflow-SDD 區段，略過"
-        return
+        echo "  - openspec/config.yaml：偵測到既有 AGENTFLOW-SDD 區段，將更新為最新內容"
+        if test $dry_run -eq 1
+            echo "+ 移除 $target_file 中舊的 AGENTFLOW-SDD 區段後重新合併"
+            return
+        end
+        set tmp_strip (mktemp)
+        awk '/AGENTFLOW-SDD:START/{skip=1; next} /AGENTFLOW-SDD:END/{skip=0; next} !skip{print}' "$target_file" >"$tmp_strip"
+        command mv -f "$tmp_strip" "$target_file"
     end
 
     if test $dry_run -eq 1
