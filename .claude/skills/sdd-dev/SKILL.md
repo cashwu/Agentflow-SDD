@@ -22,7 +22,7 @@ Run Agentflow step 7: Dev. Full task execution engine with no external CLI depen
 
 1. Confirm `/sdd-discuss` through `/sdd-ticket` outputs exist and have passing review round files.
 
-2. Read `agentflow/config.yaml` for preferences: `tdd`, `parallel_tasks`, `audit`.
+2. Read preferences: first check `agentflow/changes/<change>/status.yaml` for `preferences` block (`tdd`, `parallel_tasks`, `audit`). If absent, fall back to `agentflow/config.yaml` and warn the user that preferences have not been confirmed for this change.
 
 3. Read context files from `agentflow/changes/<change>/`:
    - `spec.md`, `tasks.md`

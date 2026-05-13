@@ -19,6 +19,7 @@ Use this skill as the default end-to-end entry point for non-trivial SDD work. I
 - 所有 artifact 和 step file 以繁體中文撰寫。只有規範性關鍵字（SHALL / MUST / GIVEN / WHEN / THEN）和技術專有名詞維持英文。
 - Do not implement production code before `$sdd-dev`.
 - Prefer small, explicit, testable decisions over broad architecture prose.
+- 工作流程偏好（`tdd`、`parallel_tasks`、`audit`）在 `$sdd-spec`（步驟 4）透過互動問答確認，並儲存於 `status.yaml` 的 `preferences` 區塊。後續步驟（6、7、8）優先從 `status.yaml` 讀取已確認值，找不到時 fallback 到 `agentflow/config.yaml` 預設值。
 
 ## 9-Step Flow
 
@@ -27,7 +28,7 @@ Use this skill as the default end-to-end entry point for non-trivial SDD work. I
 | 1 | Discuss | `$sdd-discuss` | `01-discuss.md` |
 | 2 | Explore | `$sdd-explore` | `02-explore.md` |
 | 3 | Prototype | `$sdd-prototype` | `03-prototype.md` |
-| 4 | Spec | `$sdd-spec` | `spec.md`, `04-spec.md` |
+| 4 | Spec | `$sdd-spec` | `spec.md`, `04-spec.md`, preferences 寫入 `status.yaml` |
 | 5 | Usage | `$sdd-usage` | updates `spec.md`, `05-usage.md` |
 | 6 | Ticket | `$sdd-ticket` | `tasks.md`, `06-ticket.md` |
 | 7 | Dev | `$sdd-dev` | implements tasks, marks done, `07-dev.md` |

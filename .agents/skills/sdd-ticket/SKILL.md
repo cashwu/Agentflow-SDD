@@ -23,7 +23,7 @@ Run Agentflow step 6: Ticket. This step owns task quality and creates the implem
 
 1. Read `spec.md` and step files `01-discuss` through `05-usage`.
 
-2. Read `agentflow/config.yaml` for `preferences.parallel_tasks`.
+2. Read preferences: first check `agentflow/changes/<change>/status.yaml` for `preferences.parallel_tasks`. If absent, fall back to `agentflow/config.yaml`.
 
 3. Create `tasks.md` using the Tasks Template below. Ensure each task has:
    - Observable outcome description

@@ -22,9 +22,11 @@ Run Agentflow step 8: Review. This is the post-development review gate before wr
 
 1. Compare implementation diff (`git diff`) against `spec.md` and `tasks.md`.
 
-2. Run the task verification targets listed in `tasks.md` and relevant project tests.
+2. Read preferences: first check `agentflow/changes/<change>/status.yaml` for `preferences.audit`. If absent, fall back to `agentflow/config.yaml`.
 
-3. Spawn sub-agent: **Artifact Consistency Check**
+3. Run the task verification targets listed in `tasks.md` and relevant project tests.
+
+4. Spawn sub-agent: **Artifact Consistency Check**
    - Coverage: every capability in `spec.md` has a corresponding requirement and implementation contract.
    - Consistency: tasks cover all implementation contracts in `spec.md`.
    - Ambiguity: success/failure conditions testable and specific.
@@ -33,24 +35,25 @@ Run Agentflow step 8: Review. This is the post-development review gate before wr
    - Spec traceability: every spec requirement has implementation evidence.
    - Report findings as Critical / Warning / Suggestion.
 
-4. Spawn sub-agent: **Security Audit**
+5. If `audit: true`, spawn sub-agent: **Security Audit**
    - Read `git diff` of changes.
    - Analyze through three lenses: Scoundrel (adversarial), Lazy Developer (shortcuts), Confused Developer (misuse).
    - Check 6 trap categories: algorithm choice, dangerous defaults, raw primitives, configuration cliffs, silent failures, stringly-typed security.
    - Return consolidated report with severity-grouped findings.
+   If `audit: false`, skip Security Audit and note in `08-review.md`: 「安全稽核依變更偏好設定跳過」.
 
-5. Spawn sub-agent: **Drift Detection**
+6. Spawn sub-agent: **Drift Detection**
    - Time dormancy: check `status.yaml` created date vs now.
    - Spec anchor validity: do file paths, functions, symbols referenced in `spec.md` still exist in the codebase?
    - Task collision: were files referenced by tasks modified by external commits since the change was created?
    - Report severity: light / medium / heavy with recommendation.
 
-6. Fix non-blocking findings. Update artifacts directly when review discovers spec/design/task drift.
+7. Fix non-blocking findings. Update artifacts directly when review discovers spec/design/task drift.
 
-7. Update `status.yaml`: set `current_step` to `8`.
+8. Update `status.yaml`: set `current_step` to `8`.
 
-8. Write `08-review.md` step file summarizing all review findings and linking review round files.
+9. Write `08-review.md` step file summarizing all review findings and linking review round files.
 
-9. Run review/rating/fix for up to 3 rounds. Each round MUST spawn a fresh sub-agent for review and rating — never review inline or reuse a prior round's sub-agent.
+10. Run review/rating/fix for up to 3 rounds. Each round MUST spawn a fresh sub-agent for review and rating — never review inline or reuse a prior round's sub-agent.
 
-10. Do not proceed to `$sdd-wrap` until the review gate passes.
+11. Do not proceed to `$sdd-wrap` until the review gate passes.

@@ -41,7 +41,16 @@ Run Agentflow step 4: Spec. This step creates the change directory and spec.md �
    mkdir -p agentflow/changes/<change>/agentflow/reviews/
    ```
 
-6. Write `status.yaml`:
+6. Confirm workflow preferences:
+   a. Read `agentflow/config.yaml` for default `preferences` values.
+   b. Check if `01-discuss.md` contains preference decisions. If so, use those as proposed values instead of config defaults.
+   c. Present all three preferences to the user via interactive question, showing the proposed value and a brief explanation:
+      - `tdd`（測試驅動開發）：若開啟，sdd-dev 將在產品程式碼前先寫失敗測試
+      - `parallel_tasks`（平行任務）：若開啟，sdd-ticket 會標記 [P]，sdd-dev 會平行派發
+      - `audit`（安全稽核）：若開啟，sdd-review 會執行完整 Security Audit 子代理
+   d. Accept user response and parse confirmed values.
+
+7. Write `status.yaml` (include confirmed preferences):
    ```yaml
    name: <change-name>
    created: <ISO 8601 timestamp>
@@ -50,29 +59,33 @@ Run Agentflow step 4: Spec. This step creates the change directory and spec.md �
    artifacts:
      spec: pending
      tasks: pending
+   preferences:
+     tdd: <confirmed value>
+     parallel_tasks: <confirmed value>
+     audit: <confirmed value>
    ```
 
-7. If `01-discuss.md`, `02-explore.md`, `03-prototype.md` were response-held, write them into `agentflow/changes/<change>/agentflow/` now.
+8. If `01-discuss.md`, `02-explore.md`, `03-prototype.md` were response-held, write them into `agentflow/changes/<change>/agentflow/` now.
 
-8. Write `spec.md` using the Spec Template below. Include:
+9. Write `spec.md` using the Spec Template below. Include:
    - Requirements section with testable SHALL/MUST statements and GIVEN/WHEN/THEN scenarios from steps 1-3
    - Implementation Contract section with observable behavior, interfaces, failure modes, and verification targets for each implementation area
    - Leave Usage Contract and Usage Scenarios sections with placeholders for Step 5
 
-9. Update `status.yaml`: set `spec` to `done`.
+10. Update `status.yaml`: set `spec` to `done`.
 
-10. Inline Self-Review:
+11. Inline Self-Review:
     - **No Placeholders**: reject TBD, TODO, FIXME, vague instructions, delegation by reference, empty sections (except the explicit Step 5 placeholders).
     - **Internal Consistency**: every capability mentioned has a spec requirement; file paths consistent.
     - **Scope Check**: touches more than 3 unrelated subsystems → consider splitting.
     - **Ambiguity Check**: success/failure conditions testable and specific; boundary conditions defined.
     - **Durable Handoff**: no file-path-only instructions, no line-number-coupled instructions, testable acceptance criteria, scope boundaries on non-trivial work.
 
-11. Write `04-spec.md` step file summarizing what was created and linking review round files.
+12. Write `04-spec.md` step file summarizing what was created and linking review round files.
 
-12. Run review/rating/fix for up to 3 rounds. Each round MUST spawn a fresh sub-agent for review and rating — never review inline or reuse a prior round's sub-agent.
+13. Run review/rating/fix for up to 3 rounds. Each round MUST spawn a fresh sub-agent for review and rating — never review inline or reuse a prior round's sub-agent.
 
-13. Do not proceed to `$sdd-usage` until the step passes.
+14. Do not proceed to `$sdd-usage` until the step passes.
 
 ## Spec Template
 
