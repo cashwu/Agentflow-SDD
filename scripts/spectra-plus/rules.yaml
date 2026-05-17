@@ -1,0 +1,29 @@
+skills:
+  spectra-propose-plus:
+    source: .claude/skills/spectra-propose/SKILL.md
+    output: .claude/skills/spectra-propose-plus/SKILL.md
+    metadata:
+      name: spectra-propose-plus
+      description: "Create a Spectra change proposal with sub-agent quality gates"
+    transformations:
+      - target_section: "8. **Inline Self-Review** (before CLI analysis)"
+        operation: replace
+        template: review-loop-block.md
+      - target_section: "9. **Analyze-Fix Loop** (max 2 iterations)"
+        operation: remove
+      - target_section: "11. **Park the change and end the workflow**"
+        operation: replace
+        template: no-park-end-block.md
+  spectra-apply-plus:
+    source: .claude/skills/spectra-apply/SKILL.md
+    output: .claude/skills/spectra-apply-plus/SKILL.md
+    metadata:
+      name: spectra-apply-plus
+      description: "Implement Spectra tasks with a sub-agent quality gate after completion"
+    transformations:
+      - target_section: "9. **On completion or pause, show status**"
+        operation: append
+        template: apply-response-language-block.md
+      - target_section: "9. **On completion or pause, show status**"
+        operation: append
+        template: review-loop-block.md
