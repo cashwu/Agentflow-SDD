@@ -58,3 +58,14 @@
    - Record modified files and the reason for each fix in `## Fix Actions`.
    - Re-run relevant CLI checks or tests before the next round when fixes affect generated artifacts or implementation code.
    - If no fixes are needed because the round passed, write `None; pass condition met.`
+
+   **Round file language**
+   - The Round file (`openspec/changes/<change>/reviews/<skill>-r<N>.md`) prose content — Reviewer Findings, Rater rationale, Fix Actions descriptions, and the `## Decision` explanation — MUST be written in Traditional Chinese.
+   - **Keep the following verbatim (do not translate):**
+     - Section headings: `# Propose Plus Review — Round <N>`, `# Apply Plus Review — Round <N>`, `## Reviewer Findings`, `## Rating`, `## Fix Actions`, `## Decision`.
+     - The `decision` value: one of `passed`, `next_round`, `aborted`.
+     - Field names and their values: `quality_score` (number 0–10), `critical_gap` (`true` / `false`).
+     - Direct quotations from spec delta, master spec, or any other English-language artifact.
+     - CLI commands, file paths, code identifiers, artifact IDs, capability slugs.
+   - This rule applies to both `spectra-propose-plus` and `spectra-apply-plus` round files because they share this review-loop template.
+   - If the user explicitly requests another language later, follow the latest user instruction.

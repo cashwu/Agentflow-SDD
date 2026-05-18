@@ -328,6 +328,17 @@ If there is no AskUserQuestion tool available, present options as plain text and
    - Record modified files and the reason for each fix in `## Fix Actions`.
    - Re-run relevant CLI checks or tests before the next round when fixes affect generated artifacts or implementation code.
    - If no fixes are needed because the round passed, write `None; pass condition met.`
+
+   **Round file language**
+   - The Round file (`openspec/changes/<change>/reviews/<skill>-r<N>.md`) prose content — Reviewer Findings, Rater rationale, Fix Actions descriptions, and the `## Decision` explanation — MUST be written in Traditional Chinese.
+   - **Keep the following verbatim (do not translate):**
+     - Section headings: `# Propose Plus Review — Round <N>`, `# Apply Plus Review — Round <N>`, `## Reviewer Findings`, `## Rating`, `## Fix Actions`, `## Decision`.
+     - The `decision` value: one of `passed`, `next_round`, `aborted`.
+     - Field names and their values: `quality_score` (number 0–10), `critical_gap` (`true` / `false`).
+     - Direct quotations from spec delta, master spec, or any other English-language artifact.
+     - CLI commands, file paths, code identifiers, artifact IDs, capability slugs.
+   - This rule applies to both `spectra-propose-plus` and `spectra-apply-plus` round files because they share this review-loop template.
+   - If the user explicitly requests another language later, follow the latest user instruction.
 10. **Apply-plus response language**
 
    For `spectra-apply-plus`, ai 的回覆要用中文.
@@ -353,6 +364,15 @@ If there is no AskUserQuestion tool available, present options as plain text and
    Do not mix languages for ordinary prose unless a command, path, symbol, or quoted artifact requires it.
 
    The goal is predictable Chinese-facing interaction for apply-plus while preserving exact technical references.
+
+   **Artifact modifications during apply-plus**
+
+   When the apply-plus workflow modifies an artifact — during review-loop fix actions, or after `spectra-ingest` updates `tasks.md` / `design.md` / `proposal.md` — the updated artifact content MUST follow the same Chinese language rule as propose-plus:
+
+   - `tasks.md`, `design.md`, `proposal.md`, and other non-spec artifacts under `openspec/changes/<change>/`: Traditional Chinese.
+   - Spec files (`openspec/changes/<change>/specs/**/spec.md` and `openspec/specs/**/spec.md`): always English, regardless of any other language rule. Delta specs are merged into master specs and must use normative SHALL/MUST wording.
+
+   Keep CLI commands, file paths, code identifiers, schema field names, artifact IDs, capability slugs, and existing quoted source text verbatim. If the user explicitly requests another language later, follow the latest user instruction.
 **Output During Implementation**
 
 ```

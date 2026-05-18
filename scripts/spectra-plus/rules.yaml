@@ -4,6 +4,9 @@ skills:
       name: spectra-propose-plus
       description: "Create a Spectra change proposal with sub-agent quality gates"
     transformations:
+      - target_section: "7. **Create remaining artifacts in sequence**"
+        operation: append
+        template: artifact-language-block.md
       - target_section: "8. **Inline Self-Review** (before CLI analysis)"
         operation: replace
         template: review-loop-block.md
