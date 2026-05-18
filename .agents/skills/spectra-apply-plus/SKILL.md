@@ -12,7 +12,7 @@ metadata:
 
 Implement tasks from a Spectra change.
 
-**Input**: Optionally specify a change name (e.g., `/spectra-apply add-auth`). If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
+**Input**: Optionally specify a change name (e.g., `$spectra-apply add-auth`). If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
 
 **Task tracking is file-based only.** The tasks file's markdown checkboxes (`- [ ]` / `- [x]`) are the single source of truth for progress. Do NOT use any external task management system, built-in task tracker, or todo tool. When a task is done, edit the checkbox in the tasks file — that is the only way to record progress.
 
@@ -27,7 +27,7 @@ Implement tasks from a Spectra change.
    - Auto-select if only one active change exists
    - If ambiguous, run `spectra list --json` AND `spectra list --parked --json` to get all available changes (including parked ones). Parked changes should be annotated with "(parked)" in the selection list. Use the **AskUserQuestion tool** to let the user select
 
-   Always announce: "Using change: <name>" and how to override (e.g., `/spectra-apply <other>`).
+   Always announce: "Using change: <name>" and how to override (e.g., `$spectra-apply <other>`).
 
 2. **Check status to understand the schema**
 
@@ -96,7 +96,7 @@ Implement tasks from a Spectra change.
    - Dynamic instruction based on current state
 
    **Handle states:**
-   - If `state: "blocked"` (missing artifacts): show message, suggest using `/spectra-propose` to create the change artifacts first
+   - If `state: "blocked"` (missing artifacts): show message, suggest using `$spectra-propose` to create the change artifacts first
    - If `state: "all_done"`: congratulate, suggest archive
    - Otherwise: proceed to implementation
 
@@ -152,7 +152,7 @@ Detect dormancy from `.openspec.yaml` `created` and `git log -1 --format=%at -- 
 
 - **Both conditions met**: run `spectra drift <change-name>`, display the report, then use the **AskUserQuestion tool**:
   - **Continue with apply** — proceed to tasks (recommended for Light drift)
-  - **Refresh first** — pause apply, run `/spectra-ingest <change-name>` to update artifacts, then resume
+  - **Refresh first** — pause apply, run `$spectra-ingest <change-name>` to update artifacts, then resume
   - **Stop** — end the workflow
 - **Either condition not met**: silently continue, no output.
 
@@ -381,7 +381,7 @@ Working on task 4/7: <task description>
 - [x] Task 2
 ...
 
-All tasks complete! You can archive this change with `/spectra-archive`.
+All tasks complete! You can archive this change with `$spectra-archive`.
 ```
 
 **Output On Pause (Issue Encountered)**

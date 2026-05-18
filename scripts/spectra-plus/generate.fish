@@ -12,6 +12,7 @@ function usage
     echo
     echo "Regenerates plus skill SKILL.md files from spectra skills, rules.yaml, and templates."
     echo "Pass one skill name, such as spectra-propose-plus, to regenerate only that output."
+    echo "All variants (claude, codex, ...) defined under the skill are produced together."
 end
 
 function die
@@ -52,7 +53,7 @@ end
 function validate_skill
     set skill $argv[1]
 
-    for field in source output metadata transformations
+    for field in metadata transformations variants
         if not yq -e ".skills.\"$skill\" | has(\"$field\")" "$rules_file" >/dev/null
             die 2 "rules.yaml parse error: $skill missing field $field"
         end
@@ -61,6 +62,36 @@ function validate_skill
     for field in name description
         if not yq -e ".skills.\"$skill\".metadata | has(\"$field\")" "$rules_file" >/dev/null
             die 2 "rules.yaml parse error: $skill metadata missing field $field"
+        end
+    end
+
+    if not yq -e ".skills.\"$skill\".variants | type == \"!!map\"" "$rules_file" >/dev/null
+        die 2 "rules.yaml parse error: $skill variants must be a map"
+    end
+
+    set variant_count (yq -r ".skills.\"$skill\".variants | length" "$rules_file")
+    if test "$variant_count" = "0"
+        die 2 "rules.yaml parse error: $skill variants is empty"
+    end
+
+    for variant in (yq -r ".skills.\"$skill\".variants | keys | .[]" "$rules_file")
+        for field in source output
+            if not yq -e ".skills.\"$skill\".variants.\"$variant\" | has(\"$field\")" "$rules_file" >/dev/null
+                die 2 "rules.yaml parse error: $skill variant $variant missing field $field"
+            end
+        end
+
+        if yq -e ".skills.\"$skill\".variants.\"$variant\" | has(\"substitutions\")" "$rules_file" >/dev/null 2>/dev/null
+            set sub_count (yq -r ".skills.\"$skill\".variants.\"$variant\".substitutions | length" "$rules_file")
+            if test "$sub_count" != "0"
+                for sidx in (seq 0 (math $sub_count - 1))
+                    for sfield in from to
+                        if not yq -e ".skills.\"$skill\".variants.\"$variant\".substitutions[$sidx] | has(\"$sfield\")" "$rules_file" >/dev/null
+                            die 2 "rules.yaml parse error: $skill variant $variant substitutions[$sidx] missing field $sfield"
+                        end
+                    end
+                end
+            end
         end
     end
 
@@ -189,6 +220,81 @@ function set_frontmatter_field
     ' "$input_path" > "$output_path"
 end
 
+function apply_literal_substitution
+    set input_path $argv[1]
+    set output_path $argv[2]
+    set from $argv[3]
+    set to $argv[4]
+
+    awk -v from="$from" -v to="$to" '
+        {
+            line = $0
+            out = ""
+            flen = length(from)
+            while ((idx = index(line, from)) > 0) {
+                out = out substr(line, 1, idx - 1) to
+                line = substr(line, idx + flen)
+            }
+            out = out line
+            print out
+        }
+    ' "$input_path" > "$output_path"
+end
+
+function apply_substitutions
+    set skill $argv[1]
+    set variant $argv[2]
+    set input_path $argv[3]
+    set output_path $argv[4]
+
+    if not yq -e ".skills.\"$skill\".variants.\"$variant\" | has(\"substitutions\")" "$rules_file" >/dev/null 2>/dev/null
+        command cp -f "$input_path" "$output_path"
+        return 0
+    end
+
+    set sub_count (yq -r ".skills.\"$skill\".variants.\"$variant\".substitutions | length" "$rules_file")
+    if test "$sub_count" = "0"
+        command cp -f "$input_path" "$output_path"
+        return 0
+    end
+
+    set work_path (mktemp "/tmp/spectra-plus-sub-$skill-$variant.XXXXXX")
+    command cp -f "$input_path" "$work_path"
+
+    for index in (seq 0 (math $sub_count - 1))
+        set from (yq_value ".skills.\"$skill\".variants.\"$variant\".substitutions[$index].from")
+        set to (yq_value ".skills.\"$skill\".variants.\"$variant\".substitutions[$index].to")
+        set next_path (mktemp "/tmp/spectra-plus-sub-$skill-$variant.XXXXXX")
+        apply_literal_substitution "$work_path" "$next_path" "$from" "$to"
+        command mv -f "$next_path" "$work_path"
+    end
+
+    command mv -f "$work_path" "$output_path"
+end
+
+function insert_marker_after_frontmatter
+    set input_path $argv[1]
+    set output_path $argv[2]
+
+    awk -v marker="$marker" '
+        BEGIN { fm_state = 0 }
+        NR == 1 && $0 == "---" { print; fm_state = 1; next }
+        fm_state == 1 && $0 == "---" {
+            print
+            print marker
+            fm_state = 2
+            next
+        }
+        { print }
+        END {
+            if (fm_state != 2) {
+                print "insert_marker_after_frontmatter: no closing --- found" > "/dev/stderr"
+                exit 1
+            }
+        }
+    ' "$input_path" > "$output_path"
+end
+
 function validate_generated
     set output_path $argv[1]
     set skill $argv[2]
@@ -204,45 +310,53 @@ function generate_skill
     set skill $argv[1]
     validate_skill "$skill"
 
-    set source_rel (yq_value ".skills.\"$skill\".source")
-    set output_rel (yq_value ".skills.\"$skill\".output")
-    set source_path "$root_dir/$source_rel"
-    set output_path "$root_dir/$output_rel"
+    set variants (yq -r ".skills.\"$skill\".variants | keys | .[]" "$rules_file")
 
-    if not test -f "$source_path"
-        die 2 "rules.yaml parse error: $skill source not found: $source_rel"
+    for variant in $variants
+        set source_rel (yq_value ".skills.\"$skill\".variants.\"$variant\".source")
+        set output_rel (yq_value ".skills.\"$skill\".variants.\"$variant\".output")
+        set source_path "$root_dir/$source_rel"
+        set output_path "$root_dir/$output_rel"
+
+        if not test -f "$source_path"
+            die 2 "rules.yaml parse error: $skill variant $variant source not found: $source_rel"
+        end
+
+        set work_path (mktemp "/tmp/spectra-plus-$skill-$variant.XXXXXX")
+        command cp -f "$source_path" "$work_path"
+
+        set count (yq_value ".skills.\"$skill\".transformations | length")
+        for index in (seq 0 (math $count - 1))
+            set target (yq_value ".skills.\"$skill\".transformations[$index].target_section")
+            set op (yq_value ".skills.\"$skill\".transformations[$index].operation")
+            set template_name (yq_value ".skills.\"$skill\".transformations[$index].template // \"\"")
+            set next_path (mktemp "/tmp/spectra-plus-$skill-$variant.XXXXXX")
+
+            apply_transform "$skill" "$source_path" "$work_path" "$next_path" "$target" "$op" "$template_name"
+            or exit 1
+
+            command mv -f "$next_path" "$work_path"
+        end
+
+        set meta_keys (yq -r ".skills.\"$skill\".metadata | keys | .[]" "$rules_file")
+        for key in $meta_keys
+            set value (yq_value ".skills.\"$skill\".metadata.\"$key\"")
+            set next_path (mktemp "/tmp/spectra-plus-$skill-$variant.XXXXXX")
+            set_frontmatter_field "$work_path" "$next_path" "$key" "$value"
+            command mv -f "$next_path" "$work_path"
+        end
+
+        set sub_path (mktemp "/tmp/spectra-plus-$skill-$variant.XXXXXX")
+        apply_substitutions "$skill" "$variant" "$work_path" "$sub_path"
+        command rm -f "$work_path"
+
+        set final_path (mktemp "/tmp/spectra-plus-$skill-$variant.XXXXXX")
+        insert_marker_after_frontmatter "$sub_path" "$final_path"
+        command rm -f "$sub_path"
+        validate_generated "$final_path" "$skill"
+
+        echo "$skill|$variant|$output_path|$final_path"
     end
-
-    set work_path (mktemp "/tmp/spectra-plus-$skill.XXXXXX")
-    command cp -f "$source_path" "$work_path"
-
-    set count (yq_value ".skills.\"$skill\".transformations | length")
-    for index in (seq 0 (math $count - 1))
-        set target (yq_value ".skills.\"$skill\".transformations[$index].target_section")
-        set op (yq_value ".skills.\"$skill\".transformations[$index].operation")
-        set template_name (yq_value ".skills.\"$skill\".transformations[$index].template // \"\"")
-        set next_path (mktemp "/tmp/spectra-plus-$skill.XXXXXX")
-
-        apply_transform "$skill" "$source_path" "$work_path" "$next_path" "$target" "$op" "$template_name"
-        or exit 1
-
-        command mv -f "$next_path" "$work_path"
-    end
-
-    set meta_keys (yq -r ".skills.\"$skill\".metadata | keys | .[]" "$rules_file")
-    for key in $meta_keys
-        set value (yq_value ".skills.\"$skill\".metadata.\"$key\"")
-        set next_path (mktemp "/tmp/spectra-plus-$skill.XXXXXX")
-        set_frontmatter_field "$work_path" "$next_path" "$key" "$value"
-        command mv -f "$next_path" "$work_path"
-    end
-
-    set final_path (mktemp "/tmp/spectra-plus-$skill.XXXXXX")
-    printf "%s\n" "$marker" > "$final_path"
-    command cat "$work_path" >> "$final_path"
-    validate_generated "$final_path" "$skill"
-
-    echo "$skill|$output_path|$final_path"
 end
 
 if contains -- --help $argv; or contains -- -h $argv
@@ -275,10 +389,11 @@ end
 for item in $generated
     set parts (string split '|' "$item")
     set skill $parts[1]
-    set output_path $parts[2]
-    set final_path $parts[3]
+    set variant $parts[2]
+    set output_path $parts[3]
+    set final_path $parts[4]
     mkdir -p (dirname "$output_path")
     command mv -f "$final_path" "$output_path"
     echo "wrote $output_path"
-    echo "validated $skill"
+    echo "validated $skill ($variant)"
 end
