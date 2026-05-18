@@ -103,11 +103,11 @@ end
 
 set target (cd "$target"; and pwd)
 set source_dir "$script_dir/scripts/spectra-plus"
-set target_dir "$target/scripts/spectra-plus"
+set generator "$source_dir/generate.fish"
 
 require_command fish
 require_command yq
-require_file "$source_dir/generate.fish" "spectra-plus generator"
+require_file "$generator" "spectra-plus generator"
 require_file "$source_dir/rules.yaml" "spectra-plus rules.yaml"
 require_file "$target/.claude/skills/spectra-propose/SKILL.md" "spectra-propose skill (Claude)"
 require_file "$target/.claude/skills/spectra-apply/SKILL.md" "spectra-apply skill (Claude)"
@@ -115,23 +115,15 @@ require_file "$target/.agents/skills/spectra-propose/SKILL.md" "spectra-propose 
 require_file "$target/.agents/skills/spectra-apply/SKILL.md" "spectra-apply skill (Codex)"
 
 echo ""
-echo "正在安裝 Spectra Plus generator 到：$target_dir"
-run_cmd mkdir -p "$target/scripts"
-run_cmd cp -R "$source_dir" "$target/scripts/"
-
-echo ""
-echo "正在產生 plus skills..."
+echo "正在產生 plus skills 到：$target"
 if test $dry_run -eq 1
-    echo "+ cd $target"
-    echo "+ scripts/spectra-plus/generate.fish"
+    echo "+ $generator --root $target"
 else
-    pushd "$target" >/dev/null
-    scripts/spectra-plus/generate.fish
+    $generator --root "$target"
     set generate_status $status
-    popd >/dev/null
 
     if test $generate_status -ne 0
-        fail "plus skill 產生失敗；請檢查 $target_dir/rules.yaml 的 target_section 是否符合目標專案的 Spectra skill 章節"
+        fail "plus skill 產生失敗；請檢查 $source_dir/rules.yaml 的 target_section 是否符合目標專案的 Spectra skill 章節"
     end
 end
 
@@ -142,14 +134,11 @@ if test $dry_run -eq 1
     echo "+ test -f $target/.claude/skills/spectra-apply-plus/SKILL.md"
     echo "+ test -f $target/.agents/skills/spectra-propose-plus/SKILL.md"
     echo "+ test -f $target/.agents/skills/spectra-apply-plus/SKILL.md"
-    echo "+ yq '.' $target_dir/rules.yaml"
 else
     require_file "$target/.claude/skills/spectra-propose-plus/SKILL.md" "spectra-propose-plus skill (Claude)"
     require_file "$target/.claude/skills/spectra-apply-plus/SKILL.md" "spectra-apply-plus skill (Claude)"
     require_file "$target/.agents/skills/spectra-propose-plus/SKILL.md" "spectra-propose-plus skill (Codex)"
     require_file "$target/.agents/skills/spectra-apply-plus/SKILL.md" "spectra-apply-plus skill (Codex)"
-    yq '.' "$target_dir/rules.yaml" >/dev/null
-    or fail "rules.yaml 無法解析：$target_dir/rules.yaml"
 
     rg -q --fixed-strings "ai 的回覆要用中文" "$target/.claude/skills/spectra-apply-plus/SKILL.md"
     or fail "spectra-apply-plus (Claude) 未包含中文回覆規則"
@@ -165,5 +154,5 @@ echo "  - .claude/skills/spectra-apply-plus/SKILL.md"
 echo "  - .agents/skills/spectra-propose-plus/SKILL.md"
 echo "  - .agents/skills/spectra-apply-plus/SKILL.md"
 echo ""
-echo "後續若原始 spectra skill 更新，請在目標專案重跑："
-echo "  scripts/spectra-plus/generate.fish"
+echo "後續若原始 spectra skill 更新，請重跑："
+echo "  ./$script_name $target"
