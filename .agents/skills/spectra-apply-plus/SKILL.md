@@ -383,9 +383,14 @@ If there is no AskUserQuestion tool available, present options as plain text and
 
    Design decisions that match the spec, ordinary tradeoffs, and small judgment calls do NOT belong here — they are already covered by `design.md`, `tasks.md`, and the review-loop round files. Keep this log narrow.
 
-   **File creation rule (lazy)**
-   - Do NOT create `implementation-notes.md` proactively at the start of apply-plus.
-   - Create the file the first time a deviation or open question actually arises during task implementation. If no entry is ever needed, the file does not exist for this change — and that is the correct state.
+   **File creation rule (eager)**
+   - At the start of Step 7 (the task loop), before processing the first task, create `openspec/changes/<change>/implementation-notes.md` if it does not already exist.
+   - Initialize the file with a single-line HTML comment header (and nothing else):
+     ```
+     <!-- apply-plus implementation notes | change: <change-name> | initialized: <YYYY-MM-DD HH:MM> | no entries below means no deviations or open questions were recorded -->
+     ```
+   - Entries (see below) are appended in order beneath this header.
+   - Eager creation makes "no entries" an explicit positive signal (apply-plus ran and found nothing to report), distinct from file-absent which signals a workflow integrity failure.
 
    **Entry format**
 
@@ -413,12 +418,13 @@ If there is no AskUserQuestion tool available, present options as plain text and
 
    **Sub-agent reviewer requirement**
 
-   The review-loop reviewer (Section 10) MUST, at the start of each round, check whether `openspec/changes/<change>/implementation-notes.md` exists.
+   The review-loop reviewer (Section 10) MUST, at the start of each round, read `openspec/changes/<change>/implementation-notes.md`.
 
-   - If the file exists, the reviewer MUST read it in full and treat each entry as审查脈絡:
+   - **File absent**: this is a Critical finding — apply-plus failed to initialize the running log, indicating either an aborted workflow or a skill-integrity failure. The round MUST NOT pass; recommend re-running apply-plus or back-filling the file before the next round.
+   - **File present with only the initialization comment and no entries**: treat as confirmed empty — apply-plus reached the task loop and found nothing requiring a `deviation` or `open-question` entry. No finding raised by virtue of emptiness alone.
+   - **File present with entries**:
      - `deviation` entries are evaluated for whether the divergence is justified. An unjustified deviation is a Critical finding; a justified-but-undocumented-in-`design.md` deviation is at minimum a Warning recommending the divergence be back-filled into `design.md` during Fix Actions.
      - `open-question` entries are surfaced as Warning findings with a recommended `## Fix Actions` step naming how to obtain user confirmation before the round can pass.
-   - If the file does not exist, the reviewer proceeds normally and treats absence as "no recorded deviations or open questions for this change." Absence is NOT itself a finding.
 
    The rater (Section 10) does not read this file directly; it reads only the reviewer findings, which already incorporate the notes context.
 
