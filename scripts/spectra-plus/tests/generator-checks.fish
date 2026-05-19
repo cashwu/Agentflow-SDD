@@ -58,6 +58,9 @@ assert_not_contains "$propose" "spectra park"
 assert_contains "$propose" "review/rating/fix"
 assert_contains "$apply" "review/rating/fix"
 assert_contains "$apply" "ai 的回覆要用中文"
+assert_contains "$apply" "Implementation Notes Protocol"
+assert_contains "$apply" "implementation-notes.md"
+assert_not_contains "$propose" "Implementation Notes Protocol"
 
 command cp -f "$propose" /tmp/spectra-propose-plus.before
 command cp -f "$apply" /tmp/spectra-apply-plus.before

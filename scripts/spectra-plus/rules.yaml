@@ -36,6 +36,9 @@ skills:
       - target_section: "9. **On completion or pause, show status**"
         operation: append
         template: review-loop-block.md
+      - target_section: "10. **Apply-plus response language**"
+        operation: append
+        template: apply-notes-block.md
     variants:
       claude:
         source: .claude/skills/spectra-apply/SKILL.md

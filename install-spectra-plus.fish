@@ -300,6 +300,11 @@ else
     or fail "spectra-apply-plus (Claude) 未包含中文回覆規則"
     rg -q --fixed-strings "ai 的回覆要用中文" "$target/.agents/skills/spectra-apply-plus/SKILL.md"
     or fail "spectra-apply-plus (Codex) 未包含中文回覆規則"
+
+    rg -q --fixed-strings "Implementation Notes Protocol" "$target/.claude/skills/spectra-apply-plus/SKILL.md"
+    or fail "spectra-apply-plus (Claude) 未包含 Implementation Notes Protocol"
+    rg -q --fixed-strings "Implementation Notes Protocol" "$target/.agents/skills/spectra-apply-plus/SKILL.md"
+    or fail "spectra-apply-plus (Codex) 未包含 Implementation Notes Protocol"
 end
 
 echo ""
