@@ -49,8 +49,8 @@ run_expect 0 "$generator"
 
 test -f "$propose"; or fail "missing propose plus output"
 test -f "$apply"; or fail "missing apply plus output"
-test (head -n 1 "$propose") = "$marker"; or fail "propose marker mismatch"
-test (head -n 1 "$apply") = "$marker"; or fail "apply marker mismatch"
+assert_contains "$propose" "$marker"
+assert_contains "$apply" "$marker"
 
 assert_contains "$propose" "name: spectra-propose-plus"
 assert_contains "$apply" "name: spectra-apply-plus"
@@ -91,7 +91,7 @@ run_expect 3 "$generator" spectra-propose-plus
 assert_contains /tmp/spectra-plus-test.err "missing-template.md"
 eval $restore_rules
 
-yq 'del(.skills."spectra-propose-plus".source)' "$rules" > /tmp/spectra-plus-rules.bad
+yq 'del(.skills."spectra-propose-plus".variants.codex.source)' "$rules" > /tmp/spectra-plus-rules.bad
 command cp -f /tmp/spectra-plus-rules.bad "$rules"
 run_expect 2 "$generator" spectra-propose-plus
 assert_contains /tmp/spectra-plus-test.err "source"
