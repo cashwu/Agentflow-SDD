@@ -19,6 +19,19 @@
 - 只移除「因為本次改動而變成 orphan」的 import、變數、函式；既有的 pre-existing 死碼不要動。
 - 驗收標準：本次 diff 的每一行，都能直接追溯到 `tasks.md` 中的某條任務或 `design.md` 中的 Implementation Contract 項目。
 
+**Maintain Balance — Simplicity 不等於程式碼高爾夫**
+
+Simplicity First 與 Surgical Changes 的目的是「不寫不必要的東西」，不是「越短越好」。下列反例同樣違反紀律，被 review loop 視為 Critical：
+
+- 巢狀三元運算子（nested ternary）— 用 `if/else` 或 `switch` 替代。
+- 為了減少行數犧牲可讀性的 dense one-liner、過度連鎖的 method chain。
+- 為了「合併」把多個關注點塞進同一個 function、component 或檔案。
+- 移除有意義的中介變數，讓 expression 變成難以閱讀或除錯的長句。
+- 移除真正在傳遞意圖的命名常數，改用 magic number 或 inline literal。
+- 拿掉合理的抽象（helper、type alias）只為了減少一層間接。
+
+判準：實作完成後重讀 diff，若 future-self 或 reviewer 需要花超過幾秒才能理解某行的意圖，那不是 simpler，是 cleverer。Cleverer 違反紀律。Clarity 永遠優先於 brevity。
+
 若違反上述任一條（無論刻意或非刻意），視同 task 未完成 — 在執行 `spectra task done` 之前先修正。若是刻意 deviate（例如 contract 與既有程式衝突，需要動到鄰近區塊），依 step 11 Implementation Notes Protocol 寫一筆 `deviation` 條目，說明原因。
 
 **Keep verbatim (do not translate):** shell commands, file paths, code identifiers, schema field names (`applyRequires`, `outputPath` 等), artifact IDs, capability slugs, and quoted source text. If the user explicitly requests another language later, follow the latest user instruction.
