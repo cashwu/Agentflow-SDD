@@ -30,6 +30,9 @@ skills:
       name: spectra-apply-plus
       description: "Implement Spectra tasks with a sub-agent quality gate after completion"
     transformations:
+      - target_section: "7. **Implement tasks (loop until done or blocked)**"
+        operation: append
+        template: surgical-simplicity-block.md
       - target_section: "9. **On completion or pause, show status**"
         operation: append
         template: apply-response-language-block.md
