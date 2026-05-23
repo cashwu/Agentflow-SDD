@@ -228,13 +228,13 @@ The system SHALL write one round file per loop round to `openspec/changes/<chang
 
 ##### Example: required round file outline
 
-| Section                | Heading level | Content                                                              |
-| ---------------------- | ------------- | -------------------------------------------------------------------- |
-| Round heading          | `#`           | e.g., `Propose Plus Review — Round 2`                                |
-| `Reviewer Findings`    | `##`          | Three subsections: Critical, Warning, Suggestion                     |
-| `Rating`               | `##`          | `quality_score` (0-10), `critical_gap` (boolean), `rationale` (text) |
-| `Fix Actions`          | `##`          | List of changes made this round with file paths and rationale        |
-| `Decision`             | `##`          | One of `passed`, `next_round`, `aborted`                             |
+| Section                | Heading level | Content                                                                                                            |
+| ---------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Round heading          | `#`           | e.g., `Propose Plus Review — Round 2`                                                                              |
+| `Reviewer Findings`    | `##`          | Three subsections: Critical, Warning, Suggestion. Each finding lists `severity`, `confidence`, `location`, `summary`, `recommendation`, and reviewer source (`A`, `B`, or `A+B`) |
+| `Rating`               | `##`          | `quality_score` (0-10), `critical_gap` (boolean), `rationale` (text)                                               |
+| `Fix Actions`          | `##`          | List of changes made this round with file paths and rationale                                                      |
+| `Decision`             | `##`          | One of `passed`, `next_round`, `aborted`                                                                           |
 
 #### Scenario: Final round decision values
 
@@ -273,18 +273,20 @@ tests:
 ---
 ### Requirement: Fresh sub-agent per round
 
-The system SHALL spawn fresh sub-agents for every review and rating step. The skill MUST NOT reuse a sub-agent across rounds. The skill MUST spawn the reviewer and the rater as two separate sub-agent invocations within the same round. The skill MUST NOT perform review or rating inline in the main agent context.
+The system SHALL spawn fresh sub-agents for every review and rating step. The skill MUST NOT reuse a sub-agent across rounds. Each round MUST spawn TWO reviewer sub-agents in parallel — `Reviewer A` (artifact/implementation adherence) and `Reviewer B` (bug/quality scan) — plus one separate rater sub-agent. The skill MUST NOT perform review or rating inline in the main agent context. After both reviewers complete, the main agent SHALL aggregate findings (deduplicate by `location + summary`), apply the confidence filter (see `Confidence-scored findings` requirement), and pass the filtered set to the rater.
 
-#### Scenario: Reviewer and rater are separate calls
+#### Scenario: Two reviewers and one rater per round
 
 - **WHEN** a round begins
-- **THEN** the skill makes one sub-agent call for the reviewer and one separate sub-agent call for the rater
-- **AND** the rater receives the reviewer's findings as input
+- **THEN** the skill makes two parallel sub-agent calls for `Reviewer A` and `Reviewer B`, dispatched in a single message
+- **AND** makes one separate sub-agent call for the rater after reviewer aggregation completes
+- **AND** the rater receives only the post-filter aggregated findings as input, not the raw reviewer outputs
+- **AND** Reviewer A and Reviewer B do not see each other's findings
 
 #### Scenario: No sub-agent reuse across rounds
 
 - **WHEN** round N+1 begins after round N
-- **THEN** the skill spawns brand-new reviewer and rater sub-agents
+- **THEN** the skill spawns brand-new `Reviewer A`, `Reviewer B`, and rater sub-agents
 - **AND** does not pass the prior round's sub-agent state forward
 
 
@@ -314,13 +316,52 @@ tests:
 -->
 
 ---
+### Requirement: Confidence-scored findings and filter
+
+The system SHALL require every reviewer finding to carry a `confidence` integer from `0` to `100`. The main agent MUST apply a confidence filter before passing findings to the rater. Findings with `confidence < 50` MUST be dropped entirely and SHALL NOT appear in the round file. Findings with `confidence` in `[50, 80)` MUST be downgraded to `Suggestion` regardless of the reviewer's original severity classification. Only findings with `confidence >= 80` MAY appear as `Critical` or `Warning` in the post-filter round file. `critical_gap` MUST be `true` if and only if at least one finding survives the filter with `severity == Critical` AND `confidence >= 80`. Direct artifact-requirement violations (citing a specific `SHALL`, Implementation Contract item, or task description line) MUST score `100` so the filter does not demote them.
+
+#### Scenario: Filter drops low-confidence findings
+
+- **WHEN** a reviewer reports a finding with `confidence == 30`
+- **THEN** the finding does not appear in the round file
+- **AND** the rater does not see it
+
+#### Scenario: Filter downgrades mid-confidence Critical to Suggestion
+
+- **WHEN** a reviewer reports a `Critical` finding with `confidence == 60`
+- **THEN** the round file lists it under `Suggestion`, not `Critical`
+- **AND** `critical_gap` is not set to `true` solely on account of this finding
+
+#### Scenario: Artifact-citation findings are not demoted
+
+- **WHEN** a reviewer cites a specific `SHALL` clause from `spec.md` or a contract item from `design.md` that the artifact set or implementation does not satisfy
+- **THEN** the reviewer scores the finding `confidence == 100`
+- **AND** the finding survives the filter and may be classified `Critical`
+
+
+<!-- @trace
+source: add-spectra-plus-skills
+updated: 2026-05-23
+code:
+  - scripts/spectra-plus/template/review-loop-block.md
+  - scripts/spectra-plus/rules.yaml
+  - scripts/spectra-plus/generate.fish
+  - .claude/skills/spectra-propose-plus/SKILL.md
+  - .claude/skills/spectra-apply-plus/SKILL.md
+  - .agents/skills/spectra-propose-plus/SKILL.md
+  - .agents/skills/spectra-apply-plus/SKILL.md
+tests:
+  - scripts/spectra-plus/tests/generator-checks.fish
+-->
+
+---
 ### Requirement: Sub-agent failure handling
 
-The system SHALL retry a failed sub-agent call once within the same round. If the retry also fails, the skill MUST abort the entire plus workflow with a clear error and SHALL NOT mark the round as `passed` or continue to the next round.
+The system SHALL retry a failed sub-agent call once within the same round. If the retry also fails, the skill MUST abort the entire plus workflow with a clear error and SHALL NOT mark the round as `passed` or continue to the next round. If both parallel reviewers fail within the same round, the skill MUST treat it as a single reviewer-role failure (one retry) rather than two separate failures.
 
 #### Scenario: Single sub-agent failure recovers
 
-- **WHEN** the reviewer or rater sub-agent fails (no response or malformed output)
+- **WHEN** a reviewer or the rater sub-agent fails (no response or malformed output)
 - **THEN** the skill retries that same sub-agent role once with a fresh invocation
 - **AND** the round continues if the retry succeeds
 
@@ -329,6 +370,13 @@ The system SHALL retry a failed sub-agent call once within the same round. If th
 - **WHEN** the same sub-agent role fails twice in a single round
 - **THEN** the skill aborts the plus workflow
 - **AND** writes a round file with `decision: aborted` and a note describing the failure
+
+#### Scenario: Both parallel reviewers failing counts as one role failure
+
+- **WHEN** both `Reviewer A` and `Reviewer B` fail in the same round
+- **THEN** the skill treats it as a single reviewer-role failure
+- **AND** retries the reviewer role once (both reviewers re-dispatched in parallel)
+- **AND** only aborts if the retry also fails
 
 
 <!-- @trace

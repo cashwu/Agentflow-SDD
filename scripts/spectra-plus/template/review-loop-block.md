@@ -39,8 +39,9 @@
    - `0` — Not confident at all. False positive or pre-existing issue. SHOULD NOT be reported.
    - `25` — Somewhat confident. Could be a real issue but the reviewer was unable to verify against artifacts or code.
    - `50` — Moderately confident. Verified to be real, but minor / unlikely to hit in practice / outside the changed scope.
-   - `75` — Highly confident. Verified to be real, will hit in practice, OR directly violates an artifact requirement (contract item, spec SHALL, task description).
-   - `100` — Certain. Evidence directly confirms the issue and it will recur.
+   - `75` — Highly confident. Verified to be real and will hit in practice. Use this when judgment-based impact assessment supports the finding but no direct artifact citation exists.
+   - `100` — Certain. Evidence directly confirms the issue, OR the finding cites a specific artifact clause (a `SHALL` in `spec.md`, an Implementation Contract item in `design.md`, a task description line in `tasks.md`, a non-goal in `proposal.md`) that the artifact set or implementation provably does not satisfy.
+   - **Direct artifact-requirement violations MUST score `100`.** If a reviewer can name the exact SHALL / contract item / task line being violated, the finding is objectively verifiable and SHALL NOT be downgraded below `100`. This invariant guarantees the confidence filter never demotes an artifact violation to Suggestion.
 
    **Confidence filter (applied by main agent before rater)**
    - Drop any finding with `confidence < 50`. These do not appear in the round file.

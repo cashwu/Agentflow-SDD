@@ -296,15 +296,38 @@ else
     require_file "$target/.agents/skills/spectra-propose-plus/SKILL.md" "spectra-propose-plus skill (Codex)"
     require_file "$target/.agents/skills/spectra-apply-plus/SKILL.md" "spectra-apply-plus skill (Codex)"
 
-    rg -q --fixed-strings "ai 的回覆要用中文" "$target/.claude/skills/spectra-apply-plus/SKILL.md"
-    or fail "spectra-apply-plus (Claude) 未包含中文回覆規則"
-    rg -q --fixed-strings "ai 的回覆要用中文" "$target/.agents/skills/spectra-apply-plus/SKILL.md"
-    or fail "spectra-apply-plus (Codex) 未包含中文回覆規則"
+    set propose_outputs \
+        "$target/.claude/skills/spectra-propose-plus/SKILL.md" \
+        "$target/.agents/skills/spectra-propose-plus/SKILL.md"
+    set apply_outputs \
+        "$target/.claude/skills/spectra-apply-plus/SKILL.md" \
+        "$target/.agents/skills/spectra-apply-plus/SKILL.md"
 
-    rg -q --fixed-strings "Implementation Notes Protocol" "$target/.claude/skills/spectra-apply-plus/SKILL.md"
-    or fail "spectra-apply-plus (Claude) 未包含 Implementation Notes Protocol"
-    rg -q --fixed-strings "Implementation Notes Protocol" "$target/.agents/skills/spectra-apply-plus/SKILL.md"
-    or fail "spectra-apply-plus (Codex) 未包含 Implementation Notes Protocol"
+    # apply-plus 專屬：中文回覆、Implementation Notes、Surgical & Simplicity 紀律
+    for skill_path in $apply_outputs
+        assert_contains "$skill_path" "ai 的回覆要用中文" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "Implementation Notes Protocol" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "Surgical & Simplicity Discipline" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "Simplicity First" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "Surgical Changes" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "Maintain Balance" "spectra-apply-plus ($skill_path)"
+    end
+
+    # 兩個 plus skill 共用：review-loop 雙 reviewer + confidence filter
+    for skill_path in $propose_outputs $apply_outputs
+        assert_contains "$skill_path" "Reviewer A — Adherence" "spectra plus skill ($skill_path)"
+        assert_contains "$skill_path" "Reviewer B — Quality" "spectra plus skill ($skill_path)"
+        assert_contains "$skill_path" "Confidence scoring rubric" "spectra plus skill ($skill_path)"
+        assert_contains "$skill_path" "Confidence filter" "spectra plus skill ($skill_path)"
+        assert_contains "$skill_path" "Common false positives" "spectra plus skill ($skill_path)"
+        assert_contains "$skill_path" "Direct artifact-requirement violations MUST score" "spectra plus skill ($skill_path)"
+    end
+
+    # propose-plus 不應含 apply-only 紀律（防止 rules.yaml 串錯 transformation）
+    for skill_path in $propose_outputs
+        assert_not_contains "$skill_path" "Surgical & Simplicity Discipline" "spectra-propose-plus ($skill_path)"
+        assert_not_contains "$skill_path" "Maintain Balance" "spectra-propose-plus ($skill_path)"
+    end
 end
 
 echo ""
