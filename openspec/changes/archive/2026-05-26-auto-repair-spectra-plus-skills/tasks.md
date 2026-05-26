@@ -1,0 +1,27 @@
+## 1. Registry stores explicit project targets
+
+- [x] 1.1 交付 Multi-project plus skill target registry 的註冊契約：`install-spectra-plus.fish --register-target <project>` 會驗證 target 目錄、正規化為絕對路徑並寫入 `$HOME/.config/spectra-plus/projects.txt`，重複註冊不新增重複列，且不存在路徑或非目錄路徑會失敗並保持 registry 不變；驗證：新增 registry 測試對同一路徑連續註冊兩次，確認 registry 只有一筆 normalized path，並對 nonexistent path 與 non-directory path 斷言 exit code 非零、錯誤訊息指出 invalid target、registry checksum 不變。
+- [x] 1.2 交付 Multi-project plus skill target registry 的取消註冊契約：`install-spectra-plus.fish --unregister-target <project>` 會移除 normalized path，未註冊路徑為成功 no-op，且 `<project>` 已從 filesystem 刪除時仍可清掉 stale registry entry；驗證：registry 測試確認移除既有 target 後不存在，移除不存在 target exit code 0 且其他 entry 保留，註冊 target 後刪除目錄再 unregister 可移除 entry。
+- [x] 1.3 交付 Multi-project plus skill target registry 的列出契約：`install-spectra-plus.fish --list-targets` 只輸出有效 normalized target，忽略空行與 `#` 註解；驗證：registry fixture 含空行、註解、兩個 target 時，CLI output 只列出兩個 target。
+- [x] [P] 1.4 交付 Registry stores explicit project targets 的 dry-run 契約：`--register-target --dry-run` 與 `--unregister-target --dry-run` 只列出 registry update，不建立或修改 `$HOME/.config/spectra-plus/projects.txt`；驗證：registry dry-run 測試在前後比對 registry checksum 與 missing registry 狀態不變。
+
+## 2. Repair all registered plus skill targets
+
+- [x] 2.1 交付 Repair all registered plus skill targets 與 Repair-all reuses the single-target installer contract 的批次修復契約：`install-spectra-plus.fish --repair-all` 讀取 registry，對每個 target 重用既有 single-target installer，讓 reset 後的 `spectra-propose-plus`、`spectra-apply-plus` 與 `spectra-commit` guard 都補回；驗證：`scripts/spectra-plus/tests/repair-all-checks.fish` 建立兩個 temporary target、刪除 plus outputs 或 guard 後執行 repair-all，確認兩個 target 都恢復必要檔案與 marker。
+- [x] 2.2 交付 Repair all registered plus skill targets 的 registry 邊界契約：repair-all 只處理 registry 內 target，不掃描或修復 registry 外 project；驗證：repair-all 測試建立 registered reset target 與 unregistered reset target，執行後確認 registered target 被修復，unregistered target 的 skill files/guard checksum 或缺失狀態保持不變。
+- [x] 2.3 交付 Repair all registered plus skill targets 的失敗隔離契約：registry 中單一 invalid target 失敗時，repair-all 仍處理其他 valid target，最後以非零 exit 回報；驗證：repair-all 測試建立一個 missing target 與一個 valid target，確認 valid target 被修復且 stderr/stdout 包含失敗 target summary。
+- [x] 2.4 交付 Repair all registered plus skill targets 的 dry-run 契約：`--repair-all --dry-run` 列出將處理的 target 與 repair action，但不修改 registry、project files、lock、cache 或 throttle state；驗證：repair-all 測試使用 temporary `HOME`/`TMPDIR`，在 dry-run 前後比對 target skill 檔案 checksum 不變，且 `$HOME/.cache/spectra-plus/last-repair-attempt`、repair lock、cache directory 未建立或未更新。
+- [x] [P] 2.5 交付 Repair all registered plus skill targets 的 per-target summary 契約：repair-all 對 success、skipped、failed target 都輸出可辨識 summary，任一 failed target 讓整體 exit code 非零；驗證：repair-all 測試建立 already-current target、reset target、invalid target，確認 stdout/stderr 同時包含三種狀態。
+
+## 3. LaunchAgent-based automatic plus skill repair
+
+- [x] 3.1 交付 LaunchAgent-based automatic plus skill repair 的可呼叫 entrypoint：`scripts/spectra-plus/repair-all.fish` 可由 LaunchAgent 直接執行，行為等同 `install-spectra-plus.fish --repair-all`，並支援必要的 registry 路徑、dry-run 參數與受控 PATH/command 檢查；驗證：測試直接呼叫 entrypoint 可修復 registry 中的 temporary target，並在最小 PATH 下對缺少 `fish` 或 `yq` 的情境寫入預期 log。
+- [x] [P] 3.2 交付 LaunchAgent-based automatic plus skill repair 與 LaunchAgent triggers bounded repair instead of modifying Spectra.app 的安裝契約：`install-spectra-plus.fish --install-launch-agent` 會建立或更新 `com.agentflow.spectra-plus.repair` plist，ProgramArguments 使用可執行 repair-all 的受控環境，非 dry-run 會載入/刷新目前使用者 session 的 LaunchAgent，重跑不建立 duplicate agent，且不修改 `/Applications/Spectra.app`；驗證：LaunchAgent plist 測試確認 label、ProgramArguments、StartInterval、受控 command path 與 log path 符合預期，stub `launchctl` 測試確認非 dry-run install 呼叫 bootstrap/load，activation 失敗時 exit code 非零且輸出 manual activation instruction。
+- [x] 3.3 交付 LaunchAgent-based automatic plus skill repair 的移除契約：`install-spectra-plus.fish --uninstall-launch-agent` 會 unload 並移除 plist，未安裝時成功 no-op；驗證：測試在 temporary HOME/LaunchAgents fixture 下安裝再移除，確認 plist 不存在，第二次移除 exit code 0。
+- [x] [P] 3.4 交付 LaunchAgent-based automatic plus skill repair 與 Lock and throttle keep automatic repair quiet 的 bounded repair 契約：repair-all 使用 atomic lock 防止 overlapping execution，正常 exit 或 handled failure 會清理 lock，並用不大於 `StartInterval` 的 per-attempt throttle window 避免自動觸發頻繁重跑，手動 `--force` 可略過 throttle 但不略過 lock；驗證：repair-all 測試預先建立 active lock 時確認第二次 repair 回報 skipped/locked，建立 stale lock 時確認可復原或輸出 manual cleanup instruction，建立 recent last-repair-attempt 時確認未加 `--force` 會 throttle，加 `--force` 會執行，且 invalid target 非零 exit 後仍更新 throttle attempt，並確認 throttle window 不大於 plist `StartInterval`。
+- [x] [P] 3.5 交付 LaunchAgent-based automatic plus skill repair 的 dry-run 契約：`--install-launch-agent --dry-run` 與 `--uninstall-launch-agent --dry-run` 只列出 LaunchAgent action，不寫入/移除 plist 且不呼叫 `launchctl`；驗證：LaunchAgent dry-run 測試比對 plist 前後不變，並用 stub `launchctl` 確認沒有 invocation。
+
+## 4. Validation
+
+- [x] 4.1 更新 `install-spectra-plus.fish --help` 說明 registry、repair-all、LaunchAgent、dry-run 與 force 行為，交付使用者可自行設定多 project 自動修復的操作入口；驗證：`./install-spectra-plus.fish --help` output 包含 `--register-target`、`--repair-all`、`--install-launch-agent`、`--force`。
+- [x] 4.2 執行完整驗證，交付 proposal/design/spec/tasks 與實作測試一致；驗證：`fish scripts/spectra-plus/tests/installer-commit-guard-checks.fish`、`fish scripts/spectra-plus/tests/repair-all-checks.fish`、`fish scripts/spectra-plus/tests/generator-checks.fish` 與 `spectra validate auto-repair-spectra-plus-skills` 全部通過。
