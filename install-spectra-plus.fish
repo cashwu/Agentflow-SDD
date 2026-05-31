@@ -96,7 +96,12 @@ function ensure_commit_guard --argument-names target_path source_path descriptio
 
     require_file "$target_path" "$description"
     require_file "$source_path" "$description source"
-    validate_commit_guard "$source_path" "$description source"
+
+    restore_source_guard_if_needed "$source_path" "$description source"
+    set restore_rc $status
+    if test $restore_rc -ne 2
+        validate_commit_guard "$source_path" "$description source"
+    end
 
     if rg -q --fixed-strings "$marker" "$target_path"
         if test $dry_run -eq 1
@@ -355,6 +360,48 @@ function guard_is_current --argument-names path
     file_has "$path" "except protected generated plus skill deletions"; or return 1
     file_lacks "$path" "openspec/archived/"; or return 1
     file_lacks "$path" "docs/specs/"; or return 1
+end
+
+function restore_source_guard_if_needed --argument-names source_path description
+    # Self-heal a stripped commit-guard source from git HEAD.
+    # Return codes:
+    #   0 — source is valid on disk now (already valid, or really restored),
+    #       OR cannot be restored (caller then fails loudly via validate_commit_guard).
+    #   2 — dry-run only: a restore would happen and HEAD is valid, so the caller
+    #       MUST skip the hard source validation (the file is intentionally not mutated).
+    guard_is_current "$source_path"; and return 0
+
+    set source_dir (dirname "$source_path")
+    set toplevel (git -C "$source_dir" rev-parse --show-toplevel 2>/dev/null)
+    test -n "$toplevel"; or return 0
+
+    set abs_source (realpath "$source_path" 2>/dev/null); or set abs_source "$source_path"
+    set real_top (realpath "$toplevel" 2>/dev/null); or set real_top "$toplevel"
+    set relpath (string replace -- "$real_top/" "" "$abs_source")
+    test "$relpath" != "$abs_source"; or return 0
+
+    set head_blob (mktemp)
+    if not git -C "$toplevel" show "HEAD:$relpath" >"$head_blob" 2>/dev/null
+        command rm -f "$head_blob"
+        return 0
+    end
+    if not guard_is_current "$head_blob"
+        command rm -f "$head_blob"
+        return 0
+    end
+    command rm -f "$head_blob"
+
+    if test $dry_run -eq 1
+        echo "+ would restore $relpath from HEAD"
+        return 2
+    end
+
+    if git -C "$toplevel" restore --source=HEAD -- "$relpath"
+        echo "restored $relpath from HEAD"
+    end
+    # If restore failed, fall through: the source stays invalid and the caller's
+    # validate_commit_guard fails loudly rather than logging a false success.
+    return 0
 end
 
 function plus_outputs_are_current --argument-names target_path

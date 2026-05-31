@@ -258,3 +258,21 @@ rm -rf "$TMPDIR/spectra-plus-repair.lock"
 ```fish
 ./install-spectra-plus.fish --repair-all --force
 ```
+
+### 來源 commit skill 的 guard 被剝除
+
+若 Spectra.app 把 source repo 自己的 `spectra-commit/SKILL.md`（`.claude` 與 `.agents`）reset 成不含 `SPECTRA-COMMIT-GUARD` 的版本，repair 會**自動從 git HEAD 還原該來源檔**再續行，輸出：
+
+```text
+restored .claude/skills/spectra-commit/SKILL.md from HEAD
+```
+
+自動還原只在「來源 guard 已失效、檔案位於 git 工作樹、且 HEAD 版本含合法 guard」時發生；只動該單一檔案的 working tree（不碰 index、不影響其他 dirty 檔），`--dry-run` 只印 `+ would restore … from HEAD` 不做變更。
+
+若連 **git HEAD 版本也缺少合法 guard**（或來源不在 git 工作樹），無法自動還原，會回到既有 fail-loud：
+
+```text
+錯誤：spectra-commit guard (Claude) source 缺少必要內容：<!-- SPECTRA-COMMIT-GUARD: ... -->
+```
+
+此時請先把含 guard 的版本 commit 到 HEAD（或手動 `git restore` 一個含 guard 的版本），再重跑 repair。

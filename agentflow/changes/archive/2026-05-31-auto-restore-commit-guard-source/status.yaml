@@ -1,0 +1,23 @@
+change: auto-restore-commit-guard-source
+status: archived
+created: 2026-05-31
+archived: 2026-05-31
+workflow: agentflow-sdd
+
+preferences:
+  tdd: true
+  parallel_tasks: false
+  audit: true
+
+steps:
+  discuss: skipped       # 需求於本 session 已釐清
+  explore: passed        # quality 10/10 (r1 9, r2 10)
+  prototype: skipped     # 不需 spike；quality 9.5/10 (r1 9, r2 9.5)
+  spec: passed         # 9.4/10 (r1)
+  usage: passed        # 10/10 (r1 8 → r2 10)
+  ticket: passed       # 9.5/10 (r1)
+  dev: passed          # T1-T7 done; T7 review 9.5/10, security audit clear
+  review: passed       # 9.3/10 (r1)
+  wrap: passed         # 9.6/10 (r1)
+
+target_spec: openspec/specs/spectra-plus-skills/spec.md
