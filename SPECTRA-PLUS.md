@@ -56,6 +56,17 @@ $HOME/.config/spectra-plus/projects.txt
 
 每行一個 normalized absolute path。空行與 `#` 開頭註解會被忽略。Registry 不會掃描 workspace，也不會推斷其他專案。
 
+### Registry 檔案說明
+
+`projects.txt` 是這個 plus skills 自動修復機制唯一持久化「要維護哪些專案」的檔案，行為如下：
+
+- **格式**：純文字，一行一個 absolute path；空行與 `#` 開頭的整行註解會被忽略，可手動編輯。
+- **建立時機**：首次 `--register-target` 成功時才建立（會一併 `mkdir -p` 上層目錄）；在此之前檔案不存在，`--list-targets` / `--repair-all` 視為「沒有任何 target」。
+- **路徑正規化**：註冊時若 target 是存在的目錄，會以該目錄的真實絕對路徑寫入；尾端多餘的 `/` 會被移除。所以同一專案的不同寫法（相對路徑、尾斜線）正規化後算同一列。
+- **去重**：以「整行完全相同」判斷，重複註冊同一 normalized path 不會新增列，只回報 `target already registered`。
+- **誰會讀寫**：`--register-target` / `--unregister-target` 寫入；`--list-targets`、`--repair-all`（含 LaunchAgent 觸發）讀取。Registry 之外的專案一律不會被自動修復。
+- **刪除專案後**：檔案路徑可能變 stale，用 `--unregister-target` 清掉該列即可（target 已從 filesystem 刪除也能成功）。
+
 註冊 target：
 
 ```fish
