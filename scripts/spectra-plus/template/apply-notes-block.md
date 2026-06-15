@@ -50,7 +50,7 @@
      - `deviation` entries are evaluated for whether the divergence is justified. An unjustified deviation is a Critical finding; a justified-but-undocumented-in-`design.md` deviation is at minimum a Warning recommending the divergence be back-filled into `design.md` during Fix Actions.
      - `open-question` entries are surfaced as Warning findings with a recommended `## Fix Actions` step naming how to obtain user confirmation before the round can pass.
 
-   The rater (Section 10) does not read this file directly; it reads only the reviewer findings, which already incorporate the notes context.
+   The main agent (Section 10) derives the round decision mechanically from the post-filter reviewer findings and does not read this file directly; the reviewer findings already incorporate the notes context.
 
    **Idempotence and ingest interaction**
    - `spectra-ingest` may modify `tasks.md` / `design.md` / `proposal.md`. After ingest resolves an open question, the agent MUST append a follow-up entry noting the resolution (do not delete or rewrite the original `open-question` entry — the historical record is the point).

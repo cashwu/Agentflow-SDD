@@ -32,6 +32,14 @@ function assert_not_contains
     end
 end
 
+function assert_not_contains_i
+    set file $argv[1]
+    set text $argv[2]
+    if rg -qi --fixed-strings "$text" "$file"
+        fail "$file unexpectedly contains (case-insensitive) $text"
+    end
+end
+
 function run_expect
     set expected $argv[1]
     set command $argv[2..-1]
@@ -75,6 +83,12 @@ for skill_path in $propose_outputs $apply_outputs
     assert_contains "$skill_path" "Confidence filter"
     assert_contains "$skill_path" "Common false positives"
     assert_contains "$skill_path" "Direct artifact-requirement violations MUST score"
+    # Rater removed: no rater sub-agent role and no quality_score field in any variant.
+    assert_not_contains_i "$skill_path" "rater"
+    assert_not_contains "$skill_path" "quality_score"
+    # Mechanical decision rule derived by the main agent after the confidence filter.
+    assert_contains "$skill_path" "surviving Critical"
+    assert_contains "$skill_path" "surviving Warning"
 end
 
 # Surgical & Simplicity discipline — apply-plus only (both variants)
