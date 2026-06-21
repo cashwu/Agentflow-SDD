@@ -8,6 +8,18 @@
 
 Plus skills 是 derived artifacts。若 Spectra.app 重新產生 `.agents/skills/` 或 `.claude/skills/`，可以用 installer 或 repair-all 補回。
 
+## Signals 共享層
+
+`openspec/signals/` 是一個跨 change 的共享記憶層，讓 plus review loop 不只在單一 change 內 gate 品質，也把反覆/跨 change 的高信號 issue 累積起來。完整 contract 見 `openspec/signals/README.md`，此處摘要：
+
+- **收錄門檻**：只收 plus review loop 中 post-filter 為 `Critical` / `Warning`（`confidence >= 80`）的 finding；不收 `Suggestion`、linter 可抓的問題或一次性雜訊。
+- **檔案 schema**：每個 signal 是 `openspec/signals/<slug>.md`，frontmatter 為 `id`、`type`（`friction` / `idea` / `gap` / `recurring-finding`）、`status`（`open` / `addressed` / `dismissed`）、`occurrences`、`first_seen`、`last_seen`、`links`，其後為標題、說明與 `## Occurrences` 區段。
+- **slug**：writer 指派的簡短語意 issue-class 識別碼（ASCII kebab-case，符合 `^[a-z0-9]+(-[a-z0-9]+)*$`，非 `location + summary` 機械轉換）。coin 新 slug 前 MUST 先列舉既有 `openspec/signals/*.md` 挑未存在 slug，建檔不覆寫既有檔。
+- **write 時機**：共用模板 `scripts/spectra-plus/template/review-loop-block.md` 的 `<!-- SIGNALS-WRITE-STEP -->` 步驟，在 review loop 結束（`decision` 為 `passed` / `aborted`、機械決策已寫入）後執行；對任一 round 出現過、依 issue class 去重的 post-filter `Critical` / `Warning` finding，命中既有 `open` 同 class signal 則就地遞增 `occurrences`、否則建新 signal。propose-plus 與 apply-plus 皆寫入。
+- **read 時機**：propose-plus 專屬模板 `scripts/spectra-plus/template/signals-read-block.md` 的 `<!-- SIGNALS-READ-STEP -->` 步驟，在「Scan existing specs for relevance」後讀取 open signals 作為 informational 排優先序輸入；apply-plus 不含此讀取步驟。
+- **status 由人維護**：自動 writer 永不把 `status` 改成 `addressed` / `dismissed` 或把已解決 signal 改回 `open`；狀態轉換是人工動作。
+- **並發風險**：本層不加鎖，兩個 run 同時寫同一 `<slug>.md`（含為同一新 issue-class coin 出相同自然 slug）可能遺失整筆 occurrence/links 甚至整個新建 signal；屬刻意取捨，人可事後校正並手動拆分誤併的 signal。
+
 ## 必要條件
 
 - 本機可執行 `fish`。

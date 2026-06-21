@@ -91,6 +91,19 @@ for skill_path in $propose_outputs $apply_outputs
     assert_contains "$skill_path" "surviving Warning"
 end
 
+# Signals shared layer — write step in both plus skills (all variants), read step in propose-plus only.
+# Also assert the DO NOT EDIT marker survives in all four variants (not just the claude ones).
+for skill_path in $propose_outputs $apply_outputs
+    assert_contains "$skill_path" "<!-- SIGNALS-WRITE-STEP -->"
+    assert_contains "$skill_path" "$marker"
+end
+for skill_path in $propose_outputs
+    assert_contains "$skill_path" "<!-- SIGNALS-READ-STEP -->"
+end
+for skill_path in $apply_outputs
+    assert_not_contains "$skill_path" "<!-- SIGNALS-READ-STEP -->"
+end
+
 # Surgical & Simplicity discipline — apply-plus only (both variants)
 for skill_path in $apply_outputs
     assert_contains "$skill_path" "Surgical & Simplicity Discipline"
