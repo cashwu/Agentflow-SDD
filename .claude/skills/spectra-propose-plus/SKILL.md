@@ -86,6 +86,7 @@ If no argument is provided, the workflow will extract requirements from conversa
    - Surface the relevant `open` signals as an INFORMATIONAL prioritization summary — for example, which recurring issue classes or frictions might relate to this change — to help decide what to include in or exclude from scope.
    - This read is purely informational. It MUST NOT block the workflow, MUST NOT require user confirmation to continue, and MUST NOT modify, create, or delete any signal. Read signals only; never write them.
    - If `openspec/signals/` is absent or contains no `open` signal, continue SILENTLY without printing any summary.
+
 4. **Create the change directory**
 
    ```bash
@@ -97,7 +98,7 @@ If no argument is provided, the workflow will extract requirements from conversa
 5. **Write the proposal**
 
    **IMPORTANT — file path rules for the `## Impact` section:**
-   - All file paths SHALL be written relative to the project root (e.g., `src/lib/foo.ts`, `src-tauri/crates/core/src/bar.rs`, `docs/specs/specs/auth/spec.md`).
+   - All file paths SHALL be written relative to the project root (e.g., `src/lib/foo.ts`, `src-tauri/crates/core/src/bar.rs`, `openspec/specs/auth/spec.md`).
    - Do NOT use relative fragments (e.g., `parser/mod.rs`, `core/mod.rs`) — preflight rejects them as non-anchored paths.
    - Do NOT wrap shell commands in backticks inside artifact text (e.g., `` `git mv a.rs b.rs` ``) — preflight's backtick extractor will otherwise mis-parse the command as a file reference.
    - When referring to a file without naming its concrete path, use descriptive prose (e.g., "Parser 入口檔") rather than a backticked path fragment.
@@ -305,12 +306,22 @@ If no argument is provided, the workflow will extract requirements from conversa
    If the user explicitly requests another language later, follow the latest user instruction.
 
    The goal is predictable Chinese-facing artifacts for propose-plus while preserving exact technical references and keeping spec deltas compatible with master specs.
-10. **Sub-Agent Review/Rating/Fix Loop**
+
+8. **Validation**
+
+    ```bash
+    spectra validate "<name>"
+    ```
+
+    If validation fails, fix errors and re-validate.
+
+
+9. **Sub-Agent Review/Rating/Fix Loop**
 
    Run this review/rating/fix loop once per change, after the normal workflow has completed its required artifact or task work.
 
    **Entry conditions**
-   - For `spectra-propose-plus`, start this loop only after proposal, design, specs, and tasks artifacts required for apply are complete.
+   - For `spectra-propose-plus`, start this loop only after proposal, design, specs, and tasks artifacts required for apply are complete AND `spectra validate "<name>"` has passed. If validation fixes are required, complete them before entering this loop.
    - For `spectra-apply-plus`, start this loop only after all implementation tasks are complete and `tasks.md 全 [x]`.
    - Do not run this loop per artifact or per task; the granularity is per-change.
 
@@ -319,7 +330,7 @@ If no argument is provided, the workflow will extract requirements from conversa
    - After the confidence filter, the main agent derives the round decision mechanically (no scoring sub-agent): if any surviving finding has `severity == Critical`, the decision is `next_round`; otherwise if any surviving finding has `severity == Warning`, the decision is `next_round`; otherwise (only `Suggestion` findings remain, or none) the decision is `passed`.
    - A round passes only when, after the confidence filter, there is no surviving Critical and no surviving Warning finding.
    - If round 6 still does not meet the pass condition, write `decision: aborted`, print the unresolved findings, and end the plus workflow.
-   - If a round passes, write `decision: passed`, stop the loop, and continue to the normal final validation or completion summary.
+   - If a round passes, write `decision: passed`, stop the loop, and continue to the completion summary.
 
    **Fresh sub-agent calls**
    - Each round MUST spawn TWO fresh reviewer sub-agents in parallel (single message, two tool calls):
@@ -399,6 +410,7 @@ If no argument is provided, the workflow will extract requirements from conversa
    - If the decision is `next_round`, fix the concrete findings before starting the next round.
    - Record modified files and the reason for each fix in `## Fix Actions`.
    - Re-run relevant CLI checks or tests before the next round when fixes affect generated artifacts or implementation code.
+   - For `spectra-propose-plus`, if any fix action modifies proposal, design, tasks, or spec artifacts, run `spectra validate "<name>"` again and fix validation errors before starting the next round.
    - If no fixes are needed because the round passed, write `None; pass condition met.`
 
    **Round file language**
@@ -422,15 +434,8 @@ If no argument is provided, the workflow will extract requirements from conversa
    - **On no `open` match** (including when only an `addressed` or `dismissed` signal matches): Create a NEW signal. Before coining the `<slug>`, list the existing `openspec/signals/*.md` files and choose a `<slug>` that does NOT already exist. The slug is a short semantic ASCII kebab-case issue-class identifier matching `^[a-z0-9]+(-[a-z0-9]+)*$` (e.g. `spec-requirement-no-backing-task`); it is NOT a mechanical transform of `location + summary`. If the natural slug is already taken, disambiguate with a suffix. Creating a signal MUST NOT overwrite any existing signal file and MUST NOT change any existing signal's human-maintained `status`. The new signal has `status: open`, `occurrences: 1`, and `first_seen` = `last_seen` = today.
    - **Signal file schema**: Each signal file has frontmatter with `id` (= slug), `type` (default `recurring-finding` for review-loop-written signals), `status`, `occurrences`, `first_seen`, `last_seen`, and `links`; followed by a title, a description paragraph, and a `## Occurrences` section.
    - **Failure handling**: If writing under `openspec/signals/` fails, print a warning but do NOT fail the plus workflow — signals are an auxiliary layer. If there are no qualifying findings, write nothing.
-10. **Validation**
 
-    ```bash
-    spectra validate "<name>"
-    ```
-
-    If validation fails, fix errors and re-validate.
-
-11. **Finish the plus proposal workflow**
+10. **Finish the plus proposal workflow**
 
     Show summary:
     - Change name and location
@@ -449,7 +454,7 @@ If no argument is provided, the workflow will extract requirements from conversa
     - The plus quality gate has completed or aborted with a recorded round file.
     - Running `/spectra-apply <change-name>` or `/spectra-apply-plus <change-name>` later can start implementation.
 
-    If you are currently in Codex Plan Mode, also remind the user to switch the session to normal mode before running an apply workflow. This is only a reminder: do NOT try to use ExitPlanMode or EnterPlanMode, do NOT ask whether to switch modes, and do NOT invoke apply.
+    If the current environment has a separate planning mode, also remind the user to switch the session to normal mode before running an apply workflow. This is only a reminder: do NOT try to switch modes with any tool, do NOT ask whether to switch modes, and do NOT invoke apply.
 
     The propose-plus workflow ENDS here.
 
@@ -462,6 +467,7 @@ If no argument is provided, the workflow will extract requirements from conversa
     This behavior is identical across Auto Mode, interactive mode, and any other agent mode.
 
     The end state is explicit: artifacts exist, validation has run, review records exist, and the change remains active.
+
 **Artifact Creation Guidelines**
 
 - Follow the `instruction` field from `spectra instructions` for each artifact type

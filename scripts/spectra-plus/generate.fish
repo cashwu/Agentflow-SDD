@@ -177,7 +177,7 @@ function apply_transform
         }
         NR == start {
             if (op == "replace") {
-                printf "%s", template
+                printf "%s\n", template
             } else if (op == "append") {
                 print
             }
@@ -187,12 +187,24 @@ function apply_transform
             if (op == "append") {
                 print
                 if (NR == end) {
-                    printf "\n%s", template
+                    printf "\n%s\n", template
                 }
             }
             next
         }
         ' "$input_path" > "$output_path"
+end
+
+function renumber_step_headings
+    set input_path $argv[1]
+    set output_path $argv[2]
+
+    awk '
+        /^[0-9]+\. \*\*/ {
+            sub(/^[0-9]+\./, ++step ".")
+        }
+        { print }
+    ' "$input_path" > "$output_path"
 end
 
 function set_frontmatter_field
@@ -338,6 +350,10 @@ function generate_skill
 
             command mv -f "$next_path" "$work_path"
         end
+
+        set renumbered_path (mktemp "/tmp/spectra-plus-$skill-$variant.XXXXXX")
+        renumber_step_headings "$work_path" "$renumbered_path"
+        command mv -f "$renumbered_path" "$work_path"
 
         set meta_keys (yq -r ".skills.\"$skill\".metadata | keys | .[]" "$rules_file")
         for key in $meta_keys

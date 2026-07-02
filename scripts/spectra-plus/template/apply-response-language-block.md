@@ -32,3 +32,10 @@
    - Spec files (`openspec/changes/<change>/specs/**/spec.md` and `openspec/specs/**/spec.md`): always English, regardless of any other language rule. Delta specs are merged into master specs and must use normative SHALL/MUST wording.
 
    Keep CLI commands, file paths, code identifiers, schema field names, artifact IDs, capability slugs, and existing quoted source text verbatim. If the user explicitly requests another language later, follow the latest user instruction.
+
+   **Archive guidance timing**
+
+   Do not suggest archive before the Sub-Agent Review/Rating/Fix Loop has ended with `decision: passed`.
+
+   - If the final round decision is `passed`, the final response MAY tell the user they can archive with the appropriate `spectra-archive` skill invocation for the current variant.
+   - If the final round decision is `aborted`, do NOT suggest archive; summarize the unresolved findings and point to the final round file.

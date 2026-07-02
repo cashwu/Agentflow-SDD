@@ -82,6 +82,24 @@ function assert_plus_outputs --argument-names target
     test -f "$target/.agents/skills/spectra-apply-plus/SKILL.md"; or fail "missing codex apply-plus in $target"
     assert_contains "$target/.agents/skills/spectra-commit/SKILL.md" "$guard_marker"
     assert_contains "$target/.claude/skills/spectra-commit/SKILL.md" "$guard_marker"
+    for path in "$target/.agents/skills/spectra-propose-plus/SKILL.md" "$target/.claude/skills/spectra-propose-plus/SKILL.md"
+        assert_contains "$path" "8. **Validation**"
+        assert_contains "$path" "9. **Sub-Agent Review/Rating/Fix Loop**"
+        assert_contains "$path" "10. **Finish the plus proposal workflow**"
+        assert_contains "$path" "has passed. If validation fixes are required, complete them before entering this loop."
+        assert_contains "$path" 'if any fix action modifies proposal, design, tasks, or spec artifacts, run `spectra validate "<name>"` again'
+        assert_not_contains "$path" "Codex Plan Mode"
+        assert_not_contains "$path" "docs/specs/"
+    end
+    for path in "$target/.agents/skills/spectra-apply-plus/SKILL.md" "$target/.claude/skills/spectra-apply-plus/SKILL.md"
+        assert_contains "$path" "8. **Implementation Notes Protocol**"
+        assert_contains "$path" "12. **Sub-Agent Review/Rating/Fix Loop**"
+        assert_contains "$path" "Reviewer A — Adherence in the Sub-Agent Review/Rating/Fix Loop MUST"
+        assert_contains "$path" "archive guidance is deferred until the plus quality gate passes"
+        assert_contains "$path" "All tasks complete. The plus quality gate runs next; archive guidance is shown only if it passes."
+        assert_not_contains "$path" "All tasks complete! You can archive this change with"
+        assert_not_contains "$path" "docs/specs/"
+    end
 end
 
 function make_launchctl_stub --argument-names dir mode
@@ -161,14 +179,24 @@ set repair_home (make_home)
 set repair_run (make_run_dir)
 set repair_a (mktemp -d /tmp/spectra-plus-repair-a.XXXXXX)
 set repair_b (mktemp -d /tmp/spectra-plus-repair-b.XXXXXX)
+set repair_stale_plus (mktemp -d /tmp/spectra-plus-repair-stale-plus.XXXXXX)
 make_target "$repair_a"
 make_target "$repair_b"
+make_target "$repair_stale_plus"
+run_expect 0 "$installer" --target "$repair_stale_plus"
+for path in "$repair_stale_plus/.agents/skills/spectra-apply-plus/SKILL.md" "$repair_stale_plus/.claude/skills/spectra-apply-plus/SKILL.md"
+    set stale_output (mktemp /tmp/spectra-plus-stale-output.XXXXXX)
+    awk '{ gsub(/archive guidance is deferred until the plus quality gate passes/, "suggest archive"); print }' "$path" > "$stale_output"
+    command mv -f "$stale_output" "$path"
+end
 strip_guard "$repair_b/.agents/skills/spectra-commit/SKILL.md"
 run_expect 0 env HOME="$repair_home" TMPDIR="$repair_run" "$installer" --register-target "$repair_a"
 run_expect 0 env HOME="$repair_home" TMPDIR="$repair_run" "$installer" --register-target "$repair_b"
+run_expect 0 env HOME="$repair_home" TMPDIR="$repair_run" "$installer" --register-target "$repair_stale_plus"
 run_expect 0 env HOME="$repair_home" TMPDIR="$repair_run" "$installer" --repair-all --force
 assert_plus_outputs "$repair_a"
 assert_plus_outputs "$repair_b"
+assert_plus_outputs "$repair_stale_plus"
 
 set boundary_home (make_home)
 set boundary_run (make_run_dir)
@@ -336,5 +364,7 @@ assert_contains /tmp/spectra-plus-repair-test.out "--register-target"
 assert_contains /tmp/spectra-plus-repair-test.out "--repair-all"
 assert_contains /tmp/spectra-plus-repair-test.out "--install-launch-agent"
 assert_contains /tmp/spectra-plus-repair-test.out "--force"
+assert_contains /tmp/spectra-plus-repair-test.out ".claude/skills/spectra-commit/SKILL.md"
+assert_contains /tmp/spectra-plus-repair-test.out ".agents/skills/spectra-commit/SKILL.md"
 
 echo "PASS: repair-all checks"

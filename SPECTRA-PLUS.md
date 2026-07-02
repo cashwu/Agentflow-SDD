@@ -228,7 +228,7 @@ Spectra.app reset 後手動補回：
 fish scripts/spectra-plus/tests/installer-commit-guard-checks.fish
 fish scripts/spectra-plus/tests/repair-all-checks.fish
 fish scripts/spectra-plus/tests/generator-checks.fish
-spectra validate auto-repair-spectra-plus-skills
+spectra validate --specs
 ```
 
 語法檢查：

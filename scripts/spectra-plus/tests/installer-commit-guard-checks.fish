@@ -109,6 +109,17 @@ diff -u /tmp/spectra-plus-agents-commit.before "$target/.agents/skills/spectra-c
 assert_contains /tmp/spectra-plus-installer-test.out "spectra-commit guard"
 
 run_expect 0 "$installer" --target "$target"
+for path in "$target/.agents/skills/spectra-propose-plus/SKILL.md" "$target/.claude/skills/spectra-propose-plus/SKILL.md"
+    assert_contains "$path" "has passed. If validation fixes are required, complete them before entering this loop."
+    assert_contains "$path" 'if any fix action modifies proposal, design, tasks, or spec artifacts, run `spectra validate "<name>"` again'
+    assert_not_contains "$path" "Codex Plan Mode"
+end
+for path in "$target/.agents/skills/spectra-apply-plus/SKILL.md" "$target/.claude/skills/spectra-apply-plus/SKILL.md"
+    assert_contains "$path" "Reviewer A — Adherence in the Sub-Agent Review/Rating/Fix Loop MUST"
+    assert_contains "$path" "archive guidance is deferred until the plus quality gate passes"
+    assert_contains "$path" "All tasks complete. The plus quality gate runs next; archive guidance is shown only if it passes."
+    assert_not_contains "$path" "All tasks complete! You can archive this change with"
+end
 for path in "$target/.agents/skills/spectra-commit/SKILL.md" "$target/.claude/skills/spectra-commit/SKILL.md"
     assert_contains "$path" "$guard_marker"
     assert_contains "$path" ".agents/skills/spectra-*-plus/"
@@ -143,5 +154,15 @@ make_target "$unsupported"
 printf '%s\n' '---' 'name: spectra-commit' '---' 'unsupported shape' > "$unsupported/.agents/skills/spectra-commit/SKILL.md"
 run_expect 1 "$installer" --target "$unsupported"
 assert_contains /tmp/spectra-plus-installer-test.err "spectra-commit guard"
+
+set stale_base (mktemp -d /tmp/spectra-plus-installer-stale-base.XXXXXX)
+make_target "$stale_base"
+printf '\nDetect dormancy from `docs/specs/changes/<name>/`\n' >> "$stale_base/.agents/skills/spectra-apply/SKILL.md"
+printf '\nAll file paths example: `docs/specs/specs/auth/spec.md`\n' >> "$stale_base/.agents/skills/spectra-propose/SKILL.md"
+run_expect 0 "$installer" --target "$stale_base"
+assert_contains "$stale_base/.agents/skills/spectra-apply-plus/SKILL.md" "openspec/changes/<name>/"
+assert_contains "$stale_base/.agents/skills/spectra-propose-plus/SKILL.md" "openspec/specs/auth/spec.md"
+assert_not_contains "$stale_base/.agents/skills/spectra-apply-plus/SKILL.md" "docs/specs/"
+assert_not_contains "$stale_base/.agents/skills/spectra-propose-plus/SKILL.md" "docs/specs/"
 
 echo "PASS: installer commit guard checks"

@@ -15,7 +15,7 @@
 - 不要「順手」改鄰近區塊的程式碼、註解或格式。
 - 不要重構沒壞的東西；不要為了個人風格偏好改既有寫法。
 - 即使既有風格與你習慣不同，跟著現況走（match existing style）。
-- 若注意到不相關的死碼、bug 或可改進處，**不要直接刪或改** — 在 step 11 的 `implementation-notes.md` 以 `open-question` 條目記錄，交給使用者決定。
+- 若注意到不相關的死碼、bug 或可改進處，**不要直接刪或改** — 依照 Implementation Notes Protocol 在 `implementation-notes.md` 以 `open-question` 條目記錄，交給使用者決定。
 - 只移除「因為本次改動而變成 orphan」的 import、變數、函式；既有的 pre-existing 死碼不要動。
 - 驗收標準：本次 diff 的每一行，都能直接追溯到 `tasks.md` 中的某條任務或 `design.md` 中的 Implementation Contract 項目。
 
@@ -32,6 +32,6 @@ Simplicity First 與 Surgical Changes 的目的是「不寫不必要的東西」
 
 判準：實作完成後重讀 diff，若 future-self 或 reviewer 需要花超過幾秒才能理解某行的意圖，那不是 simpler，是 cleverer。Cleverer 違反紀律。Clarity 永遠優先於 brevity。
 
-若違反上述任一條（無論刻意或非刻意），視同 task 未完成 — 在執行 `spectra task done` 之前先修正。若是刻意 deviate（例如 contract 與既有程式衝突，需要動到鄰近區塊），依 step 11 Implementation Notes Protocol 寫一筆 `deviation` 條目，說明原因。
+若違反上述任一條（無論刻意或非刻意），視同 task 未完成 — 在執行 `spectra task done` 之前先修正。若是刻意 deviate（例如 contract 與既有程式衝突，需要動到鄰近區塊），依 Implementation Notes Protocol 寫一筆 `deviation` 條目，說明原因。
 
 **Keep verbatim (do not translate):** shell commands, file paths, code identifiers, schema field names (`applyRequires`, `outputPath` 等), artifact IDs, capability slugs, and quoted source text. If the user explicitly requests another language later, follow the latest user instruction.

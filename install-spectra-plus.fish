@@ -21,8 +21,10 @@ function usage
     echo "必要條件："
     echo "  目標專案已存在 .claude/skills/spectra-propose/SKILL.md"
     echo "  目標專案已存在 .claude/skills/spectra-apply/SKILL.md"
+    echo "  目標專案已存在 .claude/skills/spectra-commit/SKILL.md"
     echo "  目標專案已存在 .agents/skills/spectra-propose/SKILL.md（Codex 變體）"
     echo "  目標專案已存在 .agents/skills/spectra-apply/SKILL.md（Codex 變體）"
+    echo "  目標專案已存在 .agents/skills/spectra-commit/SKILL.md（Codex 變體）"
     echo "  本機可執行 fish 與 yq（macOS 可用 brew install yq 安裝）"
     echo ""
     echo "其他選項："
@@ -419,6 +421,19 @@ function plus_outputs_are_current --argument-names target_path
         file_has "$skill_path" "Simplicity First"; or return 1
         file_has "$skill_path" "Surgical Changes"; or return 1
         file_has "$skill_path" "Maintain Balance"; or return 1
+        file_has "$skill_path" "8. **Implementation Notes Protocol**"; or return 1
+        file_has "$skill_path" "9. **Final check**"; or return 1
+        file_has "$skill_path" "10. **On completion or pause, show status**"; or return 1
+        file_has "$skill_path" "11. **Apply-plus response language**"; or return 1
+        file_has "$skill_path" "12. **Sub-Agent Review/Rating/Fix Loop**"; or return 1
+        file_has "$skill_path" "Reviewer A — Adherence in the Sub-Agent Review/Rating/Fix Loop MUST"; or return 1
+        file_has "$skill_path" "archive guidance is deferred until the plus quality gate passes"; or return 1
+        file_has "$skill_path" "All tasks complete. The plus quality gate runs next; archive guidance is shown only if it passes."; or return 1
+        file_has "$skill_path" 'Do not suggest archive before the Sub-Agent Review/Rating/Fix Loop has ended with `decision: passed`.'; or return 1
+        file_lacks "$skill_path" "All tasks complete! You can archive this change with"; or return 1
+        file_lacks "$skill_path" "The review-loop reviewer"; or return 1
+        file_lacks "$skill_path" "Section 10"; or return 1
+        file_lacks "$skill_path" "step 11"; or return 1
     end
 
     for skill_path in $propose_outputs $apply_outputs
@@ -428,11 +443,74 @@ function plus_outputs_are_current --argument-names target_path
         file_has "$skill_path" "Confidence filter"; or return 1
         file_has "$skill_path" "Common false positives"; or return 1
         file_has "$skill_path" "Direct artifact-requirement violations MUST score"; or return 1
+        file_lacks "$skill_path" "Codex Plan Mode"; or return 1
+        file_lacks "$skill_path" "ExitPlanMode"; or return 1
+        file_lacks "$skill_path" "EnterPlanMode"; or return 1
+        file_lacks "$skill_path" "docs/specs/"; or return 1
     end
 
     for skill_path in $propose_outputs
+        file_has "$skill_path" "8. **Validation**"; or return 1
+        file_has "$skill_path" "9. **Sub-Agent Review/Rating/Fix Loop**"; or return 1
+        file_has "$skill_path" "10. **Finish the plus proposal workflow**"; or return 1
+        file_has "$skill_path" 'has passed. If validation fixes are required, complete them before entering this loop.'; or return 1
+        file_has "$skill_path" 'if any fix action modifies proposal, design, tasks, or spec artifacts, run `spectra validate "<name>"` again'; or return 1
         file_lacks "$skill_path" "Surgical & Simplicity Discipline"; or return 1
         file_lacks "$skill_path" "Maintain Balance"; or return 1
+    end
+end
+
+function validate_plus_outputs_current --argument-names target_path
+    set propose_outputs \
+        "$target_path/.claude/skills/spectra-propose-plus/SKILL.md" \
+        "$target_path/.agents/skills/spectra-propose-plus/SKILL.md"
+    set apply_outputs \
+        "$target_path/.claude/skills/spectra-apply-plus/SKILL.md" \
+        "$target_path/.agents/skills/spectra-apply-plus/SKILL.md"
+
+    for skill_path in $apply_outputs
+        assert_contains "$skill_path" "ai 的回覆要用中文" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "Implementation Notes Protocol" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "Surgical & Simplicity Discipline" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "Simplicity First" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "Surgical Changes" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "Maintain Balance" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "8. **Implementation Notes Protocol**" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "9. **Final check**" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "10. **On completion or pause, show status**" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "11. **Apply-plus response language**" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "12. **Sub-Agent Review/Rating/Fix Loop**" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "Reviewer A — Adherence in the Sub-Agent Review/Rating/Fix Loop MUST" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "archive guidance is deferred until the plus quality gate passes" "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" "All tasks complete. The plus quality gate runs next; archive guidance is shown only if it passes." "spectra-apply-plus ($skill_path)"
+        assert_contains "$skill_path" 'Do not suggest archive before the Sub-Agent Review/Rating/Fix Loop has ended with `decision: passed`.' "spectra-apply-plus ($skill_path)"
+        assert_not_contains "$skill_path" "All tasks complete! You can archive this change with" "spectra-apply-plus ($skill_path)"
+        assert_not_contains "$skill_path" "The review-loop reviewer" "spectra-apply-plus ($skill_path)"
+        assert_not_contains "$skill_path" "Section 10" "spectra-apply-plus ($skill_path)"
+        assert_not_contains "$skill_path" "step 11" "spectra-apply-plus ($skill_path)"
+    end
+
+    for skill_path in $propose_outputs $apply_outputs
+        assert_contains "$skill_path" "Reviewer A — Adherence" "spectra plus skill ($skill_path)"
+        assert_contains "$skill_path" "Reviewer B — Quality" "spectra plus skill ($skill_path)"
+        assert_contains "$skill_path" "Confidence scoring rubric" "spectra plus skill ($skill_path)"
+        assert_contains "$skill_path" "Confidence filter" "spectra plus skill ($skill_path)"
+        assert_contains "$skill_path" "Common false positives" "spectra plus skill ($skill_path)"
+        assert_contains "$skill_path" "Direct artifact-requirement violations MUST score" "spectra plus skill ($skill_path)"
+        assert_not_contains "$skill_path" "Codex Plan Mode" "spectra plus skill ($skill_path)"
+        assert_not_contains "$skill_path" "ExitPlanMode" "spectra plus skill ($skill_path)"
+        assert_not_contains "$skill_path" "EnterPlanMode" "spectra plus skill ($skill_path)"
+        assert_not_contains "$skill_path" "docs/specs/" "spectra plus skill ($skill_path)"
+    end
+
+    for skill_path in $propose_outputs
+        assert_contains "$skill_path" "8. **Validation**" "spectra-propose-plus ($skill_path)"
+        assert_contains "$skill_path" "9. **Sub-Agent Review/Rating/Fix Loop**" "spectra-propose-plus ($skill_path)"
+        assert_contains "$skill_path" "10. **Finish the plus proposal workflow**" "spectra-propose-plus ($skill_path)"
+        assert_contains "$skill_path" 'has passed. If validation fixes are required, complete them before entering this loop.' "spectra-propose-plus ($skill_path)"
+        assert_contains "$skill_path" 'if any fix action modifies proposal, design, tasks, or spec artifacts, run `spectra validate "<name>"` again' "spectra-propose-plus ($skill_path)"
+        assert_not_contains "$skill_path" "Surgical & Simplicity Discipline" "spectra-propose-plus ($skill_path)"
+        assert_not_contains "$skill_path" "Maintain Balance" "spectra-propose-plus ($skill_path)"
     end
 end
 
@@ -674,38 +752,7 @@ function install_target --argument-names target_path
         require_file "$target_path/.agents/skills/spectra-propose-plus/SKILL.md" "spectra-propose-plus skill (Codex)"
         require_file "$target_path/.agents/skills/spectra-apply-plus/SKILL.md" "spectra-apply-plus skill (Codex)"
 
-        set propose_outputs \
-            "$target_path/.claude/skills/spectra-propose-plus/SKILL.md" \
-            "$target_path/.agents/skills/spectra-propose-plus/SKILL.md"
-        set apply_outputs \
-            "$target_path/.claude/skills/spectra-apply-plus/SKILL.md" \
-            "$target_path/.agents/skills/spectra-apply-plus/SKILL.md"
-
-        # apply-plus 專屬：中文回覆、Implementation Notes、Surgical & Simplicity 紀律
-        for skill_path in $apply_outputs
-            assert_contains "$skill_path" "ai 的回覆要用中文" "spectra-apply-plus ($skill_path)"
-            assert_contains "$skill_path" "Implementation Notes Protocol" "spectra-apply-plus ($skill_path)"
-            assert_contains "$skill_path" "Surgical & Simplicity Discipline" "spectra-apply-plus ($skill_path)"
-            assert_contains "$skill_path" "Simplicity First" "spectra-apply-plus ($skill_path)"
-            assert_contains "$skill_path" "Surgical Changes" "spectra-apply-plus ($skill_path)"
-            assert_contains "$skill_path" "Maintain Balance" "spectra-apply-plus ($skill_path)"
-        end
-
-        # 兩個 plus skill 共用：review-loop 雙 reviewer + confidence filter
-        for skill_path in $propose_outputs $apply_outputs
-            assert_contains "$skill_path" "Reviewer A — Adherence" "spectra plus skill ($skill_path)"
-            assert_contains "$skill_path" "Reviewer B — Quality" "spectra plus skill ($skill_path)"
-            assert_contains "$skill_path" "Confidence scoring rubric" "spectra plus skill ($skill_path)"
-            assert_contains "$skill_path" "Confidence filter" "spectra plus skill ($skill_path)"
-            assert_contains "$skill_path" "Common false positives" "spectra plus skill ($skill_path)"
-            assert_contains "$skill_path" "Direct artifact-requirement violations MUST score" "spectra plus skill ($skill_path)"
-        end
-
-        # propose-plus 不應含 apply-only 紀律（防止 rules.yaml 串錯 transformation）
-        for skill_path in $propose_outputs
-            assert_not_contains "$skill_path" "Surgical & Simplicity Discipline" "spectra-propose-plus ($skill_path)"
-            assert_not_contains "$skill_path" "Maintain Balance" "spectra-propose-plus ($skill_path)"
-        end
+        validate_plus_outputs_current "$target_path"
     end
 
     echo ""

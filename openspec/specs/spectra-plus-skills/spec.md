@@ -114,15 +114,26 @@ tests:
 ---
 ### Requirement: spectra-propose-plus quality gate
 
-The system SHALL provide a `spectra-propose-plus` skill that mirrors the steps of `spectra-propose` for artifact creation (proposal, design, specs, tasks) but replaces the inline self-review and analyze-fix loop with a sub-agent review/rating/fix loop. The skill MUST run the loop at per-change granularity (after all required artifacts are written, not per artifact). The skill MUST cap the loop at 6 rounds. The skill MUST NOT use a rater sub-agent and MUST NOT produce a `quality_score`; instead the main agent SHALL derive the round decision mechanically from the post-filter findings. A round MUST be treated as passing if and only if, after the confidence filter, no surviving finding has `severity == Critical` and no surviving finding has `severity == Warning` (only `Suggestion` findings remain, or none). The skill MUST NOT execute `spectra park` at the end of its workflow.
+The system SHALL provide a `spectra-propose-plus` skill that mirrors the steps of `spectra-propose` for artifact creation (proposal, design, specs, tasks) but replaces the inline self-review and analyze-fix loop with a sub-agent review/rating/fix loop. The skill MUST run `spectra validate` before entering the sub-agent loop, so validation fixes happen before the quality gate reviews the final artifact state. The skill MUST run the loop at per-change granularity (after all required artifacts are written and validation has passed, not per artifact). The skill MUST cap the loop at 6 rounds. The skill MUST NOT use a rater sub-agent and MUST NOT produce a `quality_score`; instead the main agent SHALL derive the round decision mechanically from the post-filter findings. A round MUST be treated as passing if and only if, after the confidence filter, no surviving finding has `severity == Critical` and no surviving finding has `severity == Warning` (only `Suggestion` findings remain, or none). The skill MUST NOT execute `spectra park` at the end of its workflow.
 
 #### Scenario: Loop reaches pass condition before max rounds
 
 - **WHEN** a round completes with no surviving `Critical` finding and no surviving `Warning` finding after the confidence filter
 - **THEN** the skill writes the corresponding round file with `decision: passed`
 - **AND** stops the loop without starting another round
-- **AND** continues to `spectra validate`
+- **AND** continues to the final summary without running post-gate validation fixes
 - **AND** does not execute `spectra park`
+
+#### Scenario: Validation precedes the quality gate
+
+- **WHEN** `spectra-propose-plus` has created all artifacts required for apply
+- **THEN** it runs `spectra validate "<name>"`
+- **AND** fixes validation errors before the first review-loop round
+- **AND** the review loop starts only after validation passes
+
+- **WHEN** a review-loop Fix Action modifies proposal, design, tasks, or spec artifacts
+- **THEN** it runs `spectra validate "<name>"` again
+- **AND** fixes validation errors before starting the next review-loop round
 
 #### Scenario: Surviving Warning forces another round
 
@@ -167,7 +178,7 @@ tests:
 ---
 ### Requirement: spectra-apply-plus quality gate
 
-The system SHALL provide a `spectra-apply-plus` skill that mirrors `spectra-apply` for task execution and appends a sub-agent review/rating/fix loop after all tasks complete. The skill MUST run the loop at per-change granularity (once, after every task is marked complete in `tasks.md`). The skill MUST cap the loop at 6 rounds. The skill MUST NOT use a rater sub-agent and MUST NOT produce a `quality_score`; instead the main agent SHALL derive the round decision mechanically from the post-filter findings. A round MUST be treated as passing if and only if, after the confidence filter, no surviving finding has `severity == Critical` and no surviving finding has `severity == Warning` (only `Suggestion` findings remain, or none).
+The system SHALL provide a `spectra-apply-plus` skill that mirrors `spectra-apply` for task execution and appends a sub-agent review/rating/fix loop after all tasks complete. The skill MUST run the loop at per-change granularity (once, after every task is marked complete in `tasks.md`). The skill MUST cap the loop at 6 rounds. The skill MUST NOT suggest archiving the change before the review loop has ended with `decision: passed`. The skill MUST NOT use a rater sub-agent and MUST NOT produce a `quality_score`; instead the main agent SHALL derive the round decision mechanically from the post-filter findings. A round MUST be treated as passing if and only if, after the confidence filter, no surviving finding has `severity == Critical` and no surviving finding has `severity == Warning` (only `Suggestion` findings remain, or none).
 
 #### Scenario: Review loop runs after tasks complete
 
@@ -187,6 +198,15 @@ The system SHALL provide a `spectra-apply-plus` skill that mirrors `spectra-appl
 - **THEN** the skill writes round 6 with `decision: aborted`
 - **AND** prints a warning summarising the unresolved findings
 - **AND** ends the workflow
+
+#### Scenario: Archive guidance waits for gate pass
+
+- **WHEN** all tasks are complete but the review loop has not passed yet
+- **THEN** `spectra-apply-plus` states that archive guidance is deferred until the plus quality gate passes
+- **AND** does not tell the user to run `spectra archive`, `/spectra-archive`, or `$spectra-archive`
+
+- **WHEN** the final review-loop round has `decision: passed`
+- **THEN** the final response may suggest archiving the change
 
 
 <!-- @trace

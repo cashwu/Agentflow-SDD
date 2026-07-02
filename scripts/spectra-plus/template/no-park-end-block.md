@@ -17,7 +17,7 @@
     - The plus quality gate has completed or aborted with a recorded round file.
     - Running `/spectra-apply <change-name>` or `/spectra-apply-plus <change-name>` later can start implementation.
 
-    If you are currently in Codex Plan Mode, also remind the user to switch the session to normal mode before running an apply workflow. This is only a reminder: do NOT try to use ExitPlanMode or EnterPlanMode, do NOT ask whether to switch modes, and do NOT invoke apply.
+    If the current environment has a separate planning mode, also remind the user to switch the session to normal mode before running an apply workflow. This is only a reminder: do NOT try to switch modes with any tool, do NOT ask whether to switch modes, and do NOT invoke apply.
 
     The propose-plus workflow ENDS here.
 

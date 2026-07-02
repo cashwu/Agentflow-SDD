@@ -85,7 +85,7 @@ If no argument is provided, the workflow will extract requirements from conversa
 5. **Write the proposal**
 
    **IMPORTANT — file path rules for the `## Impact` section:**
-   - All file paths SHALL be written relative to the project root (e.g., `src/lib/foo.ts`, `src-tauri/crates/core/src/bar.rs`, `docs/specs/specs/auth/spec.md`).
+   - All file paths SHALL be written relative to the project root (e.g., `src/lib/foo.ts`, `src-tauri/crates/core/src/bar.rs`, `openspec/specs/auth/spec.md`).
    - Do NOT use relative fragments (e.g., `parser/mod.rs`, `core/mod.rs`) — preflight rejects them as non-anchored paths.
    - Do NOT wrap shell commands in backticks inside artifact text (e.g., `` `git mv a.rs b.rs` ``) — preflight's backtick extractor will otherwise mis-parse the command as a file reference.
    - When referring to a file without naming its concrete path, use descriptive prose (e.g., "Parser 入口檔") rather than a backticked path fragment.
@@ -358,7 +358,7 @@ If no argument is provided, the workflow will extract requirements from conversa
 
     Inform the user that the change is parked and that running `/spectra-apply <change-name>` when ready will auto-unpark the change and start implementation.
 
-    If you are currently in Codex Plan Mode, also remind the user to switch the session to normal mode before running `/spectra-apply <change-name>`. This is only a reminder: do NOT try to use ExitPlanMode or EnterPlanMode, do NOT ask whether to switch modes, and do NOT invoke apply.
+    If the current environment has a separate planning mode, also remind the user to switch the session to normal mode before running `/spectra-apply <change-name>`. This is only a reminder: do NOT try to switch modes with any tool, do NOT ask whether to switch modes, and do NOT invoke apply.
 
     The propose workflow ENDS here. Do NOT invoke `/spectra-apply`. Do NOT call **AskUserQuestion** to ask whether to park or apply. This behavior is identical across Auto Mode, interactive mode, and any other agent mode — parking is unconditional and does not depend on `AskUserQuestion` availability or UI auto-accept settings.
 

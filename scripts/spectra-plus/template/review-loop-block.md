@@ -3,7 +3,7 @@
    Run this review/rating/fix loop once per change, after the normal workflow has completed its required artifact or task work.
 
    **Entry conditions**
-   - For `spectra-propose-plus`, start this loop only after proposal, design, specs, and tasks artifacts required for apply are complete.
+   - For `spectra-propose-plus`, start this loop only after proposal, design, specs, and tasks artifacts required for apply are complete AND `spectra validate "<name>"` has passed. If validation fixes are required, complete them before entering this loop.
    - For `spectra-apply-plus`, start this loop only after all implementation tasks are complete and `tasks.md 全 [x]`.
    - Do not run this loop per artifact or per task; the granularity is per-change.
 
@@ -12,7 +12,7 @@
    - After the confidence filter, the main agent derives the round decision mechanically (no scoring sub-agent): if any surviving finding has `severity == Critical`, the decision is `next_round`; otherwise if any surviving finding has `severity == Warning`, the decision is `next_round`; otherwise (only `Suggestion` findings remain, or none) the decision is `passed`.
    - A round passes only when, after the confidence filter, there is no surviving Critical and no surviving Warning finding.
    - If round 6 still does not meet the pass condition, write `decision: aborted`, print the unresolved findings, and end the plus workflow.
-   - If a round passes, write `decision: passed`, stop the loop, and continue to the normal final validation or completion summary.
+   - If a round passes, write `decision: passed`, stop the loop, and continue to the completion summary.
 
    **Fresh sub-agent calls**
    - Each round MUST spawn TWO fresh reviewer sub-agents in parallel (single message, two tool calls):
@@ -92,6 +92,7 @@
    - If the decision is `next_round`, fix the concrete findings before starting the next round.
    - Record modified files and the reason for each fix in `## Fix Actions`.
    - Re-run relevant CLI checks or tests before the next round when fixes affect generated artifacts or implementation code.
+   - For `spectra-propose-plus`, if any fix action modifies proposal, design, tasks, or spec artifacts, run `spectra validate "<name>"` again and fix validation errors before starting the next round.
    - If no fixes are needed because the round passed, write `None; pass condition met.`
 
    **Round file language**

@@ -40,6 +40,38 @@ function assert_not_contains_i
     end
 end
 
+function first_line_number
+    set file $argv[1]
+    set text $argv[2]
+    rg -n --fixed-strings "$text" "$file" | head -n 1 | cut -d: -f1
+end
+
+function assert_line_order
+    set file $argv[1]
+    set first $argv[2]
+    set second $argv[3]
+    set first_line (first_line_number "$file" "$first")
+    set second_line (first_line_number "$file" "$second")
+    test -n "$first_line"; or fail "$file missing order anchor $first"
+    test -n "$second_line"; or fail "$file missing order anchor $second"
+    test "$first_line" -lt "$second_line"; or fail "$file expected $first before $second"
+end
+
+function assert_step_numbers_sequential
+    set file $argv[1]
+    awk '
+        /^[0-9]+\. \*\*/ {
+            expected++
+            actual = $1
+            sub(/\.$/, "", actual)
+            if (actual != expected) {
+                printf("step numbering mismatch: expected %d got %s at line %d\n", expected, actual, NR) > "/dev/stderr"
+                exit 1
+            }
+        }
+    ' "$file"; or fail "$file has non-sequential step numbering"
+end
+
 function run_expect
     set expected $argv[1]
     set command $argv[2..-1]
@@ -89,6 +121,31 @@ for skill_path in $propose_outputs $apply_outputs
     # Mechanical decision rule derived by the main agent after the confidence filter.
     assert_contains "$skill_path" "surviving Critical"
     assert_contains "$skill_path" "surviving Warning"
+    assert_step_numbers_sequential "$skill_path"
+    assert_not_contains "$skill_path" "docs/specs/"
+    assert_not_contains "$skill_path" "Codex Plan Mode"
+    assert_not_contains "$skill_path" "ExitPlanMode"
+    assert_not_contains "$skill_path" "EnterPlanMode"
+end
+
+for skill_path in $propose_outputs
+    assert_line_order "$skill_path" "8. **Validation**" "9. **Sub-Agent Review/Rating/Fix Loop**"
+    assert_line_order "$skill_path" "9. **Sub-Agent Review/Rating/Fix Loop**" "10. **Finish the plus proposal workflow**"
+    assert_contains "$skill_path" "has passed. If validation fixes are required, complete them before entering this loop."
+    assert_contains "$skill_path" "if any fix action modifies proposal, design, tasks, or spec artifacts, run `spectra validate \"<name>\"` again"
+end
+
+for skill_path in $apply_outputs
+    assert_line_order "$skill_path" "Surgical & Simplicity Discipline" "8. **Implementation Notes Protocol**"
+    assert_line_order "$skill_path" "8. **Implementation Notes Protocol**" "9. **Final check**"
+    assert_contains "$skill_path" "Reviewer A — Adherence in the Sub-Agent Review/Rating/Fix Loop MUST"
+    assert_contains "$skill_path" "archive guidance is deferred until the plus quality gate passes"
+    assert_contains "$skill_path" "All tasks complete. The plus quality gate runs next; archive guidance is shown only if it passes."
+    assert_contains "$skill_path" "Do not suggest archive before the Sub-Agent Review/Rating/Fix Loop has ended with `decision: passed`."
+    assert_not_contains "$skill_path" "The review-loop reviewer"
+    assert_not_contains "$skill_path" "Section 10"
+    assert_not_contains "$skill_path" "step 11"
+    assert_not_contains "$skill_path" "All tasks complete! You can archive this change with"
 end
 
 # Signals shared layer — write step in both plus skills (all variants), read step in propose-plus only.

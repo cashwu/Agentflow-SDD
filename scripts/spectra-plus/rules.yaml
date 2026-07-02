@@ -11,10 +11,12 @@ skills:
         operation: append
         template: artifact-language-block.md
       - target_section: "8. **Inline Self-Review** (before CLI analysis)"
-        operation: replace
-        template: review-loop-block.md
+        operation: remove
       - target_section: "9. **Analyze-Fix Loop** (max 2 iterations)"
         operation: remove
+      - target_section: "10. **Validation**"
+        operation: append
+        template: review-loop-block.md
       - target_section: "11. **Park the change and end the workflow**"
         operation: replace
         template: no-park-end-block.md
@@ -22,36 +24,60 @@ skills:
       claude:
         source: .claude/skills/spectra-propose/SKILL.md
         output: .claude/skills/spectra-propose-plus/SKILL.md
+        substitutions:
+          - from: "docs/specs/specs/"
+            to: "openspec/specs/"
       codex:
         source: .agents/skills/spectra-propose/SKILL.md
         output: .agents/skills/spectra-propose-plus/SKILL.md
         substitutions:
           - from: "/spectra-"
             to: "$spectra-"
+          - from: "docs/specs/specs/"
+            to: "openspec/specs/"
   spectra-apply-plus:
     metadata:
       name: spectra-apply-plus
       description: "Implement Spectra tasks with a sub-agent quality gate after completion"
     transformations:
+      # Multiple append transforms targeting the same section land in reverse order
+      # because each later append inserts before the earlier inserted appended block.
+      - target_section: "7. **Implement tasks (loop until done or blocked)**"
+        operation: append
+        template: apply-notes-block.md
       - target_section: "7. **Implement tasks (loop until done or blocked)**"
         operation: append
         template: surgical-simplicity-block.md
       - target_section: "9. **On completion or pause, show status**"
         operation: append
-        template: apply-response-language-block.md
+        template: review-loop-block.md
       - target_section: "9. **On completion or pause, show status**"
         operation: append
-        template: review-loop-block.md
-      - target_section: "10. **Apply-plus response language**"
-        operation: append
-        template: apply-notes-block.md
+        template: apply-response-language-block.md
     variants:
       claude:
         source: .claude/skills/spectra-apply/SKILL.md
         output: .claude/skills/spectra-apply-plus/SKILL.md
+        substitutions:
+          - from: "docs/specs/changes/"
+            to: "openspec/changes/"
+          - from: "- If `state: \"all_done\"`: congratulate, suggest archive"
+            to: "- If `state: \"all_done\"`: continue to the plus quality gate before any archive guidance"
+          - from: "- If all done: suggest archive"
+            to: "- If all done: state that tasks are complete; archive guidance is deferred until the plus quality gate passes"
+          - from: "All tasks complete! You can archive this change with `/spectra-archive`."
+            to: "All tasks complete. The plus quality gate runs next; archive guidance is shown only if it passes."
       codex:
         source: .agents/skills/spectra-apply/SKILL.md
         output: .agents/skills/spectra-apply-plus/SKILL.md
         substitutions:
           - from: "/spectra-"
             to: "$spectra-"
+          - from: "docs/specs/changes/"
+            to: "openspec/changes/"
+          - from: "- If `state: \"all_done\"`: congratulate, suggest archive"
+            to: "- If `state: \"all_done\"`: continue to the plus quality gate before any archive guidance"
+          - from: "- If all done: suggest archive"
+            to: "- If all done: state that tasks are complete; archive guidance is deferred until the plus quality gate passes"
+          - from: "All tasks complete! You can archive this change with `$spectra-archive`."
+            to: "All tasks complete. The plus quality gate runs next; archive guidance is shown only if it passes."

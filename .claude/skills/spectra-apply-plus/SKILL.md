@@ -97,7 +97,7 @@ Implement tasks from a Spectra change.
 
    **Handle states:**
    - If `state: "blocked"` (missing artifacts): show message, suggest using `/spectra-propose` to create the change artifacts first
-   - If `state: "all_done"`: congratulate, suggest archive
+   - If `state: "all_done"`: continue to the plus quality gate before any archive guidance
    - Otherwise: proceed to implementation
 
 3b. **Preflight check**
@@ -148,7 +148,7 @@ Run `spectra analyze <change-name> --json` to check cross-artifact consistency (
 
 When the change has been dormant for more than 5 days AND the change directory has had zero commits in the past 3 days, surface a drift report before tasks begin — the change is likely out-of-sync with the current codebase.
 
-Detect dormancy from `.openspec.yaml` `created` and `git log -1 --format=%at -- docs/specs/changes/<name>/`:
+Detect dormancy from `.openspec.yaml` `created` and `git log -1 --format=%at -- openspec/changes/<name>/`:
 
 - **Both conditions met**: run `spectra drift <change-name>`, display the report, then use the **AskUserQuestion tool**:
   - **Continue with apply** — proceed to tasks (recommended for Light drift)
@@ -249,6 +249,7 @@ If there is no AskUserQuestion tool available, present options as plain text and
 ---
 
 
+
 **Surgical & Simplicity Discipline**
 
 在 step 7 的 task loop 期間，編輯任何來源碼之前必須套用以下兩項紀律。它們補充（而不取代）既有的 Reuse / Quality / Efficiency / No Placeholders / Examples as verification 檢查。
@@ -266,7 +267,7 @@ If there is no AskUserQuestion tool available, present options as plain text and
 - 不要「順手」改鄰近區塊的程式碼、註解或格式。
 - 不要重構沒壞的東西；不要為了個人風格偏好改既有寫法。
 - 即使既有風格與你習慣不同，跟著現況走（match existing style）。
-- 若注意到不相關的死碼、bug 或可改進處，**不要直接刪或改** — 在 step 11 的 `implementation-notes.md` 以 `open-question` 條目記錄，交給使用者決定。
+- 若注意到不相關的死碼、bug 或可改進處，**不要直接刪或改** — 依照 Implementation Notes Protocol 在 `implementation-notes.md` 以 `open-question` 條目記錄，交給使用者決定。
 - 只移除「因為本次改動而變成 orphan」的 import、變數、函式；既有的 pre-existing 死碼不要動。
 - 驗收標準：本次 diff 的每一行，都能直接追溯到 `tasks.md` 中的某條任務或 `design.md` 中的 Implementation Contract 項目。
 
@@ -283,10 +284,69 @@ Simplicity First 與 Surgical Changes 的目的是「不寫不必要的東西」
 
 判準：實作完成後重讀 diff，若 future-self 或 reviewer 需要花超過幾秒才能理解某行的意圖，那不是 simpler，是 cleverer。Cleverer 違反紀律。Clarity 永遠優先於 brevity。
 
-若違反上述任一條（無論刻意或非刻意），視同 task 未完成 — 在執行 `spectra task done` 之前先修正。若是刻意 deviate（例如 contract 與既有程式衝突，需要動到鄰近區塊），依 step 11 Implementation Notes Protocol 寫一筆 `deviation` 條目，說明原因。
+若違反上述任一條（無論刻意或非刻意），視同 task 未完成 — 在執行 `spectra task done` 之前先修正。若是刻意 deviate（例如 contract 與既有程式衝突，需要動到鄰近區塊），依 Implementation Notes Protocol 寫一筆 `deviation` 條目，說明原因。
 
 **Keep verbatim (do not translate):** shell commands, file paths, code identifiers, schema field names (`applyRequires`, `outputPath` 等), artifact IDs, capability slugs, and quoted source text. If the user explicitly requests another language later, follow the latest user instruction.
-8. **Final check**
+
+8. **Implementation Notes Protocol**
+
+   During the apply-plus task loop, maintain a lightweight running log at `openspec/changes/<change>/implementation-notes.md` that captures only two categories of information:
+
+   - **Deviations**: places where the implementation intentionally departs from `spec.md`, `design.md`, or `tasks.md` (because the spec was ambiguous, the codebase reality differs, or a discovered issue forced a different path).
+   - **Open questions**: items that need user confirmation or revision before this change can be considered complete.
+
+   Design decisions that match the spec, ordinary tradeoffs, and small judgment calls do NOT belong here — they are already covered by `design.md`, `tasks.md`, and the review-loop round files. Keep this log narrow.
+
+   **File creation rule (eager)**
+   - At the start of Step 7 (the task loop), before processing the first task, create `openspec/changes/<change>/implementation-notes.md` if it does not already exist.
+   - Initialize the file with a single-line HTML comment header (and nothing else):
+     ```
+     <!-- apply-plus implementation notes | change: <change-name> | initialized: <YYYY-MM-DD HH:MM> | no entries below means no deviations or open questions were recorded -->
+     ```
+   - Entries (see below) are appended in order beneath this header.
+   - Eager creation makes "no entries" an explicit positive signal (apply-plus ran and found nothing to report), distinct from file-absent which signals a workflow integrity failure.
+
+   **Entry format**
+
+   Each entry MUST be appended (never rewriting earlier entries) using this exact structure:
+
+   ```
+   ## <YYYY-MM-DD HH:MM> — <short title>
+   - 類別：deviation | open-question
+   - 任務：<task-id or "n/a">
+   - 內容：<one-paragraph description of what happened or what needs answering>
+   - 原因：<why this path was chosen, or why the user needs to weigh in>
+   ```
+
+   Prose (`內容`, `原因`, title) is written in Traditional Chinese, matching the apply-plus response-language rule. CLI commands, file paths, code identifiers, capability slugs, and quoted source text remain verbatim in English.
+
+   **When to write an entry**
+   - When task-level implementation diverges from `design.md` Implementation Contract, `tasks.md` description, or relevant `spec.md` requirements — write a `deviation` entry before marking the task done.
+   - When the task surfaces a question the user must decide (e.g. ambiguous requirement, missing schema field, contested naming) and the agent has to proceed under an assumption — write an `open-question` entry naming the assumption.
+   - Do not batch entries to the end of the session; record at the moment the decision is made, while context is fresh.
+
+   **When NOT to write an entry**
+   - Routine implementation that matches the artifacts — no entry.
+   - Trivial naming or formatting choices — no entry.
+   - Anything already documented in `design.md` or the round-`<N>` review files — no entry.
+
+   **Sub-agent reviewer requirement**
+
+   Reviewer A — Adherence in the Sub-Agent Review/Rating/Fix Loop MUST, at the start of each round, read `openspec/changes/<change>/implementation-notes.md`.
+
+   - **File absent**: this is a Critical finding — apply-plus failed to initialize the running log, indicating either an aborted workflow or a skill-integrity failure. The round MUST NOT pass; recommend re-running apply-plus or back-filling the file before the next round.
+   - **File present with only the initialization comment and no entries**: treat as confirmed empty — apply-plus reached the task loop and found nothing requiring a `deviation` or `open-question` entry. No finding raised by virtue of emptiness alone.
+   - **File present with entries**:
+     - `deviation` entries are evaluated for whether the divergence is justified. An unjustified deviation is a Critical finding; a justified-but-undocumented-in-`design.md` deviation is at minimum a Warning recommending the divergence be back-filled into `design.md` during Fix Actions.
+     - `open-question` entries are surfaced as Warning findings with a recommended `## Fix Actions` step naming how to obtain user confirmation before the round can pass.
+
+   The main agent derives the round decision mechanically from the post-filter reviewer findings and does not read this file directly; Reviewer A findings already incorporate the notes context.
+
+   **Idempotence and ingest interaction**
+   - `spectra-ingest` may modify `tasks.md` / `design.md` / `proposal.md`. After ingest resolves an open question, the agent MUST append a follow-up entry noting the resolution (do not delete or rewrite the original `open-question` entry — the historical record is the point).
+   - Reviewer treats a resolved `open-question` entry (i.e. one followed by a resolution entry) as no longer blocking.
+
+9. **Final check**
 
    After completing all tasks, re-run:
 
@@ -296,22 +356,64 @@ Simplicity First 與 Surgical Changes 的目的是「不寫不必要的東西」
 
    Confirm `state: "all_done"`. If not, review remaining tasks and complete them.
 
-9. **On completion or pause, show status**
+10. **On completion or pause, show status**
 
    Display:
    - Tasks completed this session
    - Overall progress: "N/M tasks complete"
-   - If all done: suggest archive
+   - If all done: state that tasks are complete; archive guidance is deferred until the plus quality gate passes
    - If paused: explain why and wait for guidance
 
 
 
-10. **Sub-Agent Review/Rating/Fix Loop**
+11. **Apply-plus response language**
+
+   For `spectra-apply-plus`, ai 的回覆要用中文.
+
+   All user-facing AI responses during this workflow MUST be written in Traditional Chinese unless the user explicitly requests another language.
+
+   This includes:
+   - Status updates while tasks are being implemented.
+   - Pause messages when a blocker is encountered.
+   - Review loop summaries.
+   - Final implementation summaries.
+
+   This does not require translating:
+   - Shell commands.
+   - File paths.
+   - Code identifiers.
+   - Existing quoted source text.
+
+   If the user explicitly requests another language later, follow the latest user instruction.
+
+   Keep technical names exact even when the surrounding explanation is Chinese.
+
+   Do not mix languages for ordinary prose unless a command, path, symbol, or quoted artifact requires it.
+
+   The goal is predictable Chinese-facing interaction for apply-plus while preserving exact technical references.
+
+   **Artifact modifications during apply-plus**
+
+   When the apply-plus workflow modifies an artifact — during review-loop fix actions, or after `spectra-ingest` updates `tasks.md` / `design.md` / `proposal.md` — the updated artifact content MUST follow the same Chinese language rule as propose-plus:
+
+   - `tasks.md`, `design.md`, `proposal.md`, and other non-spec artifacts under `openspec/changes/<change>/`: Traditional Chinese.
+   - Spec files (`openspec/changes/<change>/specs/**/spec.md` and `openspec/specs/**/spec.md`): always English, regardless of any other language rule. Delta specs are merged into master specs and must use normative SHALL/MUST wording.
+
+   Keep CLI commands, file paths, code identifiers, schema field names, artifact IDs, capability slugs, and existing quoted source text verbatim. If the user explicitly requests another language later, follow the latest user instruction.
+
+   **Archive guidance timing**
+
+   Do not suggest archive before the Sub-Agent Review/Rating/Fix Loop has ended with `decision: passed`.
+
+   - If the final round decision is `passed`, the final response MAY tell the user they can archive with the appropriate `spectra-archive` skill invocation for the current variant.
+   - If the final round decision is `aborted`, do NOT suggest archive; summarize the unresolved findings and point to the final round file.
+
+12. **Sub-Agent Review/Rating/Fix Loop**
 
    Run this review/rating/fix loop once per change, after the normal workflow has completed its required artifact or task work.
 
    **Entry conditions**
-   - For `spectra-propose-plus`, start this loop only after proposal, design, specs, and tasks artifacts required for apply are complete.
+   - For `spectra-propose-plus`, start this loop only after proposal, design, specs, and tasks artifacts required for apply are complete AND `spectra validate "<name>"` has passed. If validation fixes are required, complete them before entering this loop.
    - For `spectra-apply-plus`, start this loop only after all implementation tasks are complete and `tasks.md 全 [x]`.
    - Do not run this loop per artifact or per task; the granularity is per-change.
 
@@ -320,7 +422,7 @@ Simplicity First 與 Surgical Changes 的目的是「不寫不必要的東西」
    - After the confidence filter, the main agent derives the round decision mechanically (no scoring sub-agent): if any surviving finding has `severity == Critical`, the decision is `next_round`; otherwise if any surviving finding has `severity == Warning`, the decision is `next_round`; otherwise (only `Suggestion` findings remain, or none) the decision is `passed`.
    - A round passes only when, after the confidence filter, there is no surviving Critical and no surviving Warning finding.
    - If round 6 still does not meet the pass condition, write `decision: aborted`, print the unresolved findings, and end the plus workflow.
-   - If a round passes, write `decision: passed`, stop the loop, and continue to the normal final validation or completion summary.
+   - If a round passes, write `decision: passed`, stop the loop, and continue to the completion summary.
 
    **Fresh sub-agent calls**
    - Each round MUST spawn TWO fresh reviewer sub-agents in parallel (single message, two tool calls):
@@ -400,6 +502,7 @@ Simplicity First 與 Surgical Changes 的目的是「不寫不必要的東西」
    - If the decision is `next_round`, fix the concrete findings before starting the next round.
    - Record modified files and the reason for each fix in `## Fix Actions`.
    - Re-run relevant CLI checks or tests before the next round when fixes affect generated artifacts or implementation code.
+   - For `spectra-propose-plus`, if any fix action modifies proposal, design, tasks, or spec artifacts, run `spectra validate "<name>"` again and fix validation errors before starting the next round.
    - If no fixes are needed because the round passed, write `None; pass condition met.`
 
    **Round file language**
@@ -423,98 +526,6 @@ Simplicity First 與 Surgical Changes 的目的是「不寫不必要的東西」
    - **On no `open` match** (including when only an `addressed` or `dismissed` signal matches): Create a NEW signal. Before coining the `<slug>`, list the existing `openspec/signals/*.md` files and choose a `<slug>` that does NOT already exist. The slug is a short semantic ASCII kebab-case issue-class identifier matching `^[a-z0-9]+(-[a-z0-9]+)*$` (e.g. `spec-requirement-no-backing-task`); it is NOT a mechanical transform of `location + summary`. If the natural slug is already taken, disambiguate with a suffix. Creating a signal MUST NOT overwrite any existing signal file and MUST NOT change any existing signal's human-maintained `status`. The new signal has `status: open`, `occurrences: 1`, and `first_seen` = `last_seen` = today.
    - **Signal file schema**: Each signal file has frontmatter with `id` (= slug), `type` (default `recurring-finding` for review-loop-written signals), `status`, `occurrences`, `first_seen`, `last_seen`, and `links`; followed by a title, a description paragraph, and a `## Occurrences` section.
    - **Failure handling**: If writing under `openspec/signals/` fails, print a warning but do NOT fail the plus workflow — signals are an auxiliary layer. If there are no qualifying findings, write nothing.
-10. **Apply-plus response language**
-
-   For `spectra-apply-plus`, ai 的回覆要用中文.
-
-   All user-facing AI responses during this workflow MUST be written in Traditional Chinese unless the user explicitly requests another language.
-
-   This includes:
-   - Status updates while tasks are being implemented.
-   - Pause messages when a blocker is encountered.
-   - Review loop summaries.
-   - Final implementation summaries.
-
-   This does not require translating:
-   - Shell commands.
-   - File paths.
-   - Code identifiers.
-   - Existing quoted source text.
-
-   If the user explicitly requests another language later, follow the latest user instruction.
-
-   Keep technical names exact even when the surrounding explanation is Chinese.
-
-   Do not mix languages for ordinary prose unless a command, path, symbol, or quoted artifact requires it.
-
-   The goal is predictable Chinese-facing interaction for apply-plus while preserving exact technical references.
-
-   **Artifact modifications during apply-plus**
-
-   When the apply-plus workflow modifies an artifact — during review-loop fix actions, or after `spectra-ingest` updates `tasks.md` / `design.md` / `proposal.md` — the updated artifact content MUST follow the same Chinese language rule as propose-plus:
-
-   - `tasks.md`, `design.md`, `proposal.md`, and other non-spec artifacts under `openspec/changes/<change>/`: Traditional Chinese.
-   - Spec files (`openspec/changes/<change>/specs/**/spec.md` and `openspec/specs/**/spec.md`): always English, regardless of any other language rule. Delta specs are merged into master specs and must use normative SHALL/MUST wording.
-
-   Keep CLI commands, file paths, code identifiers, schema field names, artifact IDs, capability slugs, and existing quoted source text verbatim. If the user explicitly requests another language later, follow the latest user instruction.
-
-11. **Implementation Notes Protocol**
-
-   During the apply-plus task loop, maintain a lightweight running log at `openspec/changes/<change>/implementation-notes.md` that captures only two categories of information:
-
-   - **Deviations**: places where the implementation intentionally departs from `spec.md`, `design.md`, or `tasks.md` (because the spec was ambiguous, the codebase reality differs, or a discovered issue forced a different path).
-   - **Open questions**: items that need user confirmation or revision before this change can be considered complete.
-
-   Design decisions that match the spec, ordinary tradeoffs, and small judgment calls do NOT belong here — they are already covered by `design.md`, `tasks.md`, and the review-loop round files. Keep this log narrow.
-
-   **File creation rule (eager)**
-   - At the start of Step 7 (the task loop), before processing the first task, create `openspec/changes/<change>/implementation-notes.md` if it does not already exist.
-   - Initialize the file with a single-line HTML comment header (and nothing else):
-     ```
-     <!-- apply-plus implementation notes | change: <change-name> | initialized: <YYYY-MM-DD HH:MM> | no entries below means no deviations or open questions were recorded -->
-     ```
-   - Entries (see below) are appended in order beneath this header.
-   - Eager creation makes "no entries" an explicit positive signal (apply-plus ran and found nothing to report), distinct from file-absent which signals a workflow integrity failure.
-
-   **Entry format**
-
-   Each entry MUST be appended (never rewriting earlier entries) using this exact structure:
-
-   ```
-   ## <YYYY-MM-DD HH:MM> — <short title>
-   - 類別：deviation | open-question
-   - 任務：<task-id or "n/a">
-   - 內容：<one-paragraph description of what happened or what needs answering>
-   - 原因：<why this path was chosen, or why the user needs to weigh in>
-   ```
-
-   Prose (`內容`, `原因`, title) is written in Traditional Chinese, matching the apply-plus response-language rule. CLI commands, file paths, code identifiers, capability slugs, and quoted source text remain verbatim in English.
-
-   **When to write an entry**
-   - When task-level implementation diverges from `design.md` Implementation Contract, `tasks.md` description, or relevant `spec.md` requirements — write a `deviation` entry before marking the task done.
-   - When the task surfaces a question the user must decide (e.g. ambiguous requirement, missing schema field, contested naming) and the agent has to proceed under an assumption — write an `open-question` entry naming the assumption.
-   - Do not batch entries to the end of the session; record at the moment the decision is made, while context is fresh.
-
-   **When NOT to write an entry**
-   - Routine implementation that matches the artifacts — no entry.
-   - Trivial naming or formatting choices — no entry.
-   - Anything already documented in `design.md` or the round-`<N>` review files — no entry.
-
-   **Sub-agent reviewer requirement**
-
-   The review-loop reviewer (Section 10) MUST, at the start of each round, read `openspec/changes/<change>/implementation-notes.md`.
-
-   - **File absent**: this is a Critical finding — apply-plus failed to initialize the running log, indicating either an aborted workflow or a skill-integrity failure. The round MUST NOT pass; recommend re-running apply-plus or back-filling the file before the next round.
-   - **File present with only the initialization comment and no entries**: treat as confirmed empty — apply-plus reached the task loop and found nothing requiring a `deviation` or `open-question` entry. No finding raised by virtue of emptiness alone.
-   - **File present with entries**:
-     - `deviation` entries are evaluated for whether the divergence is justified. An unjustified deviation is a Critical finding; a justified-but-undocumented-in-`design.md` deviation is at minimum a Warning recommending the divergence be back-filled into `design.md` during Fix Actions.
-     - `open-question` entries are surfaced as Warning findings with a recommended `## Fix Actions` step naming how to obtain user confirmation before the round can pass.
-
-   The main agent (Section 10) derives the round decision mechanically from the post-filter reviewer findings and does not read this file directly; the reviewer findings already incorporate the notes context.
-
-   **Idempotence and ingest interaction**
-   - `spectra-ingest` may modify `tasks.md` / `design.md` / `proposal.md`. After ingest resolves an open question, the agent MUST append a follow-up entry noting the resolution (do not delete or rewrite the original `open-question` entry — the historical record is the point).
-   - Reviewer treats a resolved `open-question` entry (i.e. one followed by a resolution entry) as no longer blocking.
 
 **Output During Implementation**
 
@@ -544,7 +555,7 @@ Working on task 4/7: <task description>
 - [x] Task 2
 ...
 
-All tasks complete! You can archive this change with `/spectra-archive`.
+All tasks complete. The plus quality gate runs next; archive guidance is shown only if it passes.
 ```
 
 **Output On Pause (Issue Encountered)**
