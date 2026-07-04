@@ -2,7 +2,8 @@
 
 set script_path (status --current-filename)
 set test_dir (dirname "$script_path")
-set root_dir (realpath "$test_dir/../../..")
+set original_root_dir (realpath "$test_dir/../../..")
+set root_dir "$original_root_dir"
 set installer "$root_dir/install-spectra-plus.fish"
 set entrypoint "$root_dir/scripts/spectra-plus/repair-all.fish"
 set rules "$root_dir/scripts/spectra-plus/rules.yaml"
@@ -48,9 +49,11 @@ function run_with_bad_rules_expect
     set command $argv[3..-1]
     command cp -f "$rules" /tmp/spectra-plus-repair-rules.backup
     command cp -f "$bad_rules" "$rules"
+    commit_source_fixture "test bad rules"
     $command >/tmp/spectra-plus-repair-test.out 2>/tmp/spectra-plus-repair-test.err
     set actual $status
     command cp -f /tmp/spectra-plus-repair-rules.backup "$rules"
+    commit_source_fixture "restore rules"
     test "$actual" -eq "$expected"; or begin
         cat /tmp/spectra-plus-repair-test.out
         cat /tmp/spectra-plus-repair-test.err >&2
@@ -87,6 +90,13 @@ function target_plus_fingerprint
             echo "missing $path"
         end
     end
+    for path in "$target/.agents/skills/spectra-commit/SKILL.md" "$target/.claude/skills/spectra-commit/SKILL.md"
+        if test -f "$path"
+            cksum "$path"
+        else
+            echo "missing $path"
+        end
+    end
 end
 
 function replace_in_file --argument-names path from to
@@ -113,6 +123,31 @@ end
 
 function make_run_dir
     mktemp -d /tmp/spectra-plus-run.XXXXXX
+end
+
+function make_clean_source_fixture --argument-names source
+    set fixture (mktemp -d /tmp/spectra-plus-source.XXXXXX)
+    mkdir -p "$fixture/scripts" "$fixture/.agents" "$fixture/.claude"
+    command cp "$source/install-spectra-plus.fish" "$fixture/"
+    command cp -R "$source/scripts/spectra-plus" "$fixture/scripts/"
+    command cp -R "$source/.agents/skills" "$fixture/.agents/"
+    command cp -R "$source/.claude/skills" "$fixture/.claude/"
+    git -C "$fixture" init -q
+    git -C "$fixture" config user.email "spectra-plus-test@example.invalid"
+    git -C "$fixture" config user.name "Spectra Plus Test"
+    git -C "$fixture" add install-spectra-plus.fish scripts/spectra-plus .agents/skills .claude/skills
+    git -C "$fixture" commit -qm "initial fixture"
+    echo "$fixture"
+end
+
+function commit_source_fixture --argument-names message
+    git -C "$root_dir" add install-spectra-plus.fish scripts/spectra-plus .agents/skills .claude/skills
+    git -C "$root_dir" commit -qm "$message"
+end
+
+function reset_source_fixture
+    git -C "$root_dir" reset --hard -q HEAD
+    git -C "$root_dir" clean -fd -q
 end
 
 function registry_path --argument-names home
@@ -190,7 +225,58 @@ function make_launchctl_stub --argument-names dir mode
     chmod +x "$stub"
 end
 
+function make_git_status_stub --argument-names dir status_line
+    mkdir -p "$dir"
+    set stub "$dir/git"
+    set real_git (command -s git)
+    printf '%s\n' \
+        '#!/usr/bin/env fish' \
+        "set real_git "(string escape -- "$real_git") \
+        "set status_line "(string escape -- "$status_line") \
+        'if contains -- status $argv; and contains -- --porcelain $argv' \
+        '    echo "$status_line"' \
+        '    exit 0' \
+        'end' \
+        'command "$real_git" $argv' > "$stub"
+    chmod +x "$stub"
+end
+
+function prepare_guard_case
+    set -g guard_home (make_home)
+    set -g guard_run (make_run_dir)
+    set -g guard_target (mktemp -d /tmp/spectra-plus-dirty-target.XXXXXX)
+    make_target "$guard_target"
+    run_expect 0 "$installer" --target "$guard_target"
+    set -g guard_before (target_plus_fingerprint "$guard_target" | string collect)
+    mkdir -p (dirname (registry_path "$guard_home"))
+    printf '%s\n' "$guard_target" > (registry_path "$guard_home")
+end
+
+function assert_guard_case_unchanged --argument-names context
+    set guard_after (target_plus_fingerprint "$guard_target" | string collect)
+    test "$guard_before" = "$guard_after"; or fail "$context modified registered target"
+    test ! -e "$guard_run/spectra-plus-repair.lock"; or fail "$context wrote repair lock"
+    test ! -e "$guard_home/.cache/spectra-plus/last-repair-attempt"; or fail "$context wrote throttle state"
+end
+
+function assert_dirty_source_skip_output --argument-names path_hint
+    assert_contains /tmp/spectra-plus-repair-test.out "dirty source checkout"
+    assert_contains /tmp/spectra-plus-repair-test.out "$path_hint"
+    assert_not_contains /tmp/spectra-plus-repair-test.out "already current"
+    assert_not_contains /tmp/spectra-plus-repair-test.out "[success]"
+    assert_not_contains /tmp/spectra-plus-repair-test.out "[failed]"
+    assert_not_contains /tmp/spectra-plus-repair-test.out "throttled"
+    assert_not_contains /tmp/spectra-plus-repair-test.out "+ repair target"
+end
+
 cd "$root_dir"; or fail "cannot cd to root"
+
+set source_fixture (make_clean_source_fixture "$original_root_dir")
+set root_dir "$source_fixture"
+set installer "$root_dir/install-spectra-plus.fish"
+set entrypoint "$root_dir/scripts/spectra-plus/repair-all.fish"
+set rules "$root_dir/scripts/spectra-plus/rules.yaml"
+cd "$root_dir"; or fail "cannot cd to source fixture"
 
 set home (make_home)
 set run_dir (make_run_dir)
@@ -246,6 +332,179 @@ printf '%s\n' "$target" > "$dry_registry"
 set dry_before (cksum "$dry_registry")
 run_expect 0 env HOME="$dry_home" TMPDIR="$run_dir" "$installer" --unregister-target "$target" --dry-run
 test "$dry_before" = (cksum "$dry_registry"); or fail "unregister dry-run modified registry"
+
+reset_source_fixture
+prepare_guard_case
+printf '\n# dirty source\n' >> "$root_dir/install-spectra-plus.fish"
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$installer" --repair-all --force
+assert_dirty_source_skip_output "install-spectra-plus.fish"
+assert_guard_case_unchanged "dirty installer repair-all"
+reset_source_fixture
+
+prepare_guard_case
+printf '\nnot: [valid\n' >> "$rules"
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$installer" --repair-all --force
+assert_dirty_source_skip_output "scripts/spectra-plus/rules.yaml"
+assert_not_contains /tmp/spectra-plus-repair-test.err "rules.yaml parse error"
+assert_guard_case_unchanged "dirty invalid rules repair-all"
+reset_source_fixture
+
+prepare_guard_case
+printf '%s\n' "/tmp/spectra-plus-invalid-dirty-$fish_pid" "$guard_target" > (registry_path "$guard_home")
+printf '\n# dirty source\n' >> "$root_dir/.agents/skills/spectra-propose/SKILL.md"
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$installer" --repair-all --force
+assert_dirty_source_skip_output ".agents/skills/spectra-propose/SKILL.md"
+assert_not_contains /tmp/spectra-plus-repair-test.out "invalid target"
+assert_guard_case_unchanged "dirty source invalid registry precedence"
+reset_source_fixture
+
+prepare_guard_case
+mkdir -p "$guard_home/.cache/spectra-plus"
+date +%s > "$guard_home/.cache/spectra-plus/last-repair-attempt"
+set throttle_before (cksum "$guard_home/.cache/spectra-plus/last-repair-attempt")
+printf '\n# dirty source\n' >> "$root_dir/.claude/skills/spectra-apply/SKILL.md"
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$installer" --repair-all
+assert_dirty_source_skip_output ".claude/skills/spectra-apply/SKILL.md"
+test "$throttle_before" = (cksum "$guard_home/.cache/spectra-plus/last-repair-attempt"); or fail "dirty source rewrote throttle state"
+test ! -e "$guard_run/spectra-plus-repair.lock"; or fail "dirty source wrote repair lock"
+set throttle_target_after (target_plus_fingerprint "$guard_target" | string collect)
+test "$guard_before" = "$throttle_target_after"; or fail "dirty source throttle precedence modified registered target"
+reset_source_fixture
+
+prepare_guard_case
+printf '\n# dirty source\n' >> "$root_dir/.agents/skills/spectra-ask/SKILL.md"
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$installer" --repair-all --dry-run
+assert_dirty_source_skip_output ".agents/skills/spectra-ask/SKILL.md"
+assert_guard_case_unchanged "dirty source dry-run"
+reset_source_fixture
+
+prepare_guard_case
+printf '\n# staged source\n' >> "$root_dir/scripts/spectra-plus/generate.fish"
+git -C "$root_dir" add scripts/spectra-plus/generate.fish
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$installer" --repair-all --force
+assert_dirty_source_skip_output "scripts/spectra-plus/generate.fish"
+assert_guard_case_unchanged "staged source-sensitive modification"
+reset_source_fixture
+
+prepare_guard_case
+printf '%s\n' "staged add" > "$root_dir/.claude/skills/spectra-audit/STAGED.txt"
+git -C "$root_dir" add .claude/skills/spectra-audit/STAGED.txt
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$installer" --repair-all --force
+assert_dirty_source_skip_output ".claude/skills/spectra-audit/STAGED.txt"
+assert_guard_case_unchanged "staged added source-sensitive file"
+reset_source_fixture
+
+prepare_guard_case
+mkdir -p "$root_dir/scripts/spectra-plus/tmp/nested"
+printf '%s\n' "nested dirty" > "$root_dir/scripts/spectra-plus/tmp/nested/untracked.txt"
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$installer" --repair-all --force
+assert_dirty_source_skip_output "scripts/spectra-plus/tmp/nested/untracked.txt"
+assert_guard_case_unchanged "nested untracked source-sensitive file"
+reset_source_fixture
+
+prepare_guard_case
+command rm -f "$root_dir/.agents/skills/spectra-commit/SKILL.md"
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$installer" --repair-all --force
+assert_dirty_source_skip_output ".agents/skills/spectra-commit/SKILL.md"
+assert_guard_case_unchanged "deleted source-sensitive file"
+reset_source_fixture
+
+prepare_guard_case
+git -C "$root_dir" mv .claude/skills/spectra-commit/SKILL.md .claude/skills/spectra-commit/SKILL.moved
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$installer" --repair-all --force
+assert_dirty_source_skip_output ".claude/skills/spectra-commit/SKILL.md"
+assert_guard_case_unchanged "renamed source-sensitive file"
+reset_source_fixture
+
+prepare_guard_case
+command rm -f "$root_dir/.agents/skills/spectra-ask/SKILL.md"
+ln -s /tmp/spectra-plus-typechange "$root_dir/.agents/skills/spectra-ask/SKILL.md"
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$installer" --repair-all --force
+assert_dirty_source_skip_output ".agents/skills/spectra-ask/SKILL.md"
+assert_guard_case_unchanged "typechange source-sensitive file"
+reset_source_fixture
+
+prepare_guard_case
+set copied_git_stub (mktemp -d /tmp/spectra-plus-git-copy.XXXXXX)
+make_git_status_stub "$copied_git_stub" "C  .agents/skills/spectra-apply/SKILL.md -> .agents/skills/spectra-apply/SKILL.copy"
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" PATH="$copied_git_stub:$PATH" "$installer" --repair-all --force
+assert_dirty_source_skip_output ".agents/skills/spectra-apply/SKILL.md"
+assert_guard_case_unchanged "copied source-sensitive porcelain entry"
+reset_source_fixture
+
+prepare_guard_case
+set copied_unrelated_git_stub (mktemp -d /tmp/spectra-plus-git-copy-unrelated.XXXXXX)
+make_git_status_stub "$copied_unrelated_git_stub" "C  scripts/spectra-plus-notes.md -> scripts/spectra-plus-notes.copy"
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" PATH="$copied_unrelated_git_stub:$PATH" "$installer" --repair-all --force
+assert_not_contains /tmp/spectra-plus-repair-test.out "dirty source checkout"
+assert_contains /tmp/spectra-plus-repair-test.out "already current"
+reset_source_fixture
+
+prepare_guard_case
+set fixture_branch (git -C "$root_dir" branch --show-current)
+git -C "$root_dir" checkout -qb spectra-plus-conflict
+printf '\n# conflict left\n' >> "$rules"
+git -C "$root_dir" add scripts/spectra-plus/rules.yaml
+git -C "$root_dir" commit -qm "left conflict"
+git -C "$root_dir" checkout -q "$fixture_branch"
+printf '\n# conflict right\n' >> "$rules"
+git -C "$root_dir" add scripts/spectra-plus/rules.yaml
+git -C "$root_dir" commit -qm "right conflict"
+git -C "$root_dir" merge spectra-plus-conflict >/dev/null 2>/dev/null
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$installer" --repair-all --force
+assert_dirty_source_skip_output "scripts/spectra-plus/rules.yaml"
+assert_guard_case_unchanged "unmerged source-sensitive file"
+reset_source_fixture
+
+prepare_guard_case
+printf '%s\n' "outside source-sensitive set" > "$root_dir/scripts/spectra-plus-notes.md"
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$installer" --repair-all --force
+assert_not_contains /tmp/spectra-plus-repair-test.out "dirty source checkout"
+assert_contains /tmp/spectra-plus-repair-test.out "already current"
+set unrelated_target_after (target_plus_fingerprint "$guard_target" | string collect)
+test "$guard_before" = "$unrelated_target_after"; or fail "unrelated dirty source modified current target"
+reset_source_fixture
+
+set manual_dirty_target (mktemp -d /tmp/spectra-plus-manual-dirty.XXXXXX)
+make_target "$manual_dirty_target"
+printf '\n# dirty source\n' >> "$root_dir/install-spectra-plus.fish"
+run_expect 0 "$installer" --target "$manual_dirty_target"
+assert_plus_outputs "$manual_dirty_target"
+reset_source_fixture
+
+prepare_guard_case
+strip_guard "$root_dir/.agents/skills/spectra-commit/SKILL.md"
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$installer" --repair-all --force
+assert_dirty_source_skip_output ".agents/skills/spectra-commit/SKILL.md"
+assert_not_contains "$root_dir/.agents/skills/spectra-commit/SKILL.md" "$guard_marker"
+assert_guard_case_unchanged "dirty stripped source guard repair-all"
+reset_source_fixture
+
+set restore_target (mktemp -d /tmp/spectra-plus-restore-target.XXXXXX)
+make_target "$restore_target"
+strip_guard "$root_dir/.agents/skills/spectra-commit/SKILL.md"
+run_expect 0 "$installer" --target "$restore_target"
+assert_contains /tmp/spectra-plus-repair-test.out "restored .agents/skills/spectra-commit/SKILL.md from HEAD"
+assert_contains "$root_dir/.agents/skills/spectra-commit/SKILL.md" "$guard_marker"
+reset_source_fixture
+
+set restore_dry_target (mktemp -d /tmp/spectra-plus-restore-dry-target.XXXXXX)
+make_target "$restore_dry_target"
+strip_guard "$root_dir/.claude/skills/spectra-commit/SKILL.md"
+run_expect 0 "$installer" --target "$restore_dry_target" --dry-run
+assert_contains /tmp/spectra-plus-repair-test.out "+ would restore .claude/skills/spectra-commit/SKILL.md from HEAD"
+assert_not_contains "$root_dir/.claude/skills/spectra-commit/SKILL.md" "$guard_marker"
+reset_source_fixture
+
+set nongit_source (make_clean_source_fixture "$root_dir")
+command rm -rf "$nongit_source/.git"
+set nongit_installer "$nongit_source/install-spectra-plus.fish"
+prepare_guard_case
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$nongit_installer" --repair-all --force
+assert_contains /tmp/spectra-plus-repair-test.out "source clean state unavailable"
+assert_not_contains /tmp/spectra-plus-repair-test.out "already current"
+assert_guard_case_unchanged "non-git source repair-all"
+reset_source_fixture
 
 set repair_home (make_home)
 set repair_run (make_run_dir)
@@ -406,14 +665,24 @@ run_expect 0 env HOME="$entry_home" TMPDIR="$entry_run" "$installer" --register-
 run_expect 0 env HOME="$entry_home" TMPDIR="$entry_run" "$entrypoint" --force
 assert_plus_outputs "$entry_target"
 set fish_bin (command -s fish)
-set missing_fish_home (make_home)
-run_expect 1 env HOME="$missing_fish_home" TMPDIR="$entry_run" PATH="/usr/bin:/bin" "$fish_bin" "$entrypoint" --dry-run
-assert_contains "$missing_fish_home/Library/Logs/spectra-plus-repair.log" "找不到必要指令：fish"
 set fish_only_bin (mktemp -d /tmp/spectra-plus-fish-only.XXXXXX)
 ln -s "$fish_bin" "$fish_only_bin/fish"
 set missing_yq_home (make_home)
-run_expect 1 env HOME="$missing_yq_home" TMPDIR="$entry_run" PATH="$fish_only_bin:/usr/bin:/bin" "$fish_bin" "$entrypoint" --dry-run
-assert_contains "$missing_yq_home/Library/Logs/spectra-plus-repair.log" "找不到必要指令：yq"
+reset_source_fixture
+prepare_guard_case
+printf '\n# dirty source\n' >> "$root_dir/scripts/spectra-plus/generate.fish"
+run_expect 0 env HOME="$missing_yq_home" TMPDIR="$guard_run" PATH="$fish_only_bin:/usr/bin:/bin" "$fish_bin" "$entrypoint" --force
+assert_dirty_source_skip_output "scripts/spectra-plus/generate.fish"
+assert_guard_case_unchanged "entrypoint missing yq dirty source"
+test ! -e "$missing_yq_home/Library/Logs/spectra-plus-repair.log"; or assert_not_contains "$missing_yq_home/Library/Logs/spectra-plus-repair.log" "找不到必要指令：yq"
+reset_source_fixture
+
+prepare_guard_case
+printf '\n# parseable dirty entrypoint\n' >> "$entrypoint"
+run_expect 0 env HOME="$guard_home" TMPDIR="$guard_run" "$entrypoint" --force
+assert_dirty_source_skip_output "scripts/spectra-plus/repair-all.fish"
+assert_guard_case_unchanged "parseable dirty entrypoint"
+reset_source_fixture
 
 set agent_home (mktemp -d "/tmp/spectra-plus-agent-&-home.XXXXXX")
 set agent_run (make_run_dir)

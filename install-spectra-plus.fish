@@ -633,6 +633,62 @@ function lock_mtime --argument-names path
     stat -f %m "$path" 2>/dev/null
 end
 
+function source_sensitive_path_matches --argument-names relpath
+    set relpath (string replace -r '^\./' '' -- "$relpath")
+
+    switch "$relpath"
+        case install-spectra-plus.fish scripts/spectra-plus 'scripts/spectra-plus/*'
+            return 0
+    end
+
+    if string match -qr '^\.agents/skills/spectra-[^/]+(/|$)' -- "$relpath"
+        return 0
+    end
+
+    if string match -qr '^\.claude/skills/spectra-[^/]+(/|$)' -- "$relpath"
+        return 0
+    end
+
+    return 1
+end
+
+function porcelain_entry_paths --argument-names entry
+    set payload (string sub -s 4 -- "$entry")
+    if string match -q '* -> *' -- "$payload"
+        string split ' -> ' -- "$payload"
+    else
+        echo "$payload"
+    end
+end
+
+function source_dirty_paths
+    set source_top (git -C "$script_dir" rev-parse --show-toplevel 2>/dev/null)
+    test -n "$source_top"; or return 2
+    git -C "$source_top" rev-parse --verify HEAD >/dev/null 2>/dev/null; or return 2
+
+    set abs_installer (realpath "$script_dir/install-spectra-plus.fish" 2>/dev/null)
+    set real_top (realpath "$source_top" 2>/dev/null)
+    test -n "$abs_installer"; or return 2
+    test -n "$real_top"; or return 2
+    string match -q "$real_top/*" -- "$abs_installer"; or return 2
+
+    set status_lines (git -C "$source_top" status --porcelain --untracked-files=all 2>/dev/null)
+    test $status -eq 0; or return 2
+
+    set found 0
+    for entry in $status_lines
+        for relpath in (porcelain_entry_paths "$entry")
+            set relpath (string trim --chars='"' -- "$relpath")
+            if source_sensitive_path_matches "$relpath"
+                echo "$relpath"
+                set found 1
+            end
+        end
+    end
+
+    test $found -eq 0
+end
+
 function acquire_repair_lock
     set path (lock_dir)
     if mkdir "$path" 2>/dev/null
@@ -657,6 +713,17 @@ end
 function repair_all
     set throttle_window 60
     set throttle_file (cache_dir)/last-repair-attempt
+
+    set dirty_paths (source_dirty_paths)
+    set source_status $status
+    if test $source_status -eq 2
+        echo "[skipped] source clean state unavailable: repair-all skipped because source clean state is unavailable"
+        return 0
+    end
+    if test $source_status -ne 0
+        echo "[skipped] dirty source checkout: repair-all skipped because source checkout is dirty: $dirty_paths[1]"
+        return 0
+    end
 
     validate_plus_metadata_source
 

@@ -10,7 +10,7 @@ function log_error --argument-names message
     echo "錯誤：$message" | tee -a "$log_path" >&2
 end
 
-for command_name in fish yq
+for command_name in fish
     if not command -q "$command_name"
         log_error "找不到必要指令：$command_name"
         exit 1
