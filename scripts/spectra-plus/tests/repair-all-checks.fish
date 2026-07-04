@@ -5,8 +5,11 @@ set test_dir (dirname "$script_path")
 set root_dir (realpath "$test_dir/../../..")
 set installer "$root_dir/install-spectra-plus.fish"
 set entrypoint "$root_dir/scripts/spectra-plus/repair-all.fish"
+set rules "$root_dir/scripts/spectra-plus/rules.yaml"
 set guard_marker "<!-- SPECTRA-COMMIT-GUARD: archive-first allowlist + plus deletion protection -->"
 set agent_label "com.agentflow.spectra-plus.repair"
+set plus_version "1.1.0"
+set plus_updated "2026-07-04"
 
 function fail
     echo "FAIL: $argv" >&2
@@ -37,6 +40,71 @@ function run_expect
         cat /tmp/spectra-plus-repair-test.err >&2
         fail "expected exit $expected, got $actual: $command"
     end
+end
+
+function run_with_bad_rules_expect
+    set expected $argv[1]
+    set bad_rules $argv[2]
+    set command $argv[3..-1]
+    command cp -f "$rules" /tmp/spectra-plus-repair-rules.backup
+    command cp -f "$bad_rules" "$rules"
+    $command >/tmp/spectra-plus-repair-test.out 2>/tmp/spectra-plus-repair-test.err
+    set actual $status
+    command cp -f /tmp/spectra-plus-repair-rules.backup "$rules"
+    test "$actual" -eq "$expected"; or begin
+        cat /tmp/spectra-plus-repair-test.out
+        cat /tmp/spectra-plus-repair-test.err >&2
+        fail "expected exit $expected, got $actual: $command"
+    end
+end
+
+function assert_frontmatter_contains
+    set file $argv[1]
+    set text $argv[2]
+    awk -v text="$text" '
+        NR == 1 && $0 == "---" { in_fm = 1; next }
+        in_fm && $0 == "---" { exit }
+        in_fm && $0 == text { found = 1; exit }
+        END { exit found ? 0 : 1 }
+    ' "$file"; or fail "$file frontmatter missing $text"
+end
+
+function target_plus_outputs
+    set target $argv[1]
+    printf '%s\n' \
+        "$target/.agents/skills/spectra-propose-plus/SKILL.md" \
+        "$target/.agents/skills/spectra-apply-plus/SKILL.md" \
+        "$target/.claude/skills/spectra-propose-plus/SKILL.md" \
+        "$target/.claude/skills/spectra-apply-plus/SKILL.md"
+end
+
+function target_plus_fingerprint
+    set target $argv[1]
+    for path in (target_plus_outputs "$target")
+        if test -f "$path"
+            cksum "$path"
+        else
+            echo "missing $path"
+        end
+    end
+end
+
+function replace_in_file --argument-names path from to
+    set rewritten (mktemp /tmp/spectra-plus-rewrite.XXXXXX)
+    awk -v from="$from" -v to="$to" '
+        {
+            line = $0
+            out = ""
+            flen = length(from)
+            while ((idx = index(line, from)) > 0) {
+                out = out substr(line, 1, idx - 1) to
+                line = substr(line, idx + flen)
+            }
+            out = out line
+            print out
+        }
+    ' "$path" > "$rewritten"
+    command mv -f "$rewritten" "$path"
 end
 
 function make_home
@@ -82,6 +150,10 @@ function assert_plus_outputs --argument-names target
     test -f "$target/.agents/skills/spectra-apply-plus/SKILL.md"; or fail "missing codex apply-plus in $target"
     assert_contains "$target/.agents/skills/spectra-commit/SKILL.md" "$guard_marker"
     assert_contains "$target/.claude/skills/spectra-commit/SKILL.md" "$guard_marker"
+    for path in (target_plus_outputs "$target")
+        assert_frontmatter_contains "$path" "spectraPlusVersion: $plus_version"
+        assert_frontmatter_contains "$path" "spectraPlusUpdated: $plus_updated"
+    end
     for path in "$target/.agents/skills/spectra-propose-plus/SKILL.md" "$target/.claude/skills/spectra-propose-plus/SKILL.md"
         assert_contains "$path" "8. **Validation**"
         assert_contains "$path" "9. **Sub-Agent Review/Rating/Fix Loop**"
@@ -180,23 +252,94 @@ set repair_run (make_run_dir)
 set repair_a (mktemp -d /tmp/spectra-plus-repair-a.XXXXXX)
 set repair_b (mktemp -d /tmp/spectra-plus-repair-b.XXXXXX)
 set repair_stale_plus (mktemp -d /tmp/spectra-plus-repair-stale-plus.XXXXXX)
+set repair_stale_version (mktemp -d /tmp/spectra-plus-repair-stale-version.XXXXXX)
+set repair_stale_updated (mktemp -d /tmp/spectra-plus-repair-stale-updated.XXXXXX)
+set repair_missing_metadata (mktemp -d /tmp/spectra-plus-repair-missing-metadata.XXXXXX)
+set repair_single_stale (mktemp -d /tmp/spectra-plus-repair-single-stale.XXXXXX)
 make_target "$repair_a"
 make_target "$repair_b"
 make_target "$repair_stale_plus"
+make_target "$repair_stale_version"
+make_target "$repair_stale_updated"
+make_target "$repair_missing_metadata"
+make_target "$repair_single_stale"
 run_expect 0 "$installer" --target "$repair_stale_plus"
+run_expect 0 "$installer" --target "$repair_stale_version"
+run_expect 0 "$installer" --target "$repair_stale_updated"
+run_expect 0 "$installer" --target "$repair_missing_metadata"
+run_expect 0 "$installer" --target "$repair_single_stale"
 for path in "$repair_stale_plus/.agents/skills/spectra-apply-plus/SKILL.md" "$repair_stale_plus/.claude/skills/spectra-apply-plus/SKILL.md"
     set stale_output (mktemp /tmp/spectra-plus-stale-output.XXXXXX)
     awk '{ gsub(/archive guidance is deferred until the plus quality gate passes/, "suggest archive"); print }' "$path" > "$stale_output"
     command mv -f "$stale_output" "$path"
 end
+for path in (target_plus_outputs "$repair_stale_version")
+    replace_in_file "$path" "spectraPlusVersion: $plus_version" "spectraPlusVersion: 1.0.0"
+end
+for path in (target_plus_outputs "$repair_stale_updated")
+    replace_in_file "$path" "spectraPlusUpdated: $plus_updated" "spectraPlusUpdated: 2026-01-01"
+end
+for path in (target_plus_outputs "$repair_missing_metadata")
+    set stripped (mktemp /tmp/spectra-plus-metadata-strip.XXXXXX)
+    awk '$0 != "spectraPlusVersion: 1.1.0" && $0 != "spectraPlusUpdated: 2026-07-04" { print }' "$path" > "$stripped"
+    command mv -f "$stripped" "$path"
+end
+replace_in_file "$repair_single_stale/.agents/skills/spectra-propose-plus/SKILL.md" "spectraPlusVersion: $plus_version" "spectraPlusVersion: 1.0.0"
 strip_guard "$repair_b/.agents/skills/spectra-commit/SKILL.md"
 run_expect 0 env HOME="$repair_home" TMPDIR="$repair_run" "$installer" --register-target "$repair_a"
 run_expect 0 env HOME="$repair_home" TMPDIR="$repair_run" "$installer" --register-target "$repair_b"
 run_expect 0 env HOME="$repair_home" TMPDIR="$repair_run" "$installer" --register-target "$repair_stale_plus"
+run_expect 0 env HOME="$repair_home" TMPDIR="$repair_run" "$installer" --register-target "$repair_stale_version"
+run_expect 0 env HOME="$repair_home" TMPDIR="$repair_run" "$installer" --register-target "$repair_stale_updated"
+run_expect 0 env HOME="$repair_home" TMPDIR="$repair_run" "$installer" --register-target "$repair_missing_metadata"
+run_expect 0 env HOME="$repair_home" TMPDIR="$repair_run" "$installer" --register-target "$repair_single_stale"
 run_expect 0 env HOME="$repair_home" TMPDIR="$repair_run" "$installer" --repair-all --force
 assert_plus_outputs "$repair_a"
 assert_plus_outputs "$repair_b"
 assert_plus_outputs "$repair_stale_plus"
+assert_plus_outputs "$repair_stale_version"
+assert_plus_outputs "$repair_stale_updated"
+assert_plus_outputs "$repair_missing_metadata"
+assert_plus_outputs "$repair_single_stale"
+
+set bad_rules_home (make_home)
+set bad_rules_run (make_run_dir)
+set bad_rules_target (mktemp -d /tmp/spectra-plus-bad-rules-target.XXXXXX)
+make_target "$bad_rules_target"
+run_expect 0 "$installer" --target "$bad_rules_target"
+set bad_rules_before (target_plus_fingerprint "$bad_rules_target" | string collect)
+mkdir -p (dirname (registry_path "$bad_rules_home"))
+printf '%s\n' "$bad_rules_target" > (registry_path "$bad_rules_home")
+yq 'del(.skills."spectra-propose-plus".metadata.spectraPlusVersion)' "$rules" > /tmp/spectra-plus-repair-rules.bad
+run_with_bad_rules_expect 1 /tmp/spectra-plus-repair-rules.bad env HOME="$bad_rules_home" TMPDIR="$bad_rules_run" "$installer" --repair-all --force
+assert_contains /tmp/spectra-plus-repair-test.err "spectraPlusVersion"
+assert_not_contains /tmp/spectra-plus-repair-test.out "already current"
+set bad_rules_after (target_plus_fingerprint "$bad_rules_target" | string collect)
+test "$bad_rules_before" = "$bad_rules_after"; or fail "bad local rules modified target plus outputs"
+yq '.skills."spectra-propose-plus".metadata.spectraPlusVersion = null' "$rules" > /tmp/spectra-plus-repair-rules.bad
+run_with_bad_rules_expect 1 /tmp/spectra-plus-repair-rules.bad env HOME="$bad_rules_home" TMPDIR="$bad_rules_run" "$installer" --repair-all --force
+assert_contains /tmp/spectra-plus-repair-test.err "spectraPlusVersion"
+assert_not_contains /tmp/spectra-plus-repair-test.out "already current"
+set bad_rules_after (target_plus_fingerprint "$bad_rules_target" | string collect)
+test "$bad_rules_before" = "$bad_rules_after"; or fail "bad local rules null version modified target plus outputs"
+yq '.skills."spectra-propose-plus".metadata.spectraPlusUpdated = "2026-13-45" | .skills."spectra-apply-plus".metadata.spectraPlusUpdated = "2026-13-45"' "$rules" > /tmp/spectra-plus-repair-rules.bad
+run_with_bad_rules_expect 1 /tmp/spectra-plus-repair-rules.bad env HOME="$bad_rules_home" TMPDIR="$bad_rules_run" "$installer" --repair-all --force
+assert_contains /tmp/spectra-plus-repair-test.err "spectraPlusUpdated"
+assert_not_contains /tmp/spectra-plus-repair-test.out "already current"
+set bad_rules_after (target_plus_fingerprint "$bad_rules_target" | string collect)
+test "$bad_rules_before" = "$bad_rules_after"; or fail "bad local rules invalid updated modified target plus outputs"
+yq 'del(.skills."spectra-propose-plus".metadata.spectraPlusVersion)' "$rules" > /tmp/spectra-plus-repair-rules.bad
+run_with_bad_rules_expect 1 /tmp/spectra-plus-repair-rules.bad env HOME="$bad_rules_home" TMPDIR="$bad_rules_run" "$installer" --repair-all --dry-run
+assert_contains /tmp/spectra-plus-repair-test.err "spectraPlusVersion"
+assert_not_contains /tmp/spectra-plus-repair-test.out "+ repair target"
+set bad_rules_after (target_plus_fingerprint "$bad_rules_target" | string collect)
+test "$bad_rules_before" = "$bad_rules_after"; or fail "bad local rules dry-run modified target plus outputs"
+yq 'del(.skills."spectra-propose-plus".metadata.spectraPlusVersion)' "$rules" > /tmp/spectra-plus-repair-rules.bad
+run_with_bad_rules_expect 1 /tmp/spectra-plus-repair-rules.bad env HOME="$bad_rules_home" TMPDIR="$bad_rules_run" "$installer" --target "$bad_rules_target" --dry-run
+assert_contains /tmp/spectra-plus-repair-test.err "spectraPlusVersion"
+assert_not_contains /tmp/spectra-plus-repair-test.out "+ "
+set bad_rules_after (target_plus_fingerprint "$bad_rules_target" | string collect)
+test "$bad_rules_before" = "$bad_rules_after"; or fail "bad local rules target dry-run modified target plus outputs"
 
 set boundary_home (make_home)
 set boundary_run (make_run_dir)

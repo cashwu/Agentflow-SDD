@@ -352,6 +352,106 @@ function file_lacks --argument-names path text
     test -f "$path"; and not rg -q --fixed-strings "$text" "$path"
 end
 
+function frontmatter_has --argument-names path text
+    test -f "$path"; or return 1
+    awk -v text="$text" '
+        NR == 1 && $0 == "---" { in_fm = 1; next }
+        in_fm && $0 == "---" { exit }
+        in_fm && $0 == text { found = 1; exit }
+        END { exit found ? 0 : 1 }
+    ' "$path"
+end
+
+function assert_frontmatter_contains --argument-names path text description
+    if not frontmatter_has "$path" "$text"
+        fail "$description frontmatter 缺少必要內容：$text"
+    end
+end
+
+function plus_skill_names
+    # These generated plus skills intentionally share one freshness marker.
+    echo spectra-propose-plus
+    echo spectra-apply-plus
+end
+
+function valid_iso_date --argument-names value
+    string match -qr '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' -- "$value"; or return 1
+
+    set parsed (date -j -f "%Y-%m-%d" "$value" "+%Y-%m-%d" 2>/dev/null)
+    if test $status -eq 0; and test "$parsed" = "$value"
+        return 0
+    end
+
+    set parsed (date -d "$value" "+%Y-%m-%d" 2>/dev/null)
+    if test $status -eq 0; and test "$parsed" = "$value"
+        return 0
+    end
+
+    return 1
+end
+
+function plus_metadata_value --argument-names field
+    switch "$field"
+        case spectraPlusVersion
+            if set -q __spectra_plus_metadata_version
+                echo $__spectra_plus_metadata_version
+                return 0
+            end
+        case spectraPlusUpdated
+            if set -q __spectra_plus_metadata_updated
+                echo $__spectra_plus_metadata_updated
+                return 0
+            end
+        case '*'
+            fail "rules.yaml parse error: unknown plus metadata field $field"
+    end
+
+    set rules_file "$script_dir/scripts/spectra-plus/rules.yaml"
+    require_command yq
+    require_file "$rules_file" "spectra-plus rules.yaml"
+
+    set plus_skills (plus_skill_names)
+    for skill in $plus_skills
+        if not yq -e ".skills.\"$skill\".metadata | has(\"$field\")" "$rules_file" >/dev/null
+            fail "rules.yaml parse error: $skill metadata missing field $field"
+        end
+        if not yq -e ".skills.\"$skill\".metadata.\"$field\" | type == \"!!str\"" "$rules_file" >/dev/null
+            fail "rules.yaml parse error: $skill metadata field $field must be a non-empty string"
+        end
+        set value (yq -r ".skills.\"$skill\".metadata.\"$field\"" "$rules_file")
+        if test -z (string trim -- "$value")
+            fail "rules.yaml parse error: $skill metadata field $field must be a non-empty string"
+        end
+    end
+
+    set reference_skill $plus_skills[1]
+    set reference_value (yq -r ".skills.\"$reference_skill\".metadata.\"$field\"" "$rules_file")
+    for skill in $plus_skills[2..-1]
+        set skill_value (yq -r ".skills.\"$skill\".metadata.\"$field\"" "$rules_file")
+        if test "$reference_value" != "$skill_value"
+            fail "rules.yaml parse error: mismatched plus metadata field $field"
+        end
+    end
+
+    if test "$field" = "spectraPlusUpdated"; and not valid_iso_date "$reference_value"
+        fail "rules.yaml parse error: metadata field spectraPlusUpdated must be a valid YYYY-MM-DD date"
+    end
+
+    switch "$field"
+        case spectraPlusVersion
+            set -g __spectra_plus_metadata_version "$reference_value"
+        case spectraPlusUpdated
+            set -g __spectra_plus_metadata_updated "$reference_value"
+    end
+
+    echo "$reference_value"
+end
+
+function validate_plus_metadata_source
+    plus_metadata_value spectraPlusVersion >/dev/null
+    plus_metadata_value spectraPlusUpdated >/dev/null
+end
+
 function guard_is_current --argument-names path
     set marker "<!-- SPECTRA-COMMIT-GUARD: archive-first allowlist + plus deletion protection -->"
     file_has "$path" "$marker"; or return 1
@@ -413,6 +513,8 @@ function plus_outputs_are_current --argument-names target_path
     set apply_outputs \
         "$target_path/.claude/skills/spectra-apply-plus/SKILL.md" \
         "$target_path/.agents/skills/spectra-apply-plus/SKILL.md"
+    set plus_version (plus_metadata_value spectraPlusVersion)
+    set plus_updated (plus_metadata_value spectraPlusUpdated)
 
     for skill_path in $apply_outputs
         file_has "$skill_path" "ai 的回覆要用中文"; or return 1
@@ -437,6 +539,8 @@ function plus_outputs_are_current --argument-names target_path
     end
 
     for skill_path in $propose_outputs $apply_outputs
+        frontmatter_has "$skill_path" "spectraPlusVersion: $plus_version"; or return 1
+        frontmatter_has "$skill_path" "spectraPlusUpdated: $plus_updated"; or return 1
         file_has "$skill_path" "Reviewer A — Adherence"; or return 1
         file_has "$skill_path" "Reviewer B — Quality"; or return 1
         file_has "$skill_path" "Confidence scoring rubric"; or return 1
@@ -467,6 +571,8 @@ function validate_plus_outputs_current --argument-names target_path
     set apply_outputs \
         "$target_path/.claude/skills/spectra-apply-plus/SKILL.md" \
         "$target_path/.agents/skills/spectra-apply-plus/SKILL.md"
+    set plus_version (plus_metadata_value spectraPlusVersion)
+    set plus_updated (plus_metadata_value spectraPlusUpdated)
 
     for skill_path in $apply_outputs
         assert_contains "$skill_path" "ai 的回覆要用中文" "spectra-apply-plus ($skill_path)"
@@ -491,6 +597,8 @@ function validate_plus_outputs_current --argument-names target_path
     end
 
     for skill_path in $propose_outputs $apply_outputs
+        assert_frontmatter_contains "$skill_path" "spectraPlusVersion: $plus_version" "spectra plus skill ($skill_path)"
+        assert_frontmatter_contains "$skill_path" "spectraPlusUpdated: $plus_updated" "spectra plus skill ($skill_path)"
         assert_contains "$skill_path" "Reviewer A — Adherence" "spectra plus skill ($skill_path)"
         assert_contains "$skill_path" "Reviewer B — Quality" "spectra plus skill ($skill_path)"
         assert_contains "$skill_path" "Confidence scoring rubric" "spectra plus skill ($skill_path)"
@@ -549,6 +657,8 @@ end
 function repair_all
     set throttle_window 60
     set throttle_file (cache_dir)/last-repair-attempt
+
+    validate_plus_metadata_source
 
     if test $dry_run -eq 1
         for registry_target in (read_registry_targets)
@@ -714,6 +824,7 @@ function install_target --argument-names target_path
     require_command yq
     require_file "$generator" "spectra-plus generator"
     require_file "$source_dir/rules.yaml" "spectra-plus rules.yaml"
+    validate_plus_metadata_source
     require_file "$target_path/.claude/skills/spectra-propose/SKILL.md" "spectra-propose skill (Claude)"
     require_file "$target_path/.claude/skills/spectra-apply/SKILL.md" "spectra-apply skill (Claude)"
     require_file "$target_path/.claude/skills/spectra-commit/SKILL.md" "spectra-commit skill (Claude)"

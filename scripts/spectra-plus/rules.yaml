@@ -3,6 +3,8 @@ skills:
     metadata:
       name: spectra-propose-plus
       description: "Create a Spectra change proposal with sub-agent quality gates"
+      spectraPlusVersion: "1.1.0"
+      spectraPlusUpdated: "2026-07-04"
     transformations:
       - target_section: "3. **Scan existing specs for relevance**"
         operation: append
@@ -39,6 +41,8 @@ skills:
     metadata:
       name: spectra-apply-plus
       description: "Implement Spectra tasks with a sub-agent quality gate after completion"
+      spectraPlusVersion: "1.1.0"
+      spectraPlusUpdated: "2026-07-04"
     transformations:
       # Multiple append transforms targeting the same section land in reverse order
       # because each later append inserts before the earlier inserted appended block.

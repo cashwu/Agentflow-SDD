@@ -34,6 +34,28 @@ function yq_value
     yq -r "$expression" "$rules_file"
 end
 
+function plus_skill_names
+    # These generated plus skills intentionally share one freshness marker.
+    echo spectra-propose-plus
+    echo spectra-apply-plus
+end
+
+function valid_iso_date --argument-names value
+    string match -qr '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' -- "$value"; or return 1
+
+    set parsed (date -j -f "%Y-%m-%d" "$value" "+%Y-%m-%d" 2>/dev/null)
+    if test $status -eq 0; and test "$parsed" = "$value"
+        return 0
+    end
+
+    set parsed (date -d "$value" "+%Y-%m-%d" 2>/dev/null)
+    if test $status -eq 0; and test "$parsed" = "$value"
+        return 0
+    end
+
+    return 1
+end
+
 function validate_rules
     require_yq
 
@@ -51,6 +73,42 @@ function validate_rules
     end
 end
 
+function validate_plus_metadata_consistency
+    set plus_skills (plus_skill_names)
+
+    for field in spectraPlusVersion spectraPlusUpdated
+        for skill in $plus_skills
+            if not yq -e ".skills.\"$skill\".metadata | has(\"$field\")" "$rules_file" >/dev/null
+                die 2 "rules.yaml parse error: $skill metadata missing field $field"
+            end
+            validate_plus_metadata_value "$skill" "$field"
+        end
+
+        set reference_skill $plus_skills[1]
+        set reference_value (yq_value ".skills.\"$reference_skill\".metadata.\"$field\"")
+        for skill in $plus_skills[2..-1]
+            set skill_value (yq_value ".skills.\"$skill\".metadata.\"$field\"")
+            if test "$reference_value" != "$skill_value"
+                die 2 "rules.yaml parse error: mismatched plus metadata field $field"
+            end
+        end
+    end
+end
+
+function validate_plus_metadata_value
+    set skill $argv[1]
+    set field $argv[2]
+
+    if not yq -e ".skills.\"$skill\".metadata.\"$field\" | type == \"!!str\"" "$rules_file" >/dev/null
+        die 2 "rules.yaml parse error: $skill metadata field $field must be a non-empty string"
+    end
+
+    set value (yq_value ".skills.\"$skill\".metadata.\"$field\"")
+    if test -z (string trim -- "$value")
+        die 2 "rules.yaml parse error: $skill metadata field $field must be a non-empty string"
+    end
+end
+
 function validate_skill
     set skill $argv[1]
 
@@ -60,10 +118,18 @@ function validate_skill
         end
     end
 
-    for field in name description
+    for field in name description spectraPlusVersion spectraPlusUpdated
         if not yq -e ".skills.\"$skill\".metadata | has(\"$field\")" "$rules_file" >/dev/null
             die 2 "rules.yaml parse error: $skill metadata missing field $field"
         end
+    end
+
+    validate_plus_metadata_value "$skill" spectraPlusVersion
+    validate_plus_metadata_value "$skill" spectraPlusUpdated
+
+    set updated (yq_value ".skills.\"$skill\".metadata.spectraPlusUpdated")
+    if not valid_iso_date "$updated"
+        die 2 "rules.yaml parse error: $skill metadata field spectraPlusUpdated must be a valid YYYY-MM-DD date"
     end
 
     if not yq -e ".skills.\"$skill\".variants | type == \"!!map\"" "$rules_file" >/dev/null
@@ -312,11 +378,23 @@ function validate_generated
     set output_path $argv[1]
     set skill $argv[2]
 
-    for field in name description
-        if not rg -q "^$field: .+" "$output_path"
+    for field in name description spectraPlusVersion spectraPlusUpdated
+        if not frontmatter_has_key "$output_path" "$field"
             die 2 "generated frontmatter missing field $field for $skill"
         end
     end
+end
+
+function frontmatter_has_key
+    set output_path $argv[1]
+    set key $argv[2]
+
+    awk -v key="$key" '
+        NR == 1 && $0 == "---" { in_fm = 1; next }
+        in_fm && $0 == "---" { exit }
+        in_fm && $0 ~ "^" key ": " { found = 1; exit }
+        END { exit found ? 0 : 1 }
+    ' "$output_path"
 end
 
 function generate_skill
@@ -398,6 +476,7 @@ while test (count $rest) -gt 0
 end
 
 validate_rules
+validate_plus_metadata_consistency
 
 set requested_skills
 if test (count $positional) -gt 0
