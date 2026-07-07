@@ -1,10 +1,4 @@
-# signals-shared-layer Specification
-
-## Purpose
-
-TBD - created by archiving change 'add-signals-shared-layer'. Update Purpose after archive.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Signals shared layer location and file schema
 
@@ -52,19 +46,6 @@ The system SHALL store cross-change signals as individual Markdown files under `
 - **WHEN** the signal author adds a deterministic detection command
 - **THEN** the frontmatter contains a line such as `check: 'out=$(grep -rln ANNOTATION-OPEN-MARKER openspec/specs/ 2>&1); c=$?; if [ $c -eq 0 ]; then printf "%s\n" "$out"; exit 1; elif [ $c -eq 1 ]; then exit 0; else printf "%s\n" "$out" >&2; exit 2; fi'` — run as the single argument to `sh -c`, it prints the matching project-root-relative paths and exits `1` when the anti-pattern is present, exits `0` when it is absent, and exits `2` when grep itself errored (for example a missing path), so execution errors are never misread as detection results
 
-
-<!-- @trace
-source: tighten-review-loop-edge-cases
-updated: 2026-07-08
-code:
-  - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
-  - scripts/spectra-plus/template/review-loop-block.md
-tests:
-  - scripts/spectra-plus/tests/generator-checks.fish
--->
-
----
 ### Requirement: Signals directory README contract
 
 The system SHALL provide `openspec/signals/README.md` that documents the signals layer. The README MUST describe what belongs in the signals layer, what does not belong, the signal file schema, the rule that a `<slug>` is an assigned issue-class identifier (not a transform of finding text), and the process for adding or updating a signal. The README MUST document the optional `check` frontmatter field: its single-line shell command form, its execution by passing the value as the single argument to `sh -c` from the project root, the exit-code convention (`0` means the anti-pattern is absent, `1` means it is present, any other exit code is an execution error), the rule that `check` commands are human-authored, the authoring rules that `check` commands MUST be read-only, fast, offline, and non-interactive, the rule that detection results are reported only as exit `0` or `1` while foreseeable execution errors (such as a missing path) MUST surface as another exit code rather than being collapsed into `0` or `1` by blind negation, and the YAML single-line quoting pitfalls (quotes and `#` truncation) for the field value. The README MUST document that newly authored `check` commands that can identify concrete instances print project-root-relative paths for detected instances, so plus review loops can classify whether a failure lies in the current change's artifacts or modified files. The README MUST document shell error traps for `check` authors: POSIX `sh` does not provide `pipefail`, pipeline status comes from the last command, and tools whose native exit code `1` means an execution error require explicit exit-code remapping so `1` remains reserved for anti-pattern-present results. The README MUST state that signal `status` transitions to `addressed` or `dismissed` are performed manually by a human and are never applied automatically. The README MUST document that a writer coining a new `<slug>` first lists existing `openspec/signals/*.md` and picks a slug that does not already exist, and that creating a signal never overwrites an existing file. The README MUST note the concurrent full-file-overwrite risk: when two runs write the same `<slug>.md` at once — including two runs independently coining the same natural slug for a new issue class — the losing writer's appended `## Occurrences` entry and `links`, or an entire newly created signal, can be lost; and a reviewer SHALL split a signal whose `## Occurrences` entries describe unrelated issues.
@@ -80,51 +61,3 @@ The system SHALL provide `openspec/signals/README.md` that documents the signals
 - **AND** it documents that `<slug>` is an assigned issue-class identifier, not a transform of finding text
 - **AND** it states that `addressed` and `dismissed` status transitions are manual
 - **AND** it notes the concurrent overwrite lost-entry risk and the manual split guidance
-
-
-<!-- @trace
-source: tighten-review-loop-edge-cases
-updated: 2026-07-08
-code:
-  - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
-  - scripts/spectra-plus/template/review-loop-block.md
-tests:
-  - scripts/spectra-plus/tests/generator-checks.fish
--->
-
----
-### Requirement: Signal status lifecycle is human-maintained
-
-The system SHALL treat signal `status` and the optional `check` field as human-maintained. Automated writers MAY create a new signal with `status: open` and MAY update an existing `open` signal's `occurrences`, `last_seen`, `links`, and `## Occurrences` entries, but MUST NOT change a signal's `status` value and MUST NOT add, modify, or remove a signal's `check` field. Transitioning a signal to `addressed` or `dismissed`, and authoring or editing a `check` command, MUST be a manual human action.
-
-#### Scenario: Automated update preserves status
-
-- **WHEN** an automated writer updates an existing `open` signal because the underlying issue was observed again
-- **THEN** the writer increments `occurrences`, updates `last_seen`, appends an `## Occurrences` entry, and appends to `links`
-- **AND** the writer does not change the `status` field
-
-#### Scenario: Automated writer does not reopen resolved signals
-
-- **WHEN** a signal already has `status: addressed` or `status: dismissed`
-- **THEN** an automated writer does not change its `status` back to `open`
-
-#### Scenario: Automated writer never authors a check command
-
-- **WHEN** an automated writer creates a new signal or updates an existing one (including the review-loop signals write step)
-- **THEN** the written signal contains no `check` field unless a human previously authored it
-- **AND** any pre-existing human-authored `check` field is left byte-identical
-
-<!-- @trace
-source: add-review-loop-discipline
-updated: 2026-07-07
-code:
-  - .agents/skills/spectra-verify/SKILL.md
-  - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/spectra-analyze/SKILL.md
-  - scripts/spectra-plus/rules.yaml
-  - scripts/spectra-plus/template/review-loop-block.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
-tests:
-  - scripts/spectra-plus/tests/generator-checks.fish
--->

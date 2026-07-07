@@ -29,7 +29,7 @@ frontmatter 可額外包含一個選填欄位：
 
 - `check`：人工撰寫的單行 shell 檢查命令。self-check 從 project root 以 `sh -c` 執行，且把欄位值作為 `sh -c` 的單一命令字串參數。exit code 慣例為：`0` = anti-pattern 不存在；`1` = anti-pattern 存在；其他任何 exit code = 執行錯誤，不是偵測結果。
 
-`check` 命令必須是唯讀、快速、離線、非互動。它不得修改任何檔案，不得依賴網路或使用者輸入。偵測結果只能用 exit `0` 或 `1` 回報；可預見的執行錯誤（例如路徑不存在、工具缺失、語法錯誤）必須以其他 exit code 浮現，不得用 `!` 或類似盲目反轉把錯誤折疊成 `0` 或 `1`。撰寫 YAML 時，`check` 是單行字串；值若包含引號、冒號或 `#`，必須正確加引號，避免 `#` 後方被 YAML 當成註解截斷。
+`check` 命令必須是唯讀、快速、離線、非互動。它不得修改任何檔案，不得依賴網路或使用者輸入。偵測結果只能用 exit `0` 或 `1` 回報；可預見的執行錯誤（例如路徑不存在、工具缺失、語法錯誤）必須以其他 exit code 浮現，不得用 `!` 或類似盲目反轉把錯誤折疊成 `0` 或 `1`。若一個新寫的 `check` 能定位具體實例，偵測到 anti-pattern 時應 print project-root-relative paths，讓 plus review loop 能判定失敗是否落在目前 change 的 artifacts 或 modified files 內。POSIX `sh` has no `pipefail`；pipeline status is the status of the last command，所以 `check` 作者不得依賴上游命令錯誤會自動浮現。若使用的工具 native exit code `1` means an execution error，而不是「偵測到 anti-pattern」，必須明確重新映射 exit code，保留 `1` 給 anti-pattern-present 結果。撰寫 YAML 時，`check` 是單行字串；值若包含引號、冒號或 `#`，必須正確加引號，避免 `#` 後方被 YAML 當成註解截斷。
 
 frontmatter 之後依序是：一個標題、一段說明，以及一個 `## Occurrences` 區段。`## Occurrences` 區段每次觀察記一筆，每筆包含：日期、change 名、來源 skill 與 round、以及一行 context。
 

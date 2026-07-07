@@ -2,11 +2,12 @@
 id: declared-scope-implementation-drift
 type: recurring-finding
 status: open
-occurrences: 1
+occurrences: 2
 first_seen: 2026-07-07
 last_seen: 2026-07-07
 links:
   - openspec/changes/add-review-loop-discipline/reviews/apply-r2.md
+  - openspec/changes/tighten-review-loop-edge-cases/reviews/apply-r1.md
 ---
 
 # Declared scope implementation drift
@@ -16,3 +17,4 @@ An implementation changes a file or behavior that is technically necessary, but 
 ## Occurrences
 
 - 2026-07-07 — add-review-loop-discipline — spectra-apply-plus round 2 — Round 1 modified `scripts/spectra-plus/rules.yaml` to narrow Codex slash-command substitution, but proposal Impact, design scope, and tasks did not declare that rules change until Round 2 backfilled the artifacts.
+- 2026-07-07 — tighten-review-loop-edge-cases — spectra-apply-plus round 1 — Implementation modified `openspec/specs/signals-shared-layer/spec.md`, but proposal Impact and tasks did not initially name that protected master spec path until Round 1 fix actions backfilled the structured delivery scope.

@@ -200,9 +200,18 @@ for skill_path in $propose_outputs $apply_outputs
     assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" ".agents/skills/spectra-apply-plus/SKILL.md"
     assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" ".spectra.yaml"
     assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" "openspec/specs/"
+    assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" "Structured scope declarations"
+    assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" "verification command, a rule description, an example, a review finding, reviewer context, or other incidental prose"
+    assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" "for `spectra-propose-plus` with `decision: passed`, list the records in the final summary"
+    assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" "for `spectra-apply-plus` with `decision: passed`, list the records in the gate-complete final response"
+    assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" "for any `decision: aborted`, list the records in the unresolved-findings warning"
     assert_not_contains "$skill_path" "scripts\$spectra-plus"
     assert_not_contains "$skill_path" "skills\$spectra-"
     assert_contains "$skill_path" "Pre-round mechanical self-check"
+    assert_contains "$skill_path" "protected grader path that is not covered by the structured-scope exception"
+    assert_contains "$skill_path" "inspect any project-root-relative paths printed by the `check` command"
+    assert_contains "$skill_path" "If the `check` command prints no usable project-root-relative path"
+    assert_contains "$skill_path" "fail closed and treat the detected instance as in scope"
     assert_contains "$skill_path" "Fix propagation"
     assert_contains "$skill_path" "Signals in reviewer context"
     assert_contains "$skill_path" "Round-1 claim verification (Reviewer A)"
@@ -269,11 +278,19 @@ for skill_path in $propose_outputs
     assert_not_contains "$skill_path" "Maintain Balance"
 end
 
-command cp -f "$propose" /tmp/spectra-propose-plus.before
-command cp -f "$apply" /tmp/spectra-apply-plus.before
+assert_contains "$root_dir/openspec/signals/README.md" "print project-root-relative paths"
+assert_contains "$root_dir/openspec/signals/README.md" "POSIX `sh` has no `pipefail`"
+assert_contains "$root_dir/openspec/signals/README.md" "pipeline status is the status of the last command"
+assert_contains "$root_dir/openspec/signals/README.md" "native exit code `1` means an execution error"
+
+assert_contains "$root_dir/openspec/specs/signals-shared-layer/spec.md" "grep -rln ANNOTATION-OPEN-MARKER openspec/specs/"
+assert_contains "$root_dir/openspec/specs/signals-shared-layer/spec.md" "prints the matching project-root-relative paths"
+assert_not_contains "$root_dir/openspec/specs/signals-shared-layer/spec.md" "grep -rq ANNOTATION-OPEN-MARKER openspec/specs/"
+
+output_fingerprint >/tmp/spectra-plus-all-outputs.before
 run_expect 0 "$generator"
-diff -u /tmp/spectra-propose-plus.before "$propose"; or fail "propose output not idempotent"
-diff -u /tmp/spectra-apply-plus.before "$apply"; or fail "apply output not idempotent"
+output_fingerprint >/tmp/spectra-plus-all-outputs.after
+diff -u /tmp/spectra-plus-all-outputs.before /tmp/spectra-plus-all-outputs.after; or fail "plus outputs not idempotent"
 
 set before_apply_mtime (stat -f %m "$apply")
 set before_apply_codex_mtime (stat -f %m "$apply_codex")
