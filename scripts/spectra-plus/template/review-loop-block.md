@@ -20,31 +20,41 @@
 
    **Round limit and pass condition**
    - Run max 6 rounds.
+   - Round 1 MUST be a full round. Micro rounds MUST count toward the 6-round cap and MUST NOT be followed by another micro round.
    - After the confidence filter, the main agent derives the round decision mechanically (no scoring sub-agent): if any surviving finding has `severity == Critical`, the decision is `next_round`; otherwise if any surviving finding has `severity == Warning`, the decision is `next_round`; otherwise (only `Suggestion` findings remain, or none) the decision is `passed`.
    - A round passes only when, after the confidence filter, there is no surviving Critical and no surviving Warning finding.
+   - When the decision is `next_round`, derive the next round type mechanically: the next round is `micro` if and only if the current round is `full`, no Critical findings survive, and every surviving Warning has `layer == text`; otherwise the next round is `full`.
+   - The derived next round type is provisional until the next round's reviewers are spawned. If any artifact modification (or, for apply-plus, any implementation-file modification) after the decision is recorded — including a fix action, a mechanical self-check fix, or a validation fix — actually changes behavior or a design statement, the main agent MUST re-derive the next round as `full`.
+   - If the main agent cannot determine whether a post-decision modification only synchronizes text, it MUST treat the modification as behavior-modifying and re-derive the next round as `full`.
+   - Re-derivation MUST only change `micro` to `full`; it MUST NOT change `full` to `micro`. When re-derivation happens, append a one-line re-derivation note naming the triggering modification and reason at the end of that round file's `## Fix Actions` section.
    - If round 6 still does not meet the pass condition, write `decision: aborted`, print the unresolved findings, and end the plus workflow.
    - If a round passes, write `decision: passed`, stop the loop, and continue to the completion summary.
 
    **Fresh sub-agent calls**
-   - Each round MUST spawn TWO fresh reviewer sub-agents in parallel (single message, two tool calls):
+   - Each full round MUST spawn exactly TWO fresh reviewer sub-agents in parallel (single message, two tool calls):
      - **Reviewer A — Adherence**: checks that the artifacts (and for apply-plus, the implementation diff) match the prior artifacts. For propose-plus: proposal ↔ design ↔ spec ↔ tasks internal consistency, scope coverage, and acceptance criteria completeness. For apply-plus: implementation matches `design.md` Implementation Contract, `tasks.md` task descriptions, and `spec.md` requirements; `implementation-notes.md` deviations are justified.
      - **Reviewer B — Quality**: scans for bugs, regressions, missing tests, security sharp edges, and risks NOT directly named in the artifacts. For propose-plus: missing risks, unstated assumptions, scope gaps. For apply-plus: logic bugs, error-handling gaps at real boundaries, untested edge cases from spec `##### Example:` blocks.
-   - Both reviewers receive identical context (artifact paths and, for apply-plus, the changed-file list) and return findings independently. Do not pass Reviewer A output into Reviewer B or vice versa.
-   - **Signals in reviewer context**: before spawning each round's reviewers, the main agent reads the signals under `openspec/signals/` whose frontmatter `status` is `open`, selects those relevant to this change (best-effort judgment), and includes their issue-class descriptions in BOTH reviewers' context so recurring issue classes are checked deliberately instead of rediscovered. This read is informational only: it MUST NOT modify any signal, and if `openspec/signals/` is absent or has no `open` signal, continue silently. It is distinct from the propose-plus scope-scan signals read and from the post-loop signals write step.
+   - Each micro round MUST spawn exactly ONE fresh reviewer sub-agent:
+     - **Reviewer V — Verification**: verifies only the prior round's fixes. Reviewer V receives the artifact paths (and, for apply-plus, the changed-file list), the prior round file's surviving findings and `## Fix Actions` content, and relevant `open` signals. Reviewer V's scope is limited to whether each fix resolved its finding at the fixed location, whether fix propagation is complete, and whether the fixes introduced new defects.
+   - Full-round reviewers receive identical context (artifact paths and, for apply-plus, the changed-file list) and return findings independently. Do not pass Reviewer A output into Reviewer B or vice versa.
+   - **Signals in reviewer context**: before spawning a round's reviewer(s), the main agent reads the signals under `openspec/signals/` whose frontmatter `status` is `open`, selects those relevant to this change (best-effort judgment), and includes their issue-class descriptions in all of that round's reviewers' context so recurring issue classes are checked deliberately instead of rediscovered. This read is informational only: it MUST NOT modify any signal, and if `openspec/signals/` is absent or has no `open` signal, continue silently. It is distinct from the propose-plus scope-scan signals read and from the post-loop signals write step.
    - **Round-1 claim verification (Reviewer A)**: in round 1, Reviewer A MUST verify the code-facing claims in `design.md` against the actual codebase before its other checks — for each claim of the form "X is called by Y", "X currently behaves as Z", or a stated data source or entry point, grep the call sites and read the relevant code to confirm it. A claim that does not hold is a finding; do not take design claims on faith.
-   - After both reviewers complete, the main agent aggregates findings (deduplicate identical issues by `location + summary`) and applies the confidence filter (see below).
+   - After the round's reviewer(s) complete, the main agent aggregates findings (deduplicate identical issues by `location + summary`) and applies the confidence filter (see below). When full-round reviewers independently raise the same finding with different `layer` values, the merged finding MUST take `layer == design`.
    - The reviewer roles are independent sub-agent calls; do not perform either of them inline in the main agent context.
    - Do not reuse a sub-agent across rounds, and do not pass prior sub-agent state into the next round.
    - After the confidence filter, the main agent derives the round decision mechanically from the filtered findings (see "Round limit and pass condition"); there is no separate scoring sub-agent.
 
    **Reviewer output requirements**
-   - Both reviewers MUST classify each finding into Critical, Warning, or Suggestion.
+   - All of a round's reviewers MUST classify each finding into Critical, Warning, or Suggestion.
    - Every finding MUST include the following fields:
      - `severity`: one of `Critical`, `Warning`, `Suggestion` (before filtering)
      - `confidence`: integer `0`–`100`, using the rubric below
+     - `layer`: one of `design` or `text`
      - `location`: artifact + section, or file path + line range
      - `summary`: one-line description of the issue
      - `recommendation`: concrete action to resolve
+   - Classify a finding as `text` only when it concerns cross-artifact consistency (counts, identifier spelling, wording, or section synchronization) and fixing it does not change any design decision or behavioral statement. Classify every other finding as `design`.
+   - When a reviewer cannot decide between `design` and `text`, it MUST classify the finding as `design`.
    - Every finding names the artifact, section, source path, or changed file it applies to.
    - Scope errors at proposal level (e.g., the proposal targets the wrong capability) may set `decision: aborted` instead of continuing fixes.
 
@@ -57,6 +67,7 @@
    - **Direct artifact-requirement violations MUST score `100`.** If a reviewer can name the exact SHALL / contract item / task line being violated, the finding is objectively verifiable and SHALL NOT be downgraded below `100`. This invariant guarantees the confidence filter never demotes an artifact violation to Suggestion.
 
    **Confidence filter (applied by main agent before the decision)**
+   - While applying the confidence filter, re-check every finding classified as `text`; if its fix could touch behavior or a design statement, reclassify it to `design`. The main agent MUST NOT reclassify a `design` finding to `text`.
    - Drop any finding with `confidence < 50`. These do not appear in the round file.
    - Downgrade findings with `confidence ∈ [50, 80)` to `Suggestion` regardless of original severity. They appear in the round file under Suggestion for visibility but do NOT count as Critical.
    - Only findings with `confidence ≥ 80` may be classified as Critical or Warning in the final round file.
@@ -76,7 +87,7 @@
 
    **Failure handling**
    - If a reviewer returns no response or malformed output, retry once with a fresh sub-agent invocation for the reviewer role.
-   - If both parallel reviewers fail in the same round, treat it as a single role failure (the reviewer role); retry once.
+   - If both full-round parallel reviewers fail in the same round, treat it as a single role failure (the reviewer role); retry once.
    - If the same role fails two consecutive times in a single round, abort the entire plus workflow.
    - On abort from sub-agent failure, write the current round file with `decision: aborted` and include the failure note in `## Decision`.
    - Do not mark a malformed or failed round as passed, and do not continue to the next round after two consecutive failures.
@@ -84,6 +95,7 @@
    **Decision record requirements**
    - The main agent records the count of surviving `Critical` findings and the count of surviving `Warning` findings after the confidence filter.
    - The main agent records `critical_gap` as `true` or `false` (`true` only when at least one surviving finding is `Critical`).
+   - The main agent records `round_type` as exactly `full` or `micro`.
    - The main agent records one concise rationale paragraph explaining why the round is `passed`, `next_round`, or `aborted`.
    - The decision MUST follow only from findings that survived the confidence filter; do not re-introduce filtered-out findings, and do not pass a round that has a surviving Critical or Warning finding.
 
@@ -96,8 +108,8 @@
 
    **Round file schema**
    - `# Propose Plus Review — Round <N>` or `# Apply Plus Review — Round <N>`
-   - `## Reviewer Findings` — list aggregated, post-filter findings grouped under Critical / Warning / Suggestion. Each entry MUST include `severity`, `confidence`, `location`, `summary`, `recommendation`, and which reviewer raised it (`A` or `B`; `A+B` if both raised it independently).
-   - `## Rating` — surviving `Critical` count, surviving `Warning` count, `critical_gap`, rationale paragraph.
+   - `## Reviewer Findings` — list aggregated, post-filter findings grouped under Critical / Warning / Suggestion. Each entry MUST include `severity`, `confidence`, `layer`, `location`, `summary`, `recommendation`, and which reviewer raised it (`A` or `B`; `A+B` if both raised it independently; `V` for Reviewer V).
+   - `## Rating` — surviving `Critical` count, surviving `Warning` count, `critical_gap`, `round_type`, rationale paragraph.
    - `## Fix Actions`
    - `## Decision` — value MUST be exactly one of `passed`, `next_round`, or `aborted`.
 
@@ -115,7 +127,7 @@
    - **Keep the following verbatim (do not translate):**
      - Section headings: `# Propose Plus Review — Round <N>`, `# Apply Plus Review — Round <N>`, `## Reviewer Findings`, `## Rating`, `## Fix Actions`, `## Decision`.
      - The `decision` value: one of `passed`, `next_round`, `aborted`.
-     - Field names and their values: `critical_gap` (`true` / `false`), `severity`, `confidence`, `location`, `summary`, `recommendation`.
+     - Field names and their values: `critical_gap` (`true` / `false`), `round_type` (`full` / `micro`), `severity`, `confidence`, `layer` (`design` / `text`), `location`, `summary`, `recommendation`.
      - Direct quotations from spec delta, master spec, or any other English-language artifact.
      - CLI commands, file paths, code identifiers, artifact IDs, capability slugs.
    - This rule applies to both `spectra-propose-plus` and `spectra-apply-plus` round files because they share this review-loop template.

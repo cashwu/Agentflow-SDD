@@ -9,7 +9,7 @@ set entrypoint "$root_dir/scripts/spectra-plus/repair-all.fish"
 set rules "$root_dir/scripts/spectra-plus/rules.yaml"
 set guard_marker "<!-- SPECTRA-COMMIT-GUARD: archive-first allowlist + plus deletion protection -->"
 set agent_label "com.agentflow.spectra-plus.repair"
-set plus_version "1.2.0"
+set plus_version "1.3.1"
 set plus_updated "2026-07-07"
 
 function fail

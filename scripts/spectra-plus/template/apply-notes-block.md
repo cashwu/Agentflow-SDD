@@ -42,7 +42,7 @@
 
    **Sub-agent reviewer requirement**
 
-   Reviewer A — Adherence in the Sub-Agent Review/Rating/Fix Loop MUST, at the start of each round, read `openspec/changes/<change>/implementation-notes.md`.
+   Reviewer A — Adherence in the Sub-Agent Review/Rating/Fix Loop MUST, at the start of each full round, read `openspec/changes/<change>/implementation-notes.md`. In each micro round, Reviewer V MUST read the same file before verifying fixes.
 
    - **File absent**: this is a Critical finding — apply-plus failed to initialize the running log, indicating either an aborted workflow or a skill-integrity failure. The round MUST NOT pass; recommend re-running apply-plus or back-filling the file before the next round.
    - **File present with only the initialization comment and no entries**: treat as confirmed empty — apply-plus reached the task loop and found nothing requiring a `deviation` or `open-question` entry. No finding raised by virtue of emptiness alone.
@@ -50,7 +50,7 @@
      - `deviation` entries are evaluated for whether the divergence is justified. An unjustified deviation is a Critical finding; a justified-but-undocumented-in-`design.md` deviation is at minimum a Warning recommending the divergence be back-filled into `design.md` during Fix Actions.
      - `open-question` entries are surfaced as Warning findings with a recommended `## Fix Actions` step naming how to obtain user confirmation before the round can pass.
 
-   The main agent derives the round decision mechanically from the post-filter reviewer findings and does not read this file directly; Reviewer A findings already incorporate the notes context.
+   The main agent derives the round decision mechanically from the post-filter reviewer findings and does not read this file directly; that round's reviewer findings already incorporate the notes context.
 
    **Idempotence and ingest interaction**
    - `spectra-ingest` may modify `tasks.md` / `design.md` / `proposal.md`. After ingest resolves an open question, the agent MUST append a follow-up entry noting the resolution (do not delete or rewrite the original `open-question` entry — the historical record is the point).
