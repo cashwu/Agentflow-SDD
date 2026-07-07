@@ -9,8 +9,8 @@ set entrypoint "$root_dir/scripts/spectra-plus/repair-all.fish"
 set rules "$root_dir/scripts/spectra-plus/rules.yaml"
 set guard_marker "<!-- SPECTRA-COMMIT-GUARD: archive-first allowlist + plus deletion protection -->"
 set agent_label "com.agentflow.spectra-plus.repair"
-set plus_version "1.1.0"
-set plus_updated "2026-07-04"
+set plus_version "1.2.0"
+set plus_updated "2026-07-07"
 
 function fail
     echo "FAIL: $argv" >&2
@@ -540,7 +540,7 @@ for path in (target_plus_outputs "$repair_stale_updated")
 end
 for path in (target_plus_outputs "$repair_missing_metadata")
     set stripped (mktemp /tmp/spectra-plus-metadata-strip.XXXXXX)
-    awk '$0 != "spectraPlusVersion: 1.1.0" && $0 != "spectraPlusUpdated: 2026-07-04" { print }' "$path" > "$stripped"
+    awk -v version_line="spectraPlusVersion: $plus_version" -v updated_line="spectraPlusUpdated: $plus_updated" '$0 != version_line && $0 != updated_line { print }' "$path" > "$stripped"
     command mv -f "$stripped" "$path"
 end
 replace_in_file "$repair_single_stale/.agents/skills/spectra-propose-plus/SKILL.md" "spectraPlusVersion: $plus_version" "spectraPlusVersion: 1.0.0"
