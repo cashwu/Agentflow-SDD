@@ -25,6 +25,12 @@
 - `last_seen`：最近一次觀察日期，格式為 `YYYY-MM-DD`。
 - `links`：project-root 相對路徑陣列，指向每次觀察的來源。
 
+frontmatter 可額外包含一個選填欄位：
+
+- `check`：人工撰寫的單行 shell 檢查命令。self-check 從 project root 以 `sh -c` 執行，且把欄位值作為 `sh -c` 的單一命令字串參數。exit code 慣例為：`0` = anti-pattern 不存在；`1` = anti-pattern 存在；其他任何 exit code = 執行錯誤，不是偵測結果。
+
+`check` 命令必須是唯讀、快速、離線、非互動。它不得修改任何檔案，不得依賴網路或使用者輸入。偵測結果只能用 exit `0` 或 `1` 回報；可預見的執行錯誤（例如路徑不存在、工具缺失、語法錯誤）必須以其他 exit code 浮現，不得用 `!` 或類似盲目反轉把錯誤折疊成 `0` 或 `1`。撰寫 YAML 時，`check` 是單行字串；值若包含引號、冒號或 `#`，必須正確加引號，避免 `#` 後方被 YAML 當成註解截斷。
+
 frontmatter 之後依序是：一個標題、一段說明，以及一個 `## Occurrences` 區段。`## Occurrences` 區段每次觀察記一筆，每筆包含：日期、change 名、來源 skill 與 round、以及一行 context。
 
 最小範例 signal 檔內容如下：
@@ -79,6 +85,8 @@ writer 處理一筆符合收錄門檻的 finding 時：
 自動 writer 的權限刻意受限：它只會建立新的 `open` signal，或更新既有 `open` signal 的 `occurrences` / `last_seen` / `links` / `## Occurrences`。
 
 自動 writer **永不** 把 `status` 改成 `addressed` 或 `dismissed`，也 **永不** 把已解決的 signal 改回 `open`。`addressed` / `dismissed` 的轉換完全是人工動作，由人在問題真正被處理或判定不予處理時手動維護。
+
+`check` 與 `status` 一樣由人維護。自動 writer（包含 plus review loop 的 signals write step 與 fix action）不得新增、修改或刪除任何 signal 的 `check` 欄位；更新既有 signal 時，若已有人工撰寫的 `check`，必須逐字節保留不動。建立新 signal 時，自動 writer 不得自動鑄造 `check`。
 
 ## 並發 lost-entry 風險與拆分指引
 

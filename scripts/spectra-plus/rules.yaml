@@ -33,8 +33,8 @@ skills:
         source: .agents/skills/spectra-propose/SKILL.md
         output: .agents/skills/spectra-propose-plus/SKILL.md
         substitutions:
-          - from: "/spectra-"
-            to: "$spectra-"
+          - from: "`/spectra-"
+            to: "`$spectra-"
           - from: "docs/specs/specs/"
             to: "openspec/specs/"
   spectra-apply-plus:
@@ -75,8 +75,8 @@ skills:
         source: .agents/skills/spectra-apply/SKILL.md
         output: .agents/skills/spectra-apply-plus/SKILL.md
         substitutions:
-          - from: "/spectra-"
-            to: "$spectra-"
+          - from: "`/spectra-"
+            to: "`$spectra-"
           - from: "docs/specs/changes/"
             to: "openspec/changes/"
           - from: "- If `state: \"all_done\"`: congratulate, suggest archive"

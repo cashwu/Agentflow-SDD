@@ -427,7 +427,9 @@ Simplicity First 與 Surgical Changes 的目的是「不寫不必要的東西」
      - **Comment/annotation lint**: in every spec delta file, `<!--` and `-->` counts MUST match; no unclosed annotation block (e.g. a dangling `<!-- @trace` line) and no stray `---` separator may remain inside a requirement or scenario section.
      - **Count-consistency scan**: every numeric claim one artifact makes about another (e.g. proposal or design stating a scenario, requirement, or task count) MUST match the actual count in the referenced artifact. Recount at the source and update stale numbers.
      - **Identifier cross-grep**: for each function name, entry point, file path, flag, or artifact ID that `design.md` defines, grep ALL artifacts (and for apply-plus, the changed files) and verify every occurrence is consistent in spelling and meaning.
-     - **Signal-derived checks**: if any relevant `open` signal (see "Signals in reviewer context" below) describes a machine-checkable anti-pattern, run a corresponding check for it.
+     - **Signal-derived checks**:
+       1. For EVERY `open` signal whose frontmatter contains a `check` field, execute the `check` value from the project root by passing it as the single command-string argument to `sh -c`, without applying relevance filtering. Executing a `check` command MUST NOT modify any file. Exit `0` means the check passed. Exit `1` means the anti-pattern is present: if the detected instance is in this change's artifacts or changed files, fix it before spawning reviewers; if the detected instance is pre-existing, or its fix lies outside this change's declared scope or inside a grader-protected path, do not fix it, record one `範圍外 check 失敗` note in that round file's `## Fix Actions`, include the failing check result in the reviewers' context, and proceed to spawn reviewers. Any other exit code is an execution error: fall back to the existing best-effort judgment for that signal and record one fallback note in `## Fix Actions`. These note lines coexist with `None; pass condition met.` and do not count toward ledger `fixed_files`.
+       2. For `open` signals without a `check` field, or signals whose `check` execution fell back because of an execution error, keep the existing best-effort behavior: if any relevant signal (see "Signals in reviewer context" below) describes a machine-checkable anti-pattern, run a corresponding check for it.
    - Fix every failure before spawning the reviewers. When the self-check runs after a round's fix actions, record what it caught and fixed in that round's `## Fix Actions`; self-check results are NOT reviewer findings and never feed the round decision.
 
    **Round limit and pass condition**
@@ -534,6 +536,41 @@ Simplicity First 與 Surgical Changes 的目的是「不寫不必要的東西」
    - For `spectra-propose-plus`, if any fix action modifies proposal, design, tasks, or spec artifacts, run `spectra validate "<name>"` again and fix validation errors before starting the next round.
    - If no fixes are needed because the round passed, write `None; pass condition met.`
 
+   <!-- GRADER-IMMUTABILITY -->
+   **Grader immutability**
+   - During an active plus review loop, the main agent MUST NOT modify, whether as a fix action or as a mechanical self-check fix, any file in this protected grader path set unless that file is explicitly named in the current change's proposal `## Impact` section or in its `tasks.md`:
+     - `scripts/spectra-plus/template/`
+     - `scripts/spectra-plus/rules.yaml`
+     - `scripts/spectra-plus/generate.fish`
+     - `.claude/skills/spectra-propose-plus/SKILL.md`
+     - `.claude/skills/spectra-apply-plus/SKILL.md`
+     - `.agents/skills/spectra-propose-plus/SKILL.md`
+     - `.agents/skills/spectra-apply-plus/SKILL.md`
+     - `.spectra.yaml`
+     - `openspec/specs/`
+   - A file counts as explicitly named only when its project-root-relative path appears verbatim. Naming a directory path names every file under it. Naming a file under `scripts/spectra-plus/template/` also names the four regenerated plus skill outputs, so required regeneration is not blocked.
+   - A loop already in progress continues under the instruction version it started with; regenerated instructions take effect only from the next loop run.
+   - The main agent MUST NOT add, modify, or remove the `check` frontmatter field of any signal under `openspec/signals/`, regardless of declared scope. The `check` field is grader input for the pre-round mechanical self-check.
+   - If fixing a surviving finding would require modifying a protected file outside declared scope, or touching any signal's `check` field, do not make that modification. Record `未修復：裁判面保護` (an unfixed-due-to-grader-protection note) in `## Fix Actions`, naming the protected file and finding. The finding remains surviving for the round decision. This is the explicit exception to the obligations to fix Critical/Warning findings before the next round in the `spectra-propose-plus quality gate` and `spectra-apply-plus quality gate` requirements: fixes are required except any finding withheld under the grader-immutability rule.
+   - A protected file modified under the declared-scope exception remains subject to the existing re-derivation rules. If the loop reaches round 6 without passing because protected findings remain, write `decision: aborted` under the existing round-limit rule.
+   - The plus workflow completion summary MUST list every `未修復：裁判面保護` record from every round, even if a later round passes.
+
+   <!-- LOOP-LEDGER-STEP -->
+   **Loop ledger step**
+   - After each round file is finalized, append exactly one row to `openspec/changes/<change>/reviews/loop-ledger.tsv`. For a `next_round` round, append immediately before spawning the next round's reviewers, after all fix actions, post-fix self-check records, validation re-run fix records, and any re-derivation note have been written to the round file. For a final `passed` or `aborted` round, append at loop end before the signals write step.
+   - If `loop-ledger.tsv` does not exist, create it first with this exact tab-separated header row: `skill	round	round_type	criticals	warnings	decision	fixed_files`.
+   - Append data rows with exactly seven tab-separated fields in this order:
+     - `skill`: `propose` or `apply`
+     - `round`: 1-based round number
+     - `round_type`: `full` or `micro`
+     - `criticals`: surviving Critical count after filtering, or `0` when no post-filter findings exist, including failure-aborted rounds
+     - `warnings`: surviving Warning count after filtering, or `0` when no post-filter findings exist, including failure-aborted rounds
+     - `decision`: `passed`, `next_round`, or `aborted`
+     - `fixed_files`: number of distinct files recorded as modified in that round's `## Fix Actions`; use `0` when none are recorded, and do not count note lines such as fallback, out-of-scope check failure, or grader-protection notes
+   - The ledger is an append-only event log. Rows from propose loops, apply loops, and later re-runs after an abort accumulate chronologically in the same file. `(skill, round)` is not a unique key; duplicate round numbers from re-runs are valid.
+   - Round files remain authoritative. If a round file and ledger disagree, trust the round file.
+   - If writing the ledger fails, print a warning and continue the plus workflow unchanged.
+
    **Round file language**
    - The Round file (`openspec/changes/<change>/reviews/<skill>-r<N>.md`) prose content — Reviewer Findings, Rating rationale, Fix Actions descriptions, and the `## Decision` explanation — MUST be written in Traditional Chinese.
    - **Keep the following verbatim (do not translate):**
@@ -551,9 +588,9 @@ Simplicity First 與 Surgical Changes 的目的是「不寫不必要的東西」
    - **When it runs**: Run this step only after the review loop has ENDED — that is, the final round file's `decision` is `passed` or `aborted` — and the mechanical decision has already been recorded. This step MUST run only after that decision is recorded, and it MUST NOT change the `decision` of any round file. It applies to both `spectra-propose-plus` and `spectra-apply-plus`, since this template is shared.
    - **Target set**: The target set is every finding that, in ANY single round of THIS change's loop, survived the confidence filter classified as `Critical` or `Warning`. Cover findings from every round, not only the final round — a finding that was caught and fixed in an early round of an otherwise-passing loop still produces a signal. Deduplicate the target set by issue class, so an issue class seen across multiple rounds is processed exactly once. This issue-class deduplication is INDEPENDENT of any per-round `location + summary` aggregation deduplication used elsewhere in the loop. Findings classified `Suggestion`, and any finding with `confidence < 80`, MUST NOT produce a signal.
    - **Matching rubric**: For each deduplicated finding class, read the existing signals under `openspec/signals/` and judge issue-class match by: SAME capability or domain AND SAME underlying rule or anti-pattern. Differing free-text wording alone does NOT make a different class; a different root cause DOES make a different class. When uncertain, PREFER creating a new signal over merging into an existing one.
-   - **On match to an existing `open` signal**: Reuse that signal's slug and update it in place — increment `occurrences`, update `last_seen` to today (`YYYY-MM-DD`), append one `## Occurrences` entry (date, change name, source skill + round, and a one-line context), and append the source round file path to `links`. Do NOT change its `status`.
+   - **On match to an existing `open` signal**: Reuse that signal's slug and update it in place — increment `occurrences`, update `last_seen` to today (`YYYY-MM-DD`), append one `## Occurrences` entry (date, change name, source skill + round, and a one-line context), and append the source round file path to `links`. Do NOT change its `status`. Do NOT add, modify, or remove its `check` field; preserve any existing human-authored `check` byte-for-byte.
    - **On no `open` match** (including when only an `addressed` or `dismissed` signal matches): Create a NEW signal. Before coining the `<slug>`, list the existing `openspec/signals/*.md` files and choose a `<slug>` that does NOT already exist. The slug is a short semantic ASCII kebab-case issue-class identifier matching `^[a-z0-9]+(-[a-z0-9]+)*$` (e.g. `spec-requirement-no-backing-task`); it is NOT a mechanical transform of `location + summary`. If the natural slug is already taken, disambiguate with a suffix. Creating a signal MUST NOT overwrite any existing signal file and MUST NOT change any existing signal's human-maintained `status`. The new signal has `status: open`, `occurrences: 1`, and `first_seen` = `last_seen` = today.
-   - **Signal file schema**: Each signal file has frontmatter with `id` (= slug), `type` (default `recurring-finding` for review-loop-written signals), `status`, `occurrences`, `first_seen`, `last_seen`, and `links`; followed by a title, a description paragraph, and a `## Occurrences` section.
+   - **Signal file schema**: Each signal file has frontmatter with `id` (= slug), `type` (default `recurring-finding` for review-loop-written signals), `status`, `occurrences`, `first_seen`, `last_seen`, `links`, and optional human-authored `check`; followed by a title, a description paragraph, and a `## Occurrences` section. New signals created by this step MUST NOT contain an automatically authored `check`.
    - **Failure handling**: If writing under `openspec/signals/` fails, print a warning but do NOT fail the plus workflow — signals are an auxiliary layer. If there are no qualifying findings, write nothing.
 
 **Output During Implementation**

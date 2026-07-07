@@ -27,6 +27,19 @@ function assert_contains
     rg -q --fixed-strings "$text" "$file"; or fail "$file missing $text"
 end
 
+function assert_contains_between
+    set file $argv[1]
+    set start_text $argv[2]
+    set end_text $argv[3]
+    set text $argv[4]
+    awk -v start="$start_text" -v stop="$end_text" -v text="$text" '
+        index($0, start) { started = 1; in_block = 1; next }
+        in_block && index($0, stop) { stopped = 1; in_block = 0; next }
+        in_block && index($0, text) { found = 1 }
+        END { exit started && stopped && found ? 0 : 1 }
+    ' "$file"; or fail "$file missing $text between $start_text and $end_text"
+end
+
 function assert_not_contains
     set file $argv[1]
     set text $argv[2]
@@ -176,6 +189,19 @@ for skill_path in $propose_outputs $apply_outputs
     assert_contains "$skill_path" 'merged finding MUST take `layer == design`'
     # Pre-round mechanical self-check + fix propagation + signals into reviewer context (shared template).
     assert_contains "$skill_path" "<!-- MECHANICAL-SELF-CHECK -->"
+    assert_contains "$skill_path" "<!-- GRADER-IMMUTABILITY -->"
+    assert_contains "$skill_path" "<!-- LOOP-LEDGER-STEP -->"
+    assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" "scripts/spectra-plus/template/"
+    assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" "scripts/spectra-plus/rules.yaml"
+    assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" "scripts/spectra-plus/generate.fish"
+    assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" ".claude/skills/spectra-propose-plus/SKILL.md"
+    assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" ".claude/skills/spectra-apply-plus/SKILL.md"
+    assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" ".agents/skills/spectra-propose-plus/SKILL.md"
+    assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" ".agents/skills/spectra-apply-plus/SKILL.md"
+    assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" ".spectra.yaml"
+    assert_contains_between "$skill_path" "<!-- GRADER-IMMUTABILITY -->" "<!-- LOOP-LEDGER-STEP -->" "openspec/specs/"
+    assert_not_contains "$skill_path" "scripts\$spectra-plus"
+    assert_not_contains "$skill_path" "skills\$spectra-"
     assert_contains "$skill_path" "Pre-round mechanical self-check"
     assert_contains "$skill_path" "Fix propagation"
     assert_contains "$skill_path" "Signals in reviewer context"
@@ -221,6 +247,15 @@ end
 for skill_path in $apply_outputs
     assert_not_contains "$skill_path" "<!-- SIGNALS-READ-STEP -->"
 end
+
+# Codex variant substitution remains scoped to slash-command examples and does not touch paths.
+assert_contains "$propose_codex" '$spectra-propose'
+assert_contains "$propose_codex" '$spectra-apply'
+assert_not_contains "$propose_codex" '`/spectra-'
+assert_contains "$apply_codex" '$spectra-apply'
+assert_contains "$apply_codex" '$spectra-propose'
+assert_contains "$apply_codex" '$spectra-ingest'
+assert_not_contains "$apply_codex" '`/spectra-'
 
 # Surgical & Simplicity discipline — apply-plus only (both variants)
 for skill_path in $apply_outputs
