@@ -122,6 +122,15 @@ Snapshot current-state check 使用三態結果：current 會跳過、stale 才�
 
 直接執行 `--target` 仍沿用原本工作區 installer 與 source guard auto-restore 行為；pinned snapshot 僅適用於 `--repair-all`。
 
+每次 current 判斷都會先透過 generator 的唯讀 `--fingerprints` query，依 target base skills、本機 generator、完整 rules 與 rules 引用的 templates 算出四個 expected fingerprints，再和 generated outputs 的 frontmatter `metadata.spectraPlusFingerprint`、version/date 與 guard 狀態比對。結果分成四態：
+
+- **current**：四個 outputs 與 guards 都符合目前本機 inputs，跳過。
+- **stale**：query 完整成功，但 output 缺少或不符合 expected fingerprint（或其他 current 條件），執行修復。
+- **unavailable**：query 失敗或回傳非嚴格四列 TSV，該 target 回報 `[failed]`、保持不變，並繼續處理後續 targets。
+- **structurally invalid**：commit guard 結構非法，該 target 回報 `[failed]`、保持不變，並繼續處理後續 targets。
+
+這是**本機修復**：只依目前 checkout 的 generator、rules、templates 與 target base skills 重生內容，不會執行 `git pull`、檢查 remote 或下載更新。
+
 輸出會包含 per-target summary：
 
 - `[success]`：target 已修復。
@@ -134,7 +143,7 @@ Dry-run 不修改 registry、project files、lock、cache 或 throttle state：
 ./install-spectra-plus.fish --repair-all --dry-run
 ```
 
-手動強制執行可略過 throttle，但仍遵守 lock：
+手動強制執行可略過 throttle，但仍遵守 dirty-source guard、lock、fingerprint query、結構檢查與 validation：
 
 ```fish
 ./install-spectra-plus.fish --repair-all --force
@@ -171,13 +180,17 @@ Dry-run 不寫入或移除 plist，也不呼叫 `launchctl`：
 
 預設設定：
 
-- Label：`com.agentflow.spectra-plus.repair`
-- Plist：`$HOME/Library/LaunchAgents/com.agentflow.spectra-plus.repair.plist`
+- Label：`com.spectra.plus.repair`
+- Plist：`$HOME/Library/LaunchAgents/com.spectra.plus.repair.plist`
 - Log：`$HOME/Library/Logs/spectra-plus-repair.log`
 - `StartInterval`：`60` 秒
 - Throttle window：不大於 `StartInterval`
 
+安裝或解除安裝時會一併卸載並移除舊版 `com.agentflow.spectra-plus.repair` plist，避免棄用的 Agentflow label 與新版排程重複執行。
+
 LaunchAgent 不會修改 `/Applications/Spectra.app`。它只定期執行 repair-all，repair-all 只處理 registry 內 targets。
+
+LaunchAgent 也不會更新 source checkout 或從 remote 取得新版；要升級 repair 邏輯，請先用既有專案流程更新這個本機 checkout，再讓 repair-all 套用到 registered targets。
 
 ## Lock 與 Throttle
 
@@ -229,16 +242,17 @@ Spectra.app reset 後手動補回：
 完整驗證：
 
 ```fish
+fish scripts/spectra-plus/tests/generator-checks.fish
 fish scripts/spectra-plus/tests/installer-commit-guard-checks.fish
 fish scripts/spectra-plus/tests/repair-all-checks.fish
-fish scripts/spectra-plus/tests/generator-checks.fish
+fish scripts/spectra-plus/tests/auto-restore-checks.fish
 spectra validate --specs
 ```
 
 語法檢查：
 
 ```fish
-fish -n install-spectra-plus.fish scripts/spectra-plus/repair-all.fish scripts/spectra-plus/tests/repair-all-checks.fish
+fish -n install-spectra-plus.fish scripts/spectra-plus/generate.fish scripts/spectra-plus/repair-all.fish scripts/spectra-plus/tests/*.fish
 ```
 
 `scripts/spectra-plus/tests/generator-checks.fish` 會暫時改寫 `scripts/spectra-plus/rules.yaml` 來測試 failure cases，執行結束會復原。不要把它和 `repair-all-checks.fish` 並行跑，避免測試互相踩到暫時狀態。
@@ -288,13 +302,18 @@ rm -rf "$TMPDIR/spectra-plus-repair.lock"
 
 ### 來源 commit skill 的 guard 被剝除
 
-若 Spectra.app 把 source repo 自己的 `spectra-commit/SKILL.md`（`.claude` 與 `.agents`）reset 成不含 `SPECTRA-COMMIT-GUARD` 的版本，repair 會**自動從 git HEAD 還原該來源檔**再續行，輸出：
+若 Spectra.app 把 source repo 自己的 `spectra-commit/SKILL.md`（`.claude` 或 `.agents`）reset 成不含 `SPECTRA-COMMIT-GUARD` 的版本，兩條路徑刻意不同：
+
+- 手動 `--target`：符合下列安全條件時，會從 git `HEAD` 還原該單一來源檔再續行。
+- 自動 `--repair-all`（包含 LaunchAgent）：dirty-source guard 會在 dependency、fingerprint query 與 target processing 前回報 skip；不會從 `HEAD` 還原，也不會修改 registered targets。請先清理或確認 source checkout，再明確執行手動 `--target`。
+
+手動還原成功時會輸出：
 
 ```text
 restored .claude/skills/spectra-commit/SKILL.md from HEAD
 ```
 
-自動還原只在「來源 guard 已失效、檔案位於 git 工作樹、且 HEAD 版本含合法 guard」時發生；只動該單一檔案的 working tree（不碰 index、不影響其他 dirty 檔），`--dry-run` 只印 `+ would restore … from HEAD` 不做變更。
+手動 `--target` 的 auto-restore 只在「來源 guard 已失效、檔案位於 git 工作樹、且 HEAD 版本含合法 guard」時發生；只動該單一檔案的 working tree（不碰 index、不影響其他 dirty 檔），`--dry-run` 只印 `+ would restore … from HEAD` 不做變更。
 
 若連 **git HEAD 版本也缺少合法 guard**（或來源不在 git 工作樹），無法自動還原，會回到既有 fail-loud：
 

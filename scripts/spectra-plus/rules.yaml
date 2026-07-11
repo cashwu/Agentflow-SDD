@@ -3,8 +3,9 @@ skills:
     metadata:
       name: spectra-propose-plus
       description: "Create a Spectra change proposal with sub-agent quality gates"
-      spectraPlusVersion: "1.3.1"
-      spectraPlusUpdated: "2026-07-07"
+      compatibility: "Requires spectra CLI."
+      spectraPlusVersion: "1.4.0"
+      spectraPlusUpdated: "2026-07-11"
     transformations:
       - target_section: "3. **Scan existing specs for relevance**"
         operation: append
@@ -27,12 +28,20 @@ skills:
         source: .claude/skills/spectra-propose/SKILL.md
         output: .claude/skills/spectra-propose-plus/SKILL.md
         substitutions:
+          - from: "**Input**: The argument after `/spectra-propose` is"
+            to: "**Input**: The argument after `/spectra-propose-plus` is"
+          - from: "- `/spectra-propose "
+            to: "- `/spectra-propose-plus "
           - from: "docs/specs/specs/"
             to: "openspec/specs/"
       codex:
         source: .agents/skills/spectra-propose/SKILL.md
         output: .agents/skills/spectra-propose-plus/SKILL.md
         substitutions:
+          - from: "**Input**: The argument after `$spectra-propose` is"
+            to: "**Input**: The argument after `$spectra-propose-plus` is"
+          - from: "- `$spectra-propose "
+            to: "- `$spectra-propose-plus "
           - from: "`/spectra-"
             to: "`$spectra-"
           - from: "docs/specs/specs/"
@@ -41,8 +50,9 @@ skills:
     metadata:
       name: spectra-apply-plus
       description: "Implement Spectra tasks with a sub-agent quality gate after completion"
-      spectraPlusVersion: "1.3.1"
-      spectraPlusUpdated: "2026-07-07"
+      compatibility: "Requires spectra CLI."
+      spectraPlusVersion: "1.4.0"
+      spectraPlusUpdated: "2026-07-11"
     transformations:
       # Multiple append transforms targeting the same section land in reverse order
       # because each later append inserts before the earlier inserted appended block.
@@ -63,6 +73,10 @@ skills:
         source: .claude/skills/spectra-apply/SKILL.md
         output: .claude/skills/spectra-apply-plus/SKILL.md
         substitutions:
+          - from: "(e.g., `/spectra-apply add-auth`)"
+            to: "(e.g., `/spectra-apply-plus add-auth`)"
+          - from: "(e.g., `/spectra-apply <other>`)"
+            to: "(e.g., `/spectra-apply-plus <other>`)"
           - from: "docs/specs/changes/"
             to: "openspec/changes/"
           - from: "- If `state: \"all_done\"`: congratulate, suggest archive"
@@ -75,6 +89,10 @@ skills:
         source: .agents/skills/spectra-apply/SKILL.md
         output: .agents/skills/spectra-apply-plus/SKILL.md
         substitutions:
+          - from: "(e.g., `$spectra-apply add-auth`)"
+            to: "(e.g., `$spectra-apply-plus add-auth`)"
+          - from: "(e.g., `$spectra-apply <other>`)"
+            to: "(e.g., `$spectra-apply-plus <other>`)"
           - from: "`/spectra-"
             to: "`$spectra-"
           - from: "docs/specs/changes/"

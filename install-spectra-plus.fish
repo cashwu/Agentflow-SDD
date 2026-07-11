@@ -109,6 +109,161 @@ function validate_commit_guard --argument-names path description
     assert_not_contains "$path" "docs/specs/" "$description"
 end
 
+function fixed_match_lines --argument-names path text
+    awk -v needle="$text" '
+        {
+            rest = $0
+            while ((position = index(rest, needle)) > 0) {
+                print NR
+                rest = substr(rest, position + length(needle))
+            }
+        }
+    ' "$path"
+end
+
+function exact_structure_line --argument-names path text
+    set lines (fixed_match_lines "$path" "$text")
+    test (count $lines) -eq 1; or return 1
+    echo "$lines[1]"
+end
+
+function unique_structure_line --argument-names path text anchor_name description
+    set line (exact_structure_line "$path" "$text")
+    if test $status -ne 0
+        set count (count (fixed_match_lines "$path" "$text"))
+        fail "spectra-commit structure error：$description 的 $anchor_name 必須恰好出現一次，目前為 $count 次"
+    end
+    echo "$line"
+end
+
+function marked_commit_guard_structure_is_valid --argument-names path
+    set marker "<!-- SPECTRA-COMMIT-GUARD: archive-first allowlist + plus deletion protection -->"
+    set marker_end "<!-- SPECTRA-COMMIT-GUARD:END -->"
+    set guard_insert_after '   From the full `git status --porcelain` output, any dirty files NOT in the artifact set and NOT in the tracking file are "unrelated changes."'
+    set user_start "6. **User confirmation**"
+    set subflow_start "6a. **Archive sub-flow**"
+    set archive_start "    **6a-iii. Archive execution and file collection**"
+    set archive_end "    Then continue to step 7."
+
+    set guard_insert_line (exact_structure_line "$path" "$guard_insert_after"); or return 1
+    set marker_line (exact_structure_line "$path" "$marker"); or return 1
+    set marker_end_line (exact_structure_line "$path" "$marker_end"); or return 1
+    set user_line (exact_structure_line "$path" "$user_start"); or return 1
+    set subflow_line (exact_structure_line "$path" "$subflow_start"); or return 1
+    set archive_line (exact_structure_line "$path" "$archive_start"); or return 1
+    set archive_end_line (exact_structure_line "$path" "$archive_end"); or return 1
+
+    test "$guard_insert_line" -lt "$marker_line"; or return 1
+    test "$marker_line" -lt "$marker_end_line"; or return 1
+    test "$marker_end_line" -lt "$user_line"; or return 1
+    test "$user_line" -lt "$subflow_line"; or return 1
+    test "$subflow_line" -lt "$archive_line"; or return 1
+    test "$archive_line" -lt "$archive_end_line"; or return 1
+end
+
+function preflight_commit_guard_structure --argument-names path description
+    set marker "<!-- SPECTRA-COMMIT-GUARD: archive-first allowlist + plus deletion protection -->"
+    set marker_end "<!-- SPECTRA-COMMIT-GUARD:END -->"
+    set guard_insert_after '   From the full `git status --porcelain` output, any dirty files NOT in the artifact set and NOT in the tracking file are "unrelated changes."'
+    set user_start "6. **User confirmation**"
+    set subflow_start "6a. **Archive sub-flow**"
+    set archive_start "    **6a-iii. Archive execution and file collection**"
+    set archive_end "    Then continue to step 7."
+
+    set marker_lines (fixed_match_lines "$path" "$marker")
+    set marker_end_lines (fixed_match_lines "$path" "$marker_end")
+    set marker_count (count $marker_lines)
+    set marker_end_count (count $marker_end_lines)
+
+    set guard_insert_line (unique_structure_line "$path" "$guard_insert_after" "guard insertion anchor" "$description")
+    if test $marker_count -eq 0; and test $marker_end_count -eq 0
+        # A valid unguarded target is repairable. The insertion point must still
+        # be before every controlled section that the upgrade will replace.
+    else
+        if test $marker_count -ne 1; or test $marker_end_count -ne 1
+            fail "spectra-commit structure error：$description 的 guard start/end marker 必須各恰好出現一次，目前為 $marker_count/$marker_end_count 次"
+        end
+        if test "$marker_lines[1]" -ge "$marker_end_lines[1]"
+            fail "spectra-commit structure error：$description 的 guard marker 順序非法"
+        end
+        if not test "$guard_insert_line" -lt "$marker_lines[1]"
+            fail "spectra-commit structure error：$description 的 guard insertion anchor 順序非法"
+        end
+    end
+
+    set user_line (unique_structure_line "$path" "$user_start" "User confirmation start" "$description")
+    set subflow_line (unique_structure_line "$path" "$subflow_start" "Archive sub-flow start" "$description")
+    set archive_line (unique_structure_line "$path" "$archive_start" "archive execution start" "$description")
+    set archive_end_line (unique_structure_line "$path" "$archive_end" "archive execution end" "$description")
+
+    if test $marker_count -eq 1; and not test "$marker_end_lines[1]" -lt "$user_line"
+        fail "spectra-commit structure error：$description 的 guard block 必須位於 controlled sections 之前"
+    end
+    if not test "$guard_insert_line" -lt "$user_line"; or not test "$user_line" -lt "$subflow_line"; or not test "$subflow_line" -lt "$archive_line"; or not test "$archive_line" -lt "$archive_end_line"
+        fail "spectra-commit structure error：$description 的 controlled section anchors 順序非法"
+    end
+end
+
+function preflight_commit_guard_source --argument-names source_path description
+    require_file "$source_path" "$description"
+    restore_source_guard_if_needed "$source_path" "$description"
+    set restore_rc $status
+    if test $restore_rc -eq 2
+        return 0
+    end
+
+    preflight_commit_guard_structure "$source_path" "$description"
+    validate_commit_guard "$source_path" "$description"
+end
+
+function preflight_commit_guards_for_target --argument-names target_path
+    set claude_source "$script_dir/.claude/skills/spectra-commit/SKILL.md"
+    set agents_source "$script_dir/.agents/skills/spectra-commit/SKILL.md"
+    set claude_target "$target_path/.claude/skills/spectra-commit/SKILL.md"
+    set agents_target "$target_path/.agents/skills/spectra-commit/SKILL.md"
+
+    preflight_commit_guard_source "$claude_source" "spectra-commit guard (Claude) source"
+    preflight_commit_guard_source "$agents_source" "spectra-commit guard (Codex) source"
+    preflight_commit_guard_structure "$claude_target" "spectra-commit guard (Claude)"
+    preflight_commit_guard_structure "$agents_target" "spectra-commit guard (Codex)"
+end
+
+function permission_mode --argument-names path
+    set mode (stat -f %Lp "$path" 2>/dev/null)
+    if test -z "$mode"
+        set mode (stat -c %a "$path" 2>/dev/null)
+    end
+    echo "$mode"
+end
+
+function cleanup_guard_scratch
+    test (count $argv) -gt 0; or return 0
+    command rm -f -- $argv 2>/dev/null
+end
+
+function cleanup_guard_candidate --argument-names candidate
+    test -n "$candidate"; or return 0
+    test -e "$candidate"; or return 0
+
+    if set -q SPECTRA_PLUS_TEST_GUARD_CLEANUP_FAILURE; and test "$SPECTRA_PLUS_TEST_GUARD_CLEANUP_FAILURE" = 1
+        echo "spectra-commit candidate cleanup failure：殘留 candidate：$candidate" >&2
+        return 1
+    end
+
+    if not command rm -f -- "$candidate"
+        echo "spectra-commit candidate cleanup failure：殘留 candidate：$candidate" >&2
+        return 1
+    end
+end
+
+function abort_guard_upgrade --argument-names message candidate
+    set scratch $argv[3..-1]
+    echo "錯誤：$message" >&2
+    cleanup_guard_scratch $scratch
+    cleanup_guard_candidate "$candidate"
+    exit 1
+end
+
 function ensure_commit_guard --argument-names target_path source_path description
     set marker "<!-- SPECTRA-COMMIT-GUARD: archive-first allowlist + plus deletion protection -->"
     set marker_end "<!-- SPECTRA-COMMIT-GUARD:END -->"
@@ -121,13 +276,15 @@ function ensure_commit_guard --argument-names target_path source_path descriptio
     require_file "$target_path" "$description"
     require_file "$source_path" "$description source"
 
-    restore_source_guard_if_needed "$source_path" "$description source"
-    set restore_rc $status
-    if test $restore_rc -ne 2
-        validate_commit_guard "$source_path" "$description source"
+    preflight_commit_guard_source "$source_path" "$description source"
+    preflight_commit_guard_structure "$target_path" "$description"
+
+    set target_is_marked 0
+    if test (count (fixed_match_lines "$target_path" "$marker")) -eq 1
+        set target_is_marked 1
     end
 
-    if rg -q --fixed-strings "$marker" "$target_path"
+    if test $target_is_marked -eq 1; and guard_is_current "$target_path"; and managed_commit_guard_content_matches "$target_path" "$source_path"
         if test $dry_run -eq 1
             validate_commit_guard "$target_path" "$description"
             echo "+ verify spectra-commit guard in $target_path"
@@ -138,14 +295,12 @@ function ensure_commit_guard --argument-names target_path source_path descriptio
         return
     end
 
-    for anchor in "$guard_insert_after" "$user_start" "$subflow_start" "$archive_start" "$archive_end" "Archive first, then commit together"
-        if not rg -q --fixed-strings "$anchor" "$target_path"
-            fail "無法安全套用 spectra-commit guard 到 $target_path；找不到 section：$anchor"
-        end
-    end
-
     if test $dry_run -eq 1
-        echo "+ update spectra-commit guard in $target_path"
+        if test $target_is_marked -eq 1
+            echo "+ upgrade spectra-commit guard in $target_path"
+        else
+            echo "+ update spectra-commit guard in $target_path"
+        end
         return
     end
 
@@ -174,21 +329,43 @@ function ensure_commit_guard --argument-names target_path source_path descriptio
     test -s "$user_block"; or fail "無法從 $source_path 讀取 spectra-commit user confirmation section"
 
     set with_guard (mktemp)
-    awk -v insert_after="$guard_insert_after" -v guard_path="$guard_block" '
-        BEGIN {
-            while ((getline line < guard_path) > 0) {
-                guard = guard line "\n"
+    if test $target_is_marked -eq 1
+        awk -v marker="$marker" -v marker_end="$marker_end" -v guard_path="$guard_block" '
+            BEGIN {
+                while ((getline line < guard_path) > 0) {
+                    guard = guard line "\n"
+                }
+                close(guard_path)
             }
-            close(guard_path)
-        }
-        {
-            print
-            if ($0 == insert_after) {
-                print ""
+            index($0, marker) {
                 printf "%s", guard
+                skip = 1
+                next
             }
-        }
-    ' "$target_path" > "$with_guard"
+            skip && index($0, marker_end) {
+                skip = 0
+                next
+            }
+            skip { next }
+            { print }
+        ' "$target_path" > "$with_guard"
+    else
+        awk -v insert_after="$guard_insert_after" -v guard_path="$guard_block" '
+            BEGIN {
+                while ((getline line < guard_path) > 0) {
+                    guard = guard line "\n"
+                }
+                close(guard_path)
+            }
+            {
+                print
+                if ($0 == insert_after) {
+                    print ""
+                    printf "%s", guard
+                }
+            }
+        ' "$target_path" > "$with_guard"
+    end
 
     set with_user (mktemp)
     awk -v start="$user_start" -v end="$subflow_start" -v user_path="$user_block" '
@@ -233,9 +410,39 @@ function ensure_commit_guard --argument-names target_path source_path descriptio
         { print }
     ' "$with_user" > "$patched"
 
-    validate_commit_guard "$patched" "$description"
-    command mv -f "$patched" "$target_path"
-    validate_commit_guard "$target_path" "$description"
+    set target_mode (permission_mode "$target_path")
+    if test -z "$target_mode"
+        abort_guard_upgrade "無法讀取 $description 的原始 file mode" "" "$guard_block" "$archive_block" "$user_block" "$with_guard" "$with_user" "$patched"
+    end
+
+    set target_dir (dirname "$target_path")
+    set candidate (mktemp "$target_dir/.spectra-commit-guard-candidate.XXXXXX")
+    if test $status -ne 0; or test -z "$candidate"
+        abort_guard_upgrade "無法在 target directory 建立 $description final candidate" "" "$guard_block" "$archive_block" "$user_block" "$with_guard" "$with_user" "$patched"
+    end
+
+    if not command cp "$patched" "$candidate"
+        abort_guard_upgrade "無法寫入 $description final candidate" "$candidate" "$guard_block" "$archive_block" "$user_block" "$with_guard" "$with_user" "$patched"
+    end
+    if not command chmod "$target_mode" "$candidate"
+        abort_guard_upgrade "無法保留 $description 的原始 file mode" "$candidate" "$guard_block" "$archive_block" "$user_block" "$with_guard" "$with_user" "$patched"
+    end
+
+    if set -q SPECTRA_PLUS_TEST_GUARD_VALIDATION_FAILURE; and test "$SPECTRA_PLUS_TEST_GUARD_VALIDATION_FAILURE" = 1
+        abort_guard_upgrade "spectra-commit candidate validation failure：$description" "$candidate" "$guard_block" "$archive_block" "$user_block" "$with_guard" "$with_user" "$patched"
+    end
+    if not marked_commit_guard_structure_is_valid "$candidate"; or not guard_is_current "$candidate"; or not managed_commit_guard_content_matches "$candidate" "$source_path"
+        abort_guard_upgrade "spectra-commit candidate validation failure：$description" "$candidate" "$guard_block" "$archive_block" "$user_block" "$with_guard" "$with_user" "$patched"
+    end
+
+    cleanup_guard_scratch "$guard_block" "$archive_block" "$user_block" "$with_guard" "$with_user" "$patched"
+
+    if set -q SPECTRA_PLUS_TEST_GUARD_REPLACE_FAILURE; and test "$SPECTRA_PLUS_TEST_GUARD_REPLACE_FAILURE" = 1
+        abort_guard_upgrade "spectra-commit final replace failure：$description" "$candidate"
+    end
+    if not command mv -f "$candidate" "$target_path"
+        abort_guard_upgrade "spectra-commit final replace failure：$description" "$candidate"
+    end
 end
 
 function require_command --argument-names name
@@ -281,6 +488,16 @@ function materialize_repair_snapshot
     set source_commit (git -C "$source_top" rev-parse --verify 'HEAD^{commit}' 2>/dev/null)
     test -n "$source_commit"; or fail "無法解析 repair-all pinned commit"
 
+    for required_path in \
+        install-spectra-plus.fish \
+        scripts/spectra-plus/generate.fish \
+        scripts/spectra-plus/rules.yaml \
+        scripts/spectra-plus/template \
+        .claude/skills/spectra-commit \
+        .agents/skills/spectra-commit
+        git -C "$source_top" cat-file -e "$source_commit:$required_path" 2>/dev/null; or fail "pinned repair-all input missing：$required_path"
+    end
+
     set tmp_root "$TMPDIR"
     if test -z "$tmp_root"
         set tmp_root /tmp
@@ -293,9 +510,7 @@ function materialize_repair_snapshot
     set archive_path "$snapshot/.source.tar"
     git -C "$source_top" archive --format=tar -o "$archive_path" "$source_commit" -- \
         install-spectra-plus.fish \
-        scripts/spectra-plus/generate.fish \
-        scripts/spectra-plus/rules.yaml \
-        scripts/spectra-plus/template \
+        scripts/spectra-plus \
         .claude/skills/spectra-commit \
         .agents/skills/spectra-commit
     test $status -eq 0; or fail "無法封裝 repair-all pinned snapshot"
@@ -527,16 +742,205 @@ function use_plus_rules_file --argument-names rules_file
     set -e __spectra_plus_metadata_updated
 end
 
+function expected_fingerprints_for_target --argument-names target_path
+    set -e __spectra_plus_expected_apply_claude
+    set -e __spectra_plus_expected_apply_codex
+    set -e __spectra_plus_expected_propose_claude
+    set -e __spectra_plus_expected_propose_codex
+
+    set generator "$script_dir/scripts/spectra-plus/generate.fish"
+    set query_output (mktemp)
+    set query_error (mktemp)
+    set parsed_output (mktemp)
+    set parser_error (mktemp)
+    if test -z "$query_output"; or test -z "$query_error"; or test -z "$parsed_output"; or test -z "$parser_error"
+        command rm -f -- "$query_output" "$query_error" "$parsed_output" "$parser_error"
+        echo "fingerprint query failed: could not create parser scratch files" >&2
+        return 2
+    end
+
+    "$generator" --root "$target_path" --fingerprints >"$query_output" 2>"$query_error"
+    set query_status $status
+    if test $query_status -ne 0
+        command cat "$query_error" >&2
+        echo "fingerprint query failed for $target_path (exit $query_status)" >&2
+        command rm -f -- "$query_output" "$query_error" "$parsed_output" "$parser_error"
+        return 2
+    end
+
+    awk -F '\t' '
+        function parser_error(message) {
+            print "fingerprint parser error: " message > "/dev/stderr"
+            failed = 1
+        }
+        BEGIN {
+            expected[1] = "spectra-apply-plus/claude"
+            expected[2] = "spectra-apply-plus/codex"
+            expected[3] = "spectra-propose-plus/claude"
+            expected[4] = "spectra-propose-plus/codex"
+            for (i = 1; i <= 4; i++) {
+                known[expected[i]] = 1
+            }
+        }
+        {
+            if (NF != 3) {
+                parser_error("row " NR " expected 3 TSV fields, got " NF)
+                next
+            }
+
+            key = $1 "/" $2
+            if (!(key in known)) {
+                parser_error("unknown fingerprint key: " key)
+                next
+            }
+            if (key in seen) {
+                parser_error("duplicate fingerprint key: " key)
+            } else {
+                seen[key] = 1
+            }
+            if ($3 !~ /^[0-9]+$/) {
+                parser_error("non-decimal fingerprint for " key)
+            }
+            if (NR > 4 || key != expected[NR]) {
+                parser_error("unexpected fingerprint row order at row " NR ": " key)
+            }
+            values[key] = $3
+        }
+        END {
+            for (i = 1; i <= 4; i++) {
+                if (!(expected[i] in seen)) {
+                    parser_error("missing fingerprint key: " expected[i])
+                }
+            }
+            if (NR != 4) {
+                parser_error("expected exactly 4 fingerprint rows, got " NR)
+            }
+            if (failed) {
+                exit 1
+            }
+            for (i = 1; i <= 4; i++) {
+                print values[expected[i]]
+            }
+        }
+    ' "$query_output" >"$parsed_output" 2>"$parser_error"
+    set parser_status $status
+    if test $parser_status -ne 0
+        command cat "$parser_error" >&2
+        command rm -f -- "$query_output" "$query_error" "$parsed_output" "$parser_error"
+        return 2
+    end
+
+    set fingerprints (command cat "$parsed_output")
+    command rm -f -- "$query_output" "$query_error" "$parsed_output" "$parser_error"
+    if test (count $fingerprints) -ne 4
+        echo "fingerprint parser error: expected exactly 4 parsed fingerprints" >&2
+        return 2
+    end
+
+    set -g __spectra_plus_expected_apply_claude "$fingerprints[1]"
+    set -g __spectra_plus_expected_apply_codex "$fingerprints[2]"
+    set -g __spectra_plus_expected_propose_claude "$fingerprints[3]"
+    set -g __spectra_plus_expected_propose_codex "$fingerprints[4]"
+    return 0
+end
+
 function guard_is_current --argument-names path
     set marker "<!-- SPECTRA-COMMIT-GUARD: archive-first allowlist + plus deletion protection -->"
-    file_has "$path" "$marker"; or return $status
-    file_has "$path" ".agents/skills/spectra-*-plus/"; or return $status
-    file_has "$path" ".claude/skills/spectra-*-plus/"; or return $status
-    file_has "$path" "openspec/changes/archive/<date>-<change>/"; or return $status
-    file_has "$path" "Do not treat the full post-archive dirty state as archive output."; or return $status
-    file_has "$path" "except protected generated plus skill deletions"; or return $status
-    file_lacks "$path" "openspec/archived/"; or return $status
-    file_lacks "$path" "docs/specs/"; or return $status
+    marked_commit_guard_structure_is_valid "$path"; or return 1
+    guard_block_has "$path" ".agents/skills/spectra-*-plus/"; or return 1
+    guard_block_has "$path" ".claude/skills/spectra-*-plus/"; or return 1
+    file_has "$path" "openspec/changes/archive/<date>-<change>/"; or return 1
+    file_has "$path" "Do not treat the full post-archive dirty state as archive output."; or return 1
+    file_has "$path" "except protected generated plus skill deletions"; or return 1
+    file_lacks "$path" "openspec/archived/"; or return 1
+    file_lacks "$path" "docs/specs/"; or return 1
+end
+
+function guard_block_has --argument-names path text
+    set marker "<!-- SPECTRA-COMMIT-GUARD: archive-first allowlist + plus deletion protection -->"
+    set marker_end "<!-- SPECTRA-COMMIT-GUARD:END -->"
+    awk -v marker="$marker" -v marker_end="$marker_end" -v needle="$text" '
+        index($0, marker) { in_block = 1 }
+        in_block && index($0, needle) { found = 1 }
+        index($0, marker_end) { exit }
+        END { exit(found ? 0 : 1) }
+    ' "$path"
+end
+
+function managed_section_matches --argument-names target_path source_path start_text end_text include_end
+    set target_section (mktemp)
+    set source_section (mktemp)
+
+    for pair in "$target_path::$target_section" "$source_path::$source_section"
+        set parts (string split -m 1 -- "::" "$pair")
+        awk -v start="$start_text" -v end="$end_text" -v include_end="$include_end" '
+            index($0, start) { in_section = 1 }
+            in_section && !include_end && index($0, end) { exit }
+            in_section { print }
+            in_section && include_end && index($0, end) { exit }
+        ' "$parts[1]" > "$parts[2]"
+    end
+
+    cmp -s "$target_section" "$source_section"
+    set matches $status
+    command rm -f -- "$target_section" "$source_section"
+    return $matches
+end
+
+function managed_commit_guard_content_matches --argument-names target_path source_path
+    marked_commit_guard_structure_is_valid "$target_path"; or return 1
+    marked_commit_guard_structure_is_valid "$source_path"; or return 1
+
+    set marker "<!-- SPECTRA-COMMIT-GUARD: archive-first allowlist + plus deletion protection -->"
+    set marker_end "<!-- SPECTRA-COMMIT-GUARD:END -->"
+    set user_start "6. **User confirmation**"
+    set subflow_start "6a. **Archive sub-flow**"
+    set archive_start "    **6a-iii. Archive execution and file collection**"
+    set archive_end "    Then continue to step 7."
+
+    managed_section_matches "$target_path" "$source_path" "$marker" "$marker_end" 1; or return 1
+    managed_section_matches "$target_path" "$source_path" "$user_start" "$subflow_start" 0; or return 1
+    managed_section_matches "$target_path" "$source_path" "$archive_start" "$archive_end" 1; or return 1
+end
+
+function commit_guard_structure_is_valid --argument-names path
+    set marker "<!-- SPECTRA-COMMIT-GUARD: archive-first allowlist + plus deletion protection -->"
+    set marker_end "<!-- SPECTRA-COMMIT-GUARD:END -->"
+    set guard_insert_after '   From the full `git status --porcelain` output, any dirty files NOT in the artifact set and NOT in the tracking file are "unrelated changes."'
+    set user_start "6. **User confirmation**"
+    set subflow_start "6a. **Archive sub-flow**"
+    set archive_start "    **6a-iii. Archive execution and file collection**"
+    set archive_end "    Then continue to step 7."
+
+    set marker_count (count (fixed_match_lines "$path" "$marker"))
+    set marker_end_count (count (fixed_match_lines "$path" "$marker_end"))
+    if test $marker_count -eq 1; and test $marker_end_count -eq 1
+        marked_commit_guard_structure_is_valid "$path"
+        return $status
+    end
+    test $marker_count -eq 0; and test $marker_end_count -eq 0; or return 1
+
+    set guard_insert_line (exact_structure_line "$path" "$guard_insert_after"); or return 1
+    set user_line (exact_structure_line "$path" "$user_start"); or return 1
+    set subflow_line (exact_structure_line "$path" "$subflow_start"); or return 1
+    set archive_line (exact_structure_line "$path" "$archive_start"); or return 1
+    set archive_end_line (exact_structure_line "$path" "$archive_end"); or return 1
+
+    test "$guard_insert_line" -lt "$user_line"; or return 1
+    test "$user_line" -lt "$subflow_line"; or return 1
+    test "$subflow_line" -lt "$archive_line"; or return 1
+    test "$archive_line" -lt "$archive_end_line"; or return 1
+end
+
+function commit_guards_for_target_are_structurally_valid --argument-names target_path
+    for variant in .claude .agents
+        set source_path "$script_dir/$variant/skills/spectra-commit/SKILL.md"
+        set target_guard "$target_path/$variant/skills/spectra-commit/SKILL.md"
+        test -f "$source_path"; or return 1
+        test -f "$target_guard"; or return 1
+        marked_commit_guard_structure_is_valid "$source_path"; or return 1
+        commit_guard_structure_is_valid "$target_guard"; or return 1
+    end
 end
 
 function restore_source_guard_if_needed --argument-names source_path description
@@ -566,6 +970,11 @@ function restore_source_guard_if_needed --argument-names source_path description
         command rm -f "$head_blob"
         return 0
     end
+    if not marked_commit_guard_structure_is_valid "$head_blob"
+        command rm -f "$head_blob"
+        fail "spectra-commit structure error：$description 的 HEAD restore candidate 結構非法"
+    end
+    validate_commit_guard "$head_blob" "$description HEAD restore candidate"
     command rm -f "$head_blob"
 
     if test $dry_run -eq 1
@@ -591,6 +1000,11 @@ function plus_outputs_are_current --argument-names target_path
     set plus_version (plus_metadata_value spectraPlusVersion)
     set plus_updated (plus_metadata_value spectraPlusUpdated)
 
+    frontmatter_has "$target_path/.claude/skills/spectra-apply-plus/SKILL.md" "  spectraPlusFingerprint: $__spectra_plus_expected_apply_claude"; or return $status
+    frontmatter_has "$target_path/.agents/skills/spectra-apply-plus/SKILL.md" "  spectraPlusFingerprint: $__spectra_plus_expected_apply_codex"; or return $status
+    frontmatter_has "$target_path/.claude/skills/spectra-propose-plus/SKILL.md" "  spectraPlusFingerprint: $__spectra_plus_expected_propose_claude"; or return $status
+    frontmatter_has "$target_path/.agents/skills/spectra-propose-plus/SKILL.md" "  spectraPlusFingerprint: $__spectra_plus_expected_propose_codex"; or return $status
+
     for skill_path in $apply_outputs
         file_has "$skill_path" "ai 的回覆要用中文"; or return $status
         file_has "$skill_path" "Implementation Notes Protocol"; or return $status
@@ -614,8 +1028,8 @@ function plus_outputs_are_current --argument-names target_path
     end
 
     for skill_path in $propose_outputs $apply_outputs
-        frontmatter_has "$skill_path" "spectraPlusVersion: $plus_version"; or return $status
-        frontmatter_has "$skill_path" "spectraPlusUpdated: $plus_updated"; or return $status
+        frontmatter_has "$skill_path" "  spectraPlusVersion: $plus_version"; or return $status
+        frontmatter_has "$skill_path" "  spectraPlusUpdated: $plus_updated"; or return $status
         file_has "$skill_path" "Reviewer A — Adherence"; or return $status
         file_has "$skill_path" "Reviewer B — Quality"; or return $status
         file_has "$skill_path" "Confidence scoring rubric"; or return $status
@@ -672,8 +1086,8 @@ function validate_plus_outputs_current --argument-names target_path
     end
 
     for skill_path in $propose_outputs $apply_outputs
-        assert_frontmatter_contains "$skill_path" "spectraPlusVersion: $plus_version" "spectra plus skill ($skill_path)"
-        assert_frontmatter_contains "$skill_path" "spectraPlusUpdated: $plus_updated" "spectra plus skill ($skill_path)"
+        assert_frontmatter_contains "$skill_path" "  spectraPlusVersion: $plus_version" "spectra plus skill ($skill_path)"
+        assert_frontmatter_contains "$skill_path" "  spectraPlusUpdated: $plus_updated" "spectra plus skill ($skill_path)"
         assert_contains "$skill_path" "Reviewer A — Adherence" "spectra plus skill ($skill_path)"
         assert_contains "$skill_path" "Reviewer B — Quality" "spectra plus skill ($skill_path)"
         assert_contains "$skill_path" "Confidence scoring rubric" "spectra plus skill ($skill_path)"
@@ -698,9 +1112,20 @@ function validate_plus_outputs_current --argument-names target_path
 end
 
 function target_is_current --argument-names target_path
+    expected_fingerprints_for_target "$target_path"
+    set fingerprint_status $status
+    if test $fingerprint_status -ne 0
+        return 2
+    end
+
     plus_outputs_are_current "$target_path"; or return $status
-    guard_is_current "$target_path/.claude/skills/spectra-commit/SKILL.md"; or return $status
-    guard_is_current "$target_path/.agents/skills/spectra-commit/SKILL.md"; or return $status
+    commit_guards_for_target_are_structurally_valid "$target_path"; or return 3
+    for variant in .claude .agents
+        set source_path "$script_dir/$variant/skills/spectra-commit/SKILL.md"
+        set target_guard "$target_path/$variant/skills/spectra-commit/SKILL.md"
+        guard_is_current "$target_guard"; or return 1
+        managed_commit_guard_content_matches "$target_guard" "$source_path"; or return 1
+    end
     return 0
 end
 
@@ -729,6 +1154,18 @@ function acquire_repair_lock
     return 1
 end
 
+function repair_lock_is_active
+    set path (lock_dir)
+    test -d "$path"; or return 1
+
+    set now (date +%s)
+    set mtime (lock_mtime "$path")
+    if test -n "$mtime"; and test (math "$now - $mtime") -gt 300
+        return 1
+    end
+    return 0
+end
+
 function repair_all
     set throttle_window 60
     set throttle_file (cache_dir)/last-repair-attempt
@@ -739,6 +1176,12 @@ function repair_all
     validate_plus_metadata_source
 
     if test $dry_run -eq 1
+        if repair_lock_is_active
+            echo "[skipped] locked: repair-all is already running ("(lock_dir)")"
+            cleanup_repair_snapshot; or return 1
+            return 0
+        end
+
         set failed 0
         for registry_target in (read_registry_targets)
             if not test -d "$registry_target"
@@ -754,6 +1197,12 @@ function repair_all
                     echo "[skipped] $registry_target: already current"
                 case 10
                     echo "[would repair] $registry_target"
+                case 2
+                    echo "[failed] $registry_target: expected fingerprint unavailable"
+                    set failed 1
+                case 3
+                    echo "[failed] $registry_target: commit guard structural validation failed"
+                    set failed 1
                 case '*'
                     echo "[failed] $registry_target: current state check failed (exit $current_status)"
                     set failed 1
@@ -799,6 +1248,14 @@ function repair_all
                 echo "[skipped] $registry_target: already current"
                 continue
             case 10
+            case 2
+                echo "[failed] $registry_target: expected fingerprint unavailable"
+                set failed 1
+                continue
+            case 3
+                echo "[failed] $registry_target: commit guard structural validation failed"
+                set failed 1
+                continue
             case '*'
                 echo "[failed] $registry_target: current state check failed (exit $current_status)"
                 set failed 1
@@ -819,11 +1276,19 @@ function repair_all
 end
 
 function launch_agent_label
+    echo "com.spectra.plus.repair"
+end
+
+function legacy_launch_agent_label
     echo "com.agentflow.spectra-plus.repair"
 end
 
 function launch_agent_plist
     echo "$HOME/Library/LaunchAgents/"(launch_agent_label)".plist"
+end
+
+function legacy_launch_agent_plist
+    echo "$HOME/Library/LaunchAgents/"(legacy_launch_agent_label)".plist"
 end
 
 function launch_agent_log
@@ -875,14 +1340,39 @@ function write_launch_agent_plist --argument-names plist_path
         '</plist>' > "$plist_path"
 end
 
+function remove_launch_agent_plist --argument-names plist_path
+    test -f "$plist_path"; or return 0
+
+    set bootout_err (mktemp)
+    launchctl bootout "gui/"(id -u) "$plist_path" >/dev/null 2>"$bootout_err"
+    set bootout_status $status
+    if test $bootout_status -ne 0
+        set bootout_message (cat "$bootout_err")
+        if not string match -qi "*not*found*" -- "$bootout_message"; and not string match -qi "*no such*" -- "$bootout_message"; and not string match -qi "*not loaded*" -- "$bootout_message"
+            command rm -f "$bootout_err"
+            echo "錯誤：無法卸載 LaunchAgent；manual cleanup: launchctl bootout gui/"(id -u)" $plist_path" >&2
+            return 1
+        end
+    end
+    command rm -f "$bootout_err"
+    command rm -f "$plist_path"
+    echo "uninstalled LaunchAgent: $plist_path"
+end
+
 function install_launch_agent
     set plist_path (launch_agent_plist)
+    set legacy_plist_path (legacy_launch_agent_plist)
     if test $dry_run -eq 1
+        if test -f "$legacy_plist_path"
+            echo "+ remove legacy LaunchAgent plist $legacy_plist_path"
+            echo "+ launchctl bootout gui/"(id -u)" $legacy_plist_path"
+        end
         echo "+ write LaunchAgent plist $plist_path"
         echo "+ launchctl bootstrap gui/"(id -u)" $plist_path"
         return 0
     end
 
+    remove_launch_agent_plist "$legacy_plist_path"; or return 1
     write_launch_agent_plist "$plist_path"
     launchctl bootout "gui/"(id -u) "$plist_path" >/dev/null 2>/dev/null
     if not launchctl bootstrap "gui/"(id -u) "$plist_path"
@@ -894,26 +1384,25 @@ end
 
 function uninstall_launch_agent
     set plist_path (launch_agent_plist)
+    set legacy_plist_path (legacy_launch_agent_plist)
     if test $dry_run -eq 1
         echo "+ remove LaunchAgent plist $plist_path"
         echo "+ launchctl bootout gui/"(id -u)" $plist_path"
+        if test -f "$legacy_plist_path"
+            echo "+ remove legacy LaunchAgent plist $legacy_plist_path"
+            echo "+ launchctl bootout gui/"(id -u)" $legacy_plist_path"
+        end
         return 0
     end
 
-    if test -f "$plist_path"
-        set bootout_err (mktemp)
-        launchctl bootout "gui/"(id -u) "$plist_path" >/dev/null 2>"$bootout_err"
-        set bootout_status $status
-        if test $bootout_status -ne 0
-            set bootout_message (cat "$bootout_err")
-            if not string match -qi "*not*found*" -- "$bootout_message"; and not string match -qi "*no such*" -- "$bootout_message"; and not string match -qi "*not loaded*" -- "$bootout_message"
-                echo "錯誤：無法卸載 LaunchAgent；manual cleanup: launchctl bootout gui/"(id -u)" $plist_path" >&2
-                return 1
-            end
+    set found 0
+    for installed_plist in "$plist_path" "$legacy_plist_path"
+        if test -f "$installed_plist"
+            set found 1
+            remove_launch_agent_plist "$installed_plist"; or return 1
         end
-        command rm -f "$plist_path"
-        echo "uninstalled LaunchAgent: $plist_path"
-    else
+    end
+    if test $found -eq 0
         echo "uninstall no-op: LaunchAgent is not installed"
     end
 end
@@ -938,6 +1427,7 @@ function install_target --argument-names target_path
     require_file "$target_path/.agents/skills/spectra-propose/SKILL.md" "spectra-propose skill (Codex)"
     require_file "$target_path/.agents/skills/spectra-apply/SKILL.md" "spectra-apply skill (Codex)"
     require_file "$target_path/.agents/skills/spectra-commit/SKILL.md" "spectra-commit skill (Codex)"
+    preflight_commit_guards_for_target "$target_path"
 
     echo ""
     echo "正在產生 plus skills 到：$target_path"
