@@ -510,7 +510,9 @@ function materialize_repair_snapshot
     set archive_path "$snapshot/.source.tar"
     git -C "$source_top" archive --format=tar -o "$archive_path" "$source_commit" -- \
         install-spectra-plus.fish \
-        scripts/spectra-plus \
+        scripts/spectra-plus/generate.fish \
+        scripts/spectra-plus/rules.yaml \
+        scripts/spectra-plus/template \
         .claude/skills/spectra-commit \
         .agents/skills/spectra-commit
     test $status -eq 0; or fail "無法封裝 repair-all pinned snapshot"

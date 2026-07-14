@@ -118,18 +118,18 @@ Registry dry-run：
 
 `--repair-all` 只處理 registry 內 target，不掃描或修復 registry 外的 project。每次執行會固定 source checkout 的 `HEAD` commit，建立單一暫存 snapshot，並從該 snapshot 讀取 installer、generator、rules、template 與兩份 `spectra-commit` guard source。Metadata 驗證、current-state 判定與 stale target 安裝因此使用同一版本；working tree 有未提交變更不會阻擋 repair-all，working-tree shared inputs 也不會成為 repair-all 的共用內容來源。各 target 的 base skills 仍由 generator 從該 target root 讀取。
 
-Snapshot current-state check 使用三態結果：current 會跳過、stale 才會安裝；無法判定則明確回報失敗且不修改該 target。單一 target 失敗不會中止後續 target，但最後 exit code 會是非零。
+Snapshot current-state contract 區分 current、stale 與 error：current 會跳過、stale 才會安裝；error 會依 fingerprint unavailable 或 guard structurally invalid 等原因明確回報失敗，且不修改該 target。單一 target 失敗不會中止後續 target，但最後 exit code 會是非零。
 
 直接執行 `--target` 仍沿用原本工作區 installer 與 source guard auto-restore 行為；pinned snapshot 僅適用於 `--repair-all`。
 
-每次 current 判斷都會先透過 generator 的唯讀 `--fingerprints` query，依 target base skills、本機 generator、完整 rules 與 rules 引用的 templates 算出四個 expected fingerprints，再和 generated outputs 的 frontmatter `metadata.spectraPlusFingerprint`、version/date 與 guard 狀態比對。結果分成四態：
+每次 current 判斷都會先透過 pinned snapshot generator 的唯讀 `--fingerprints` query，依 target base skills、pinned generator、完整 rules 與 rules 引用的 templates 算出四個 expected fingerprints，再和 generated outputs 的 frontmatter `metadata.spectraPlusFingerprint`、version/date 與 guard 狀態比對。結果分成四態：
 
 - **current**：四個 outputs 與 guards 都符合目前本機 inputs，跳過。
 - **stale**：query 完整成功，但 output 缺少或不符合 expected fingerprint（或其他 current 條件），執行修復。
 - **unavailable**：query 失敗或回傳非嚴格四列 TSV，該 target 回報 `[failed]`、保持不變，並繼續處理後續 targets。
 - **structurally invalid**：commit guard 結構非法，該 target 回報 `[failed]`、保持不變，並繼續處理後續 targets。
 
-這是**本機修復**：只依目前 checkout 的 generator、rules、templates 與 target base skills 重生內容，不會執行 `git pull`、檢查 remote 或下載更新。
+這是**本機修復**：只依目前 checkout 的 pinned `HEAD` snapshot 與 target base skills 重生內容，不會執行 `git pull`、檢查 remote 或下載更新。
 
 輸出會包含 per-target summary：
 
@@ -143,7 +143,7 @@ Dry-run 不修改 registry、project files、lock、cache 或 throttle state：
 ./install-spectra-plus.fish --repair-all --dry-run
 ```
 
-手動強制執行可略過 throttle，但仍遵守 dirty-source guard、lock、fingerprint query、結構檢查與 validation：
+手動強制執行可略過 throttle，但仍遵守 lock、fingerprint query、結構檢查與 validation：
 
 ```fish
 ./install-spectra-plus.fish --repair-all --force
@@ -305,7 +305,7 @@ rm -rf "$TMPDIR/spectra-plus-repair.lock"
 若 Spectra.app 把 source repo 自己的 `spectra-commit/SKILL.md`（`.claude` 或 `.agents`）reset 成不含 `SPECTRA-COMMIT-GUARD` 的版本，兩條路徑刻意不同：
 
 - 手動 `--target`：符合下列安全條件時，會從 git `HEAD` 還原該單一來源檔再續行。
-- 自動 `--repair-all`（包含 LaunchAgent）：dirty-source guard 會在 dependency、fingerprint query 與 target processing 前回報 skip；不會從 `HEAD` 還原，也不會修改 registered targets。請先清理或確認 source checkout，再明確執行手動 `--target`。
+- 自動 `--repair-all`（包含 LaunchAgent）：不檢查或修復 working-tree guard source，而是從 pinned `HEAD` snapshot 讀取 guard source 並處理 registered targets；source checkout dirty 不會阻擋 repair-all，也不會被 repair-all 改寫。
 
 手動還原成功時會輸出：
 
