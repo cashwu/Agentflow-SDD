@@ -2,6 +2,8 @@
 
 set script_name (basename (status --current-filename))
 set script_dir (cd (dirname (status --current-filename)); and pwd)
+set --global --unexport __spectra_plus_repair_snapshot ""
+set --global --unexport __spectra_plus_rules_file ""
 
 function usage
     echo "使用方式："
@@ -42,6 +44,26 @@ end
 function fail
     echo "錯誤：$argv" >&2
     exit 1
+end
+
+function cleanup_repair_snapshot
+    if test -z "$__spectra_plus_repair_snapshot"
+        return 0
+    end
+
+    if test -e "$__spectra_plus_repair_snapshot"
+        if not command rm -rf -- "$__spectra_plus_repair_snapshot"
+            echo "錯誤：無法清理 repair-all pinned snapshot：$__spectra_plus_repair_snapshot" >&2
+            return 1
+        end
+    end
+
+    set --global --unexport __spectra_plus_repair_snapshot ""
+    return 0
+end
+
+function cleanup_repair_snapshot_on_exit --on-event fish_exit
+    cleanup_repair_snapshot >/dev/null
 end
 
 function run_cmd
@@ -249,6 +271,40 @@ function lock_dir
     echo "$tmp_root/spectra-plus-repair.lock"
 end
 
+function materialize_repair_snapshot
+    require_command git
+    require_command tar
+
+    set source_top (git -C "$script_dir" rev-parse --show-toplevel 2>/dev/null)
+    test -n "$source_top"; or fail "無法解析 repair-all source checkout"
+
+    set source_commit (git -C "$source_top" rev-parse --verify 'HEAD^{commit}' 2>/dev/null)
+    test -n "$source_commit"; or fail "無法解析 repair-all pinned commit"
+
+    set tmp_root "$TMPDIR"
+    if test -z "$tmp_root"
+        set tmp_root /tmp
+    end
+
+    set snapshot (mktemp -d "$tmp_root/spectra-plus-snapshot.XXXXXX" 2>/dev/null)
+    test $status -eq 0; and test -n "$snapshot"; or fail "無法建立 repair-all pinned snapshot"
+    set --global --unexport __spectra_plus_repair_snapshot "$snapshot"
+
+    set archive_path "$snapshot/.source.tar"
+    git -C "$source_top" archive --format=tar -o "$archive_path" "$source_commit" -- \
+        install-spectra-plus.fish \
+        scripts/spectra-plus/generate.fish \
+        scripts/spectra-plus/rules.yaml \
+        scripts/spectra-plus/template \
+        .claude/skills/spectra-commit \
+        .agents/skills/spectra-commit
+    test $status -eq 0; or fail "無法封裝 repair-all pinned snapshot"
+
+    tar -xf "$archive_path" -C "$snapshot"
+    test $status -eq 0; or fail "無法解壓 repair-all pinned snapshot"
+    command rm -f -- "$archive_path"
+end
+
 function normalize_existing_dir --argument-names path
     if not test -d "$path"
         return 1
@@ -349,7 +405,17 @@ function file_has --argument-names path text
 end
 
 function file_lacks --argument-names path text
-    test -f "$path"; and not rg -q --fixed-strings "$text" "$path"
+    test -f "$path"; or return 1
+    rg -q --fixed-strings "$text" "$path"
+    set match_status $status
+    switch $match_status
+        case 0
+            return 1
+        case 1
+            return 0
+        case '*'
+            return $match_status
+    end
 end
 
 function frontmatter_has --argument-names path text
@@ -406,7 +472,10 @@ function plus_metadata_value --argument-names field
             fail "rules.yaml parse error: unknown plus metadata field $field"
     end
 
-    set rules_file "$script_dir/scripts/spectra-plus/rules.yaml"
+    set rules_file "$__spectra_plus_rules_file"
+    if test -z "$rules_file"
+        set rules_file "$script_dir/scripts/spectra-plus/rules.yaml"
+    end
     require_command yq
     require_file "$rules_file" "spectra-plus rules.yaml"
 
@@ -452,16 +521,22 @@ function validate_plus_metadata_source
     plus_metadata_value spectraPlusUpdated >/dev/null
 end
 
+function use_plus_rules_file --argument-names rules_file
+    set --global --unexport __spectra_plus_rules_file "$rules_file"
+    set -e __spectra_plus_metadata_version
+    set -e __spectra_plus_metadata_updated
+end
+
 function guard_is_current --argument-names path
     set marker "<!-- SPECTRA-COMMIT-GUARD: archive-first allowlist + plus deletion protection -->"
-    file_has "$path" "$marker"; or return 1
-    file_has "$path" ".agents/skills/spectra-*-plus/"; or return 1
-    file_has "$path" ".claude/skills/spectra-*-plus/"; or return 1
-    file_has "$path" "openspec/changes/archive/<date>-<change>/"; or return 1
-    file_has "$path" "Do not treat the full post-archive dirty state as archive output."; or return 1
-    file_has "$path" "except protected generated plus skill deletions"; or return 1
-    file_lacks "$path" "openspec/archived/"; or return 1
-    file_lacks "$path" "docs/specs/"; or return 1
+    file_has "$path" "$marker"; or return $status
+    file_has "$path" ".agents/skills/spectra-*-plus/"; or return $status
+    file_has "$path" ".claude/skills/spectra-*-plus/"; or return $status
+    file_has "$path" "openspec/changes/archive/<date>-<change>/"; or return $status
+    file_has "$path" "Do not treat the full post-archive dirty state as archive output."; or return $status
+    file_has "$path" "except protected generated plus skill deletions"; or return $status
+    file_lacks "$path" "openspec/archived/"; or return $status
+    file_lacks "$path" "docs/specs/"; or return $status
 end
 
 function restore_source_guard_if_needed --argument-names source_path description
@@ -517,50 +592,50 @@ function plus_outputs_are_current --argument-names target_path
     set plus_updated (plus_metadata_value spectraPlusUpdated)
 
     for skill_path in $apply_outputs
-        file_has "$skill_path" "ai 的回覆要用中文"; or return 1
-        file_has "$skill_path" "Implementation Notes Protocol"; or return 1
-        file_has "$skill_path" "Surgical & Simplicity Discipline"; or return 1
-        file_has "$skill_path" "Simplicity First"; or return 1
-        file_has "$skill_path" "Surgical Changes"; or return 1
-        file_has "$skill_path" "Maintain Balance"; or return 1
-        file_has "$skill_path" "8. **Implementation Notes Protocol**"; or return 1
-        file_has "$skill_path" "9. **Final check**"; or return 1
-        file_has "$skill_path" "10. **On completion or pause, show status**"; or return 1
-        file_has "$skill_path" "11. **Apply-plus response language**"; or return 1
-        file_has "$skill_path" "12. **Sub-Agent Review/Rating/Fix Loop**"; or return 1
-        file_has "$skill_path" "Reviewer A — Adherence in the Sub-Agent Review/Rating/Fix Loop MUST"; or return 1
-        file_has "$skill_path" "archive guidance is deferred until the plus quality gate passes"; or return 1
-        file_has "$skill_path" "All tasks complete. The plus quality gate runs next; archive guidance is shown only if it passes."; or return 1
-        file_has "$skill_path" 'Do not suggest archive before the Sub-Agent Review/Rating/Fix Loop has ended with `decision: passed`.'; or return 1
-        file_lacks "$skill_path" "All tasks complete! You can archive this change with"; or return 1
-        file_lacks "$skill_path" "The review-loop reviewer"; or return 1
-        file_lacks "$skill_path" "Section 10"; or return 1
-        file_lacks "$skill_path" "step 11"; or return 1
+        file_has "$skill_path" "ai 的回覆要用中文"; or return $status
+        file_has "$skill_path" "Implementation Notes Protocol"; or return $status
+        file_has "$skill_path" "Surgical & Simplicity Discipline"; or return $status
+        file_has "$skill_path" "Simplicity First"; or return $status
+        file_has "$skill_path" "Surgical Changes"; or return $status
+        file_has "$skill_path" "Maintain Balance"; or return $status
+        file_has "$skill_path" "8. **Implementation Notes Protocol**"; or return $status
+        file_has "$skill_path" "9. **Final check**"; or return $status
+        file_has "$skill_path" "10. **On completion or pause, show status**"; or return $status
+        file_has "$skill_path" "11. **Apply-plus response language**"; or return $status
+        file_has "$skill_path" "12. **Sub-Agent Review/Rating/Fix Loop**"; or return $status
+        file_has "$skill_path" "Reviewer A — Adherence in the Sub-Agent Review/Rating/Fix Loop MUST"; or return $status
+        file_has "$skill_path" "archive guidance is deferred until the plus quality gate passes"; or return $status
+        file_has "$skill_path" "All tasks complete. The plus quality gate runs next; archive guidance is shown only if it passes."; or return $status
+        file_has "$skill_path" 'Do not suggest archive before the Sub-Agent Review/Rating/Fix Loop has ended with `decision: passed`.'; or return $status
+        file_lacks "$skill_path" "All tasks complete! You can archive this change with"; or return $status
+        file_lacks "$skill_path" "The review-loop reviewer"; or return $status
+        file_lacks "$skill_path" "Section 10"; or return $status
+        file_lacks "$skill_path" "step 11"; or return $status
     end
 
     for skill_path in $propose_outputs $apply_outputs
-        frontmatter_has "$skill_path" "spectraPlusVersion: $plus_version"; or return 1
-        frontmatter_has "$skill_path" "spectraPlusUpdated: $plus_updated"; or return 1
-        file_has "$skill_path" "Reviewer A — Adherence"; or return 1
-        file_has "$skill_path" "Reviewer B — Quality"; or return 1
-        file_has "$skill_path" "Confidence scoring rubric"; or return 1
-        file_has "$skill_path" "Confidence filter"; or return 1
-        file_has "$skill_path" "Common false positives"; or return 1
-        file_has "$skill_path" "Direct artifact-requirement violations MUST score"; or return 1
-        file_lacks "$skill_path" "Codex Plan Mode"; or return 1
-        file_lacks "$skill_path" "ExitPlanMode"; or return 1
-        file_lacks "$skill_path" "EnterPlanMode"; or return 1
-        file_lacks "$skill_path" "docs/specs/"; or return 1
+        frontmatter_has "$skill_path" "spectraPlusVersion: $plus_version"; or return $status
+        frontmatter_has "$skill_path" "spectraPlusUpdated: $plus_updated"; or return $status
+        file_has "$skill_path" "Reviewer A — Adherence"; or return $status
+        file_has "$skill_path" "Reviewer B — Quality"; or return $status
+        file_has "$skill_path" "Confidence scoring rubric"; or return $status
+        file_has "$skill_path" "Confidence filter"; or return $status
+        file_has "$skill_path" "Common false positives"; or return $status
+        file_has "$skill_path" "Direct artifact-requirement violations MUST score"; or return $status
+        file_lacks "$skill_path" "Codex Plan Mode"; or return $status
+        file_lacks "$skill_path" "ExitPlanMode"; or return $status
+        file_lacks "$skill_path" "EnterPlanMode"; or return $status
+        file_lacks "$skill_path" "docs/specs/"; or return $status
     end
 
     for skill_path in $propose_outputs
-        file_has "$skill_path" "8. **Validation**"; or return 1
-        file_has "$skill_path" "9. **Sub-Agent Review/Rating/Fix Loop**"; or return 1
-        file_has "$skill_path" "10. **Finish the plus proposal workflow**"; or return 1
-        file_has "$skill_path" 'has passed. If validation fixes are required, complete them before entering this loop.'; or return 1
-        file_has "$skill_path" 'if any fix action modifies proposal, design, tasks, or spec artifacts, run `spectra validate "<name>"` again'; or return 1
-        file_lacks "$skill_path" "Surgical & Simplicity Discipline"; or return 1
-        file_lacks "$skill_path" "Maintain Balance"; or return 1
+        file_has "$skill_path" "8. **Validation**"; or return $status
+        file_has "$skill_path" "9. **Sub-Agent Review/Rating/Fix Loop**"; or return $status
+        file_has "$skill_path" "10. **Finish the plus proposal workflow**"; or return $status
+        file_has "$skill_path" 'has passed. If validation fixes are required, complete them before entering this loop.'; or return $status
+        file_has "$skill_path" 'if any fix action modifies proposal, design, tasks, or spec artifacts, run `spectra validate "<name>"` again'; or return $status
+        file_lacks "$skill_path" "Surgical & Simplicity Discipline"; or return $status
+        file_lacks "$skill_path" "Maintain Balance"; or return $status
     end
 end
 
@@ -623,70 +698,14 @@ function validate_plus_outputs_current --argument-names target_path
 end
 
 function target_is_current --argument-names target_path
-    plus_outputs_are_current "$target_path"; or return 1
-    guard_is_current "$target_path/.claude/skills/spectra-commit/SKILL.md"; or return 1
-    guard_is_current "$target_path/.agents/skills/spectra-commit/SKILL.md"; or return 1
+    plus_outputs_are_current "$target_path"; or return $status
+    guard_is_current "$target_path/.claude/skills/spectra-commit/SKILL.md"; or return $status
+    guard_is_current "$target_path/.agents/skills/spectra-commit/SKILL.md"; or return $status
     return 0
 end
 
 function lock_mtime --argument-names path
     stat -f %m "$path" 2>/dev/null
-end
-
-function source_sensitive_path_matches --argument-names relpath
-    set relpath (string replace -r '^\./' '' -- "$relpath")
-
-    switch "$relpath"
-        case install-spectra-plus.fish scripts/spectra-plus 'scripts/spectra-plus/*'
-            return 0
-    end
-
-    if string match -qr '^\.agents/skills/spectra-[^/]+(/|$)' -- "$relpath"
-        return 0
-    end
-
-    if string match -qr '^\.claude/skills/spectra-[^/]+(/|$)' -- "$relpath"
-        return 0
-    end
-
-    return 1
-end
-
-function porcelain_entry_paths --argument-names entry
-    set payload (string sub -s 4 -- "$entry")
-    if string match -q '* -> *' -- "$payload"
-        string split ' -> ' -- "$payload"
-    else
-        echo "$payload"
-    end
-end
-
-function source_dirty_paths
-    set source_top (git -C "$script_dir" rev-parse --show-toplevel 2>/dev/null)
-    test -n "$source_top"; or return 2
-    git -C "$source_top" rev-parse --verify HEAD >/dev/null 2>/dev/null; or return 2
-
-    set abs_installer (realpath "$script_dir/install-spectra-plus.fish" 2>/dev/null)
-    set real_top (realpath "$source_top" 2>/dev/null)
-    test -n "$abs_installer"; or return 2
-    test -n "$real_top"; or return 2
-    string match -q "$real_top/*" -- "$abs_installer"; or return 2
-
-    set status_lines (git -C "$source_top" status --porcelain --untracked-files=all 2>/dev/null)
-    test $status -eq 0; or return 2
-
-    set found 0
-    for entry in $status_lines
-        for relpath in (porcelain_entry_paths "$entry")
-            set relpath (string trim --chars='"' -- "$relpath")
-            if source_sensitive_path_matches "$relpath"
-                echo "$relpath"
-                set found 1
-            end
-        end
-    end
-
-    test $found -eq 0
 end
 
 function acquire_repair_lock
@@ -714,29 +733,40 @@ function repair_all
     set throttle_window 60
     set throttle_file (cache_dir)/last-repair-attempt
 
-    set dirty_paths (source_dirty_paths)
-    set source_status $status
-    if test $source_status -eq 2
-        echo "[skipped] source clean state unavailable: repair-all skipped because source clean state is unavailable"
-        return 0
-    end
-    if test $source_status -ne 0
-        echo "[skipped] dirty source checkout: repair-all skipped because source checkout is dirty: $dirty_paths[1]"
-        return 0
-    end
-
+    materialize_repair_snapshot
+    set snapshot_installer "$__spectra_plus_repair_snapshot/install-spectra-plus.fish"
+    use_plus_rules_file "$__spectra_plus_repair_snapshot/scripts/spectra-plus/rules.yaml"
     validate_plus_metadata_source
 
     if test $dry_run -eq 1
+        set failed 0
         for registry_target in (read_registry_targets)
-            echo "+ repair target $registry_target"
+            if not test -d "$registry_target"
+                echo "[failed] $registry_target: invalid target project directory"
+                set failed 1
+                continue
+            end
+
+            "$snapshot_installer" --check-current "$registry_target"
+            set current_status $status
+            switch $current_status
+                case 0
+                    echo "[skipped] $registry_target: already current"
+                case 10
+                    echo "[would repair] $registry_target"
+                case '*'
+                    echo "[failed] $registry_target: current state check failed (exit $current_status)"
+                    set failed 1
+            end
         end
-        return 0
+        cleanup_repair_snapshot; or return 1
+        return $failed
     end
 
     set lock_path (acquire_repair_lock)
     if test $status -ne 0
         echo "$lock_path"
+        cleanup_repair_snapshot; or return 1
         return 0
     end
 
@@ -746,6 +776,7 @@ function repair_all
         if string match -qr '^[0-9]+$' -- "$last_attempt"; and test (math "$now - $last_attempt") -lt $throttle_window
             echo "[skipped] throttled: last repair attempt was within $throttle_window seconds"
             rm -rf "$lock_path"
+            cleanup_repair_snapshot; or return 1
             return 0
         end
     end
@@ -761,12 +792,20 @@ function repair_all
             continue
         end
 
-        if target_is_current "$registry_target"
-            echo "[skipped] $registry_target: already current"
-            continue
+        "$snapshot_installer" --check-current "$registry_target"
+        set current_status $status
+        switch $current_status
+            case 0
+                echo "[skipped] $registry_target: already current"
+                continue
+            case 10
+            case '*'
+                echo "[failed] $registry_target: current state check failed (exit $current_status)"
+                set failed 1
+                continue
         end
 
-        if "$script_dir/$script_name" --target "$registry_target"
+        if "$snapshot_installer" --target "$registry_target"
             echo "[success] $registry_target: repaired"
         else
             echo "[failed] $registry_target: repair failed"
@@ -775,6 +814,7 @@ function repair_all
     end
 
     rm -rf "$lock_path"
+    cleanup_repair_snapshot; or set failed 1
     return $failed
 end
 
@@ -943,6 +983,27 @@ function install_target --argument-names target_path
     echo ""
     echo "後續若原始 spectra skill 更新，請重跑："
     echo "  ./$script_name $target_path"
+end
+
+if contains -- --check-current $argv
+    if test (count $argv) -ne 2; or test "$argv[1]" != "--check-current"
+        fail "--check-current 只能單獨搭配一個 absolute target path"
+    end
+    if not string match -q '/*' -- "$argv[2]"; or not test -d "$argv[2]"
+        fail "--check-current 需要 existing absolute target directory：$argv[2]"
+    end
+
+    validate_plus_metadata_source
+    target_is_current "$argv[2]"
+    set current_status $status
+    switch $current_status
+        case 0
+            exit 0
+        case 1
+            exit 10
+        case '*'
+            exit $current_status
+    end
 end
 
 set target ""

@@ -116,13 +116,17 @@ Registry dry-run：
 ./install-spectra-plus.fish --repair-all
 ```
 
-`--repair-all` 只處理 registry 內 target，不掃描或修復 registry 外的 project。每個 valid target 會重用單一 target installer 的驗證與修復邏輯；單一 target 失敗不會中止後續 target，但最後 exit code 會是非零。
+`--repair-all` 只處理 registry 內 target，不掃描或修復 registry 外的 project。每次執行會固定 source checkout 的 `HEAD` commit，建立單一暫存 snapshot，並從該 snapshot 讀取 installer、generator、rules、template 與兩份 `spectra-commit` guard source。Metadata 驗證、current-state 判定與 stale target 安裝因此使用同一版本；working tree 有未提交變更不會阻擋 repair-all，working-tree shared inputs 也不會成為 repair-all 的共用內容來源。各 target 的 base skills 仍由 generator 從該 target root 讀取。
+
+Snapshot current-state check 使用三態結果：current 會跳過、stale 才會安裝；無法判定則明確回報失敗且不修改該 target。單一 target 失敗不會中止後續 target，但最後 exit code 會是非零。
+
+直接執行 `--target` 仍沿用原本工作區 installer 與 source guard auto-restore 行為；pinned snapshot 僅適用於 `--repair-all`。
 
 輸出會包含 per-target summary：
 
 - `[success]`：target 已修復。
 - `[skipped]`：target 已是 current、被 lock 擋下，或在 throttle window 內。
-- `[failed]`：target invalid 或修復失敗。
+- `[failed]`：target invalid、current state 無法判定或修復失敗。
 
 Dry-run 不修改 registry、project files、lock、cache 或 throttle state：
 
