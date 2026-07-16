@@ -5,6 +5,7 @@ set test_dir (dirname "$script_path")
 set root_dir (realpath "$test_dir/../../..")
 set generator "$root_dir/scripts/spectra-plus/generate.fish"
 set rules "$root_dir/scripts/spectra-plus/rules.yaml"
+set master_spec "$root_dir/openspec/specs/spectra-plus-skills/spec.md"
 set propose "$root_dir/.claude/skills/spectra-propose-plus/SKILL.md"
 set apply "$root_dir/.claude/skills/spectra-apply-plus/SKILL.md"
 set propose_codex "$root_dir/.agents/skills/spectra-propose-plus/SKILL.md"
@@ -87,6 +88,22 @@ function assert_step_numbers_sequential
             }
         }
     ' "$file"; or fail "$file has non-sequential step numbering"
+end
+
+function assert_no_adjacent_separators
+    set file $argv[1]
+    awk '
+        $0 == "---" {
+            if (previous_separator) {
+                exit 1
+            }
+            previous_separator = 1
+            next
+        }
+        NF {
+            previous_separator = 0
+        }
+    ' "$file"; or fail "$file has adjacent --- separators"
 end
 
 function assert_frontmatter_contains
@@ -445,10 +462,21 @@ for skill_path in $propose_outputs $apply_outputs
     assert_contains "$skill_path" "the fourth round of the current run"
     assert_contains "$skill_path" "Consecutive micro rounds are valid"
     assert_contains "$skill_path" "the fourth-round checkpoint is the only full re-scan after the run's first round"
+    assert_contains "$skill_path" "Except in an unseeded run's first round, every reviewer finding classified `Critical` or `Warning` MUST include `disposition`"
     assert_contains "$skill_path" '`disposition`: one of `unresolved-prior`, `fix-introduced`, or `new`'
     assert_contains "$skill_path" "A surviving `Critical` or `Warning` finding is blocking if and only if"
     assert_contains "$skill_path" "cumulative blocking set"
+    assert_contains "$skill_path" "Every blocking finding enters the set in the round it is found"
+    assert_contains "$skill_path" "A member remains in the set even when a reviewer does not re-report it and leaves only through"
+    assert_contains "$skill_path" "verified resolution — a fix is recorded and a later reviewer confirms the fixed location is resolved without re-reporting the finding"
+    assert_contains "$skill_path" "accepted risk — the member matches a user-consented accepted-risks entry"
     assert_contains "$skill_path" "explicit resolved/unresolved verdict per member"
+    assert_contains "$skill_path" 'If checkpoint reviewers disagree, any `unresolved` verdict keeps the member in the set.'
+    assert_contains "$skill_path" "Record every verified-resolution removal with the member, fix reference, and verifying reviewer"
+    assert_contains "$skill_path" "Record every accepted-risk removal with the member and accepted-risk reference as a downgrade trace"
+    assert_contains "$skill_path" "The only exception is new evidence tying it to recorded fix actions"
+    assert_contains "$skill_path" "Except in an unseeded run's first round, pass if and only if the post-filter cumulative blocking set"
+    assert_contains "$skill_path" "apply the cumulative-set pass condition in its first full round"
     assert_contains "$skill_path" 'When a reviewer cannot decide between `design` and `text`, it MUST classify the finding as `design`.'
     assert_contains "$skill_path" 'The main agent MUST NOT reclassify a `design` finding to `text`.'
     assert_contains "$skill_path" 'merged finding MUST take `layer == design`'
@@ -464,6 +492,9 @@ for skill_path in $propose_outputs $apply_outputs
     assert_contains "$skill_path" "same artifact or file and the same defect mechanism"
     assert_contains "$skill_path" "confidence ≤ 25"
     assert_contains "$skill_path" "same subsystem alone MUST NOT trigger the downgrade"
+    assert_contains "$skill_path" "only after explicit user consent in the current session"
+    assert_contains "$skill_path" "The loop MUST NOT edit this gate input as a fix action"
+    assert_contains "$skill_path" "Record every accepted-risks downgrade in `## Fix Actions`"
     assert_contains "$skill_path" "Fix-loop design circuit breaker"
     assert_contains "$skill_path" "`needs-design` note"
     assert_contains "$skill_path" "Abort triage"
@@ -480,7 +511,11 @@ for skill_path in $propose_outputs $apply_outputs
     assert_contains "$skill_path" "override the pending `next_round` decision with `aborted`"
     assert_contains "$skill_path" "pre-spawn short-circuit round uses `round_type: full` and spawns no reviewer"
     assert_contains "$skill_path" "Review round action obligation"
+    assert_contains "$skill_path" "before a `next_round`, every surviving finding and every cumulative-set member counted in the decision MUST have an action"
     assert_contains "$skill_path" "exactly one of these three blocking actions"
+    assert_contains "$skill_path" "A non-blocking `new` finding uses its triage note"
+    assert_contains "$skill_path" "A re-report of a prior triage finding uses a one-line cross-reference to the original note"
+    assert_contains "$skill_path" "A `needs-design` note forces `aborted` and cannot coexist with `next_round`"
     assert_contains "$skill_path" "post-filter cumulative blocking set"
     assert_contains "$skill_path" "non-blocking triaged finding count"
     assert_contains "$skill_path" "do not pass a round that retains a blocking Critical or blocking Warning"
@@ -531,6 +566,8 @@ for skill_path in $propose_outputs
     assert_contains "$skill_path" "more than 15 affected-code path entries"
     assert_contains "$skill_path" 'Exclude `(none)` placeholder lines'
     assert_contains "$skill_path" "Treat 15 entries as silent and 16 entries as advisory"
+    assert_line_order "$skill_path" "5. **Write the proposal**" "Propose-plus impact granularity advisory"
+    assert_line_order "$skill_path" "Propose-plus impact granularity advisory" "6. **Get the artifact build order**"
 end
 
 for skill_path in $apply_outputs
@@ -608,6 +645,9 @@ assert_contains "$root_dir/openspec/signals/README.md" "native exit code `1` mea
 assert_contains "$root_dir/openspec/specs/signals-shared-layer/spec.md" "grep -rln ANNOTATION-OPEN-MARKER openspec/specs/"
 assert_contains "$root_dir/openspec/specs/signals-shared-layer/spec.md" "prints the matching project-root-relative paths"
 assert_not_contains "$root_dir/openspec/specs/signals-shared-layer/spec.md" "grep -rq ANNOTATION-OPEN-MARKER openspec/specs/"
+assert_contains "$master_spec" "Except in an unseeded run's first round, every reviewer of a round"
+assert_contains "$master_spec" "Except in an unseeded run's first round, a round passes if and only if"
+assert_no_adjacent_separators "$master_spec"
 
 output_fingerprint >/tmp/spectra-plus-all-outputs.before
 run_expect 0 "$generator"

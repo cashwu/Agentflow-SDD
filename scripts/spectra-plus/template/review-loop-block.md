@@ -24,7 +24,7 @@
    - Run max 6 rounds per loop run.
    - The first round of each loop run MUST be a full round. When a round ends with `decision: next_round`, derive the next round type from its position within the current run: the next round MUST be `full` if and only if it is the fourth round of the current run; otherwise it MUST be `micro`.
    - Consecutive micro rounds are valid. Micro rounds count toward the 6-round cap. Fix actions that modify behavior or a design statement do not change the position-derived round type; the fourth-round checkpoint is the only full re-scan after the run's first round.
-   - After the run's first round, every reviewer finding classified `Critical` or `Warning` MUST include `disposition`: one of `unresolved-prior`, `fix-introduced`, or `new`.
+   - Except in an unseeded run's first round, every reviewer finding classified `Critical` or `Warning` MUST include `disposition`: one of `unresolved-prior`, `fix-introduced`, or `new`.
      - `unresolved-prior`: the finding matches a blocking finding from any prior round of this loop, including a bucket-1 seed from a prior run. A re-report is evidence that any recorded fix was ineffective.
      - `fix-introduced`: the finding cites one or more recorded fix actions that introduced the defect. Reviewer V and propose-plus reviewers MUST include the fix-action reference; apply-plus Reviewer B also follows the `introduced_by` rule below.
      - `new`: the finding matches no prior blocking finding. A finding that matches only a prior non-blocking triage note remains `new`; record only a one-line cross-reference to the original triage note, not a duplicate triage note or signal.
@@ -33,13 +33,13 @@
    - A surviving `Critical` or `Warning` finding is blocking if and only if its verified disposition is `unresolved-prior` or `fix-introduced`. In a run's first round, every surviving `Critical` and `Warning` is blocking; a seeded re-run's first round instead uses the seeded cumulative blocking set.
    - A finding whose latest state is a non-blocking triage note MUST NOT become blocking again merely because it is re-reported. The only exception is new evidence tying it to recorded fix actions, which returns it as `fix-introduced` with a traced correction.
    - Every surviving `new` finding is non-blocking. Record it as a triage note in `## Fix Actions`, include it in the signals write step, and list it prominently in the completion output. For a non-blocking `Critical`, also recommend a follow-up change proposal.
-   - Maintain a cumulative blocking set across the run. A member remains in the set even when a reviewer does not re-report it and leaves only through:
+   - Maintain a cumulative blocking set across the run. Every blocking finding enters the set in the round it is found. A member remains in the set even when a reviewer does not re-report it and leaves only through:
      1. verified resolution — a fix is recorded and a later reviewer confirms the fixed location is resolved without re-reporting the finding; or
      2. accepted risk — the member matches a user-consented accepted-risks entry.
-   - Reviewer V, both fourth-round checkpoint reviewers, and both seeded re-run first-round reviewers MUST return an explicit resolved/unresolved verdict per member. If checkpoint reviewers disagree, any `unresolved` verdict keeps the member in the set. Record every removal with the member, fix or accepted-risk reference, and verifying reviewer.
+   - Reviewer V, both fourth-round checkpoint reviewers, and both seeded re-run first-round reviewers MUST return an explicit resolved/unresolved verdict per member. If checkpoint reviewers disagree, any `unresolved` verdict keeps the member in the set. Record every verified-resolution removal with the member, fix reference, and verifying reviewer. Record every accepted-risk removal with the member and accepted-risk reference as a downgrade trace.
    - If all members are withheld under grader protection and no consented accepted-risk exit is obtainable, stop before spawning another reviewer and end with `decision: aborted` plus Abort triage. If this becomes true during the fix phase, override the pending `next_round` decision with `aborted` in the current not-yet-finalized round file.
    - Round files for completed rounds are immutable during an active loop; completed round files are immutable gate inputs. Write fix records, triage notes, downgrade traces, and corrections only in the round where they occur.
-   - After the run's first round, pass if and only if the post-filter cumulative blocking set contains no blocking `Critical` and no blocking `Warning`. Non-blocking findings do not cause `next_round`.
+   - Except in an unseeded run's first round, pass if and only if the post-filter cumulative blocking set contains no blocking `Critical` and no blocking `Warning`. Non-blocking findings do not cause `next_round`.
    - If the sixth round does not pass, record `decision: aborted`, perform Abort triage, and end the workflow.
 
    **Fresh sub-agent calls**
