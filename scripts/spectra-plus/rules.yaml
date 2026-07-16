@@ -4,12 +4,15 @@ skills:
       name: spectra-propose-plus
       description: "Create a Spectra change proposal with sub-agent quality gates"
       compatibility: "Requires spectra CLI."
-      spectraPlusVersion: "1.4.0"
-      spectraPlusUpdated: "2026-07-11"
+      spectraPlusVersion: "1.5.0"
+      spectraPlusUpdated: "2026-07-16"
     transformations:
       - target_section: "3. **Scan existing specs for relevance**"
         operation: append
         template: signals-read-block.md
+      - target_section: "5. **Write the proposal**"
+        operation: append
+        template: impact-granularity-block.md
       - target_section: "7. **Create remaining artifacts in sequence**"
         operation: append
         template: artifact-language-block.md
@@ -51,8 +54,8 @@ skills:
       name: spectra-apply-plus
       description: "Implement Spectra tasks with a sub-agent quality gate after completion"
       compatibility: "Requires spectra CLI."
-      spectraPlusVersion: "1.4.0"
-      spectraPlusUpdated: "2026-07-11"
+      spectraPlusVersion: "1.5.0"
+      spectraPlusUpdated: "2026-07-16"
     transformations:
       # Multiple append transforms targeting the same section land in reverse order
       # because each later append inserts before the earlier inserted appended block.

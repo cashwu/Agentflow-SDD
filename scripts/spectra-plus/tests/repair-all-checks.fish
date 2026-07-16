@@ -10,8 +10,8 @@ set rules "$root_dir/scripts/spectra-plus/rules.yaml"
 set guard_marker "<!-- SPECTRA-COMMIT-GUARD: archive-first allowlist + plus deletion protection -->"
 set agent_label "com.spectra.plus.repair"
 set legacy_agent_label "com.agentflow.spectra-plus.repair"
-set plus_version "1.4.0"
-set plus_updated "2026-07-11"
+set plus_version "1.5.0"
+set plus_updated "2026-07-16"
 
 function fail
     echo "FAIL: $argv" >&2
