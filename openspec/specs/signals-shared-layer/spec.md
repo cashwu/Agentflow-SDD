@@ -54,20 +54,60 @@ The system SHALL store cross-change signals as individual Markdown files under `
 
 
 <!-- @trace
-source: tighten-review-loop-edge-cases
-updated: 2026-07-08
+source: fork-spectra-skills-to-cash
+updated: 2026-07-18
 code:
+  - scripts/spectra-plus/template/impact-granularity-block.md
   - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-ingest/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-drift.diff
   - scripts/spectra-plus/template/review-loop-block.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
+  - .agents/skills/spectra-apply-plus/SKILL.md
+  - scripts/spectra-plus/template/apply-response-language-block.md
+  - install-cash-skills.fish
+  - uninstall-spectra-plus-repair.fish
+  - scripts/cash-skills/variant-parity/cash-verify.diff
+  - scripts/spectra-plus/template/apply-notes-block.md
+  - .agents/skills/spectra-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - .agents/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - scripts/spectra-plus/template/no-park-end-block.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - AGENTS.md
+  - scripts/cash-skills/variant-parity/cash-audit.diff
+  - scripts/spectra-plus/template/artifact-language-block.md
+  - CASH-SKILLS.md
+  - scripts/spectra-plus/repair-all.fish
+  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-analyze/SKILL.md
+  - SPECTRA-PLUS.md
+  - .agents/skills/cash-audit/SKILL.md
+  - scripts/spectra-plus/template/signals-read-block.md
+  - scripts/spectra-plus/template/surgical-simplicity-block.md
+  - .agents/skills/cash-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ask.diff
+  - scripts/spectra-plus/generate.fish
+  - .agents/skills/cash-drift/SKILL.md
+  - install-spectra-plus.fish
+  - scripts/cash-skills/variant-parity/cash-analyze.diff
 tests:
+  - scripts/spectra-plus/tests/auto-restore-checks.fish
+  - scripts/spectra-plus/tests/repair-all-checks.fish
+  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
   - scripts/spectra-plus/tests/generator-checks.fish
+  - scripts/cash-skills/tests/skill-checks.fish
 -->
 
 ---
 ### Requirement: Signals directory README contract
 
-The system SHALL provide `openspec/signals/README.md` that documents the signals layer. The README MUST describe what belongs in the signals layer, what does not belong, the signal file schema, the rule that a `<slug>` is an assigned issue-class identifier (not a transform of finding text), and the process for adding or updating a signal. The README MUST document the optional `check` frontmatter field: its single-line shell command form, its execution by passing the value as the single argument to `sh -c` from the project root, the exit-code convention (`0` means the anti-pattern is absent, `1` means it is present, any other exit code is an execution error), the rule that `check` commands are human-authored, the authoring rules that `check` commands MUST be read-only, fast, offline, and non-interactive, the rule that detection results are reported only as exit `0` or `1` while foreseeable execution errors (such as a missing path) MUST surface as another exit code rather than being collapsed into `0` or `1` by blind negation, and the YAML single-line quoting pitfalls (quotes and `#` truncation) for the field value. The README MUST document that newly authored `check` commands that can identify concrete instances print project-root-relative paths for detected instances, so plus review loops can classify whether a failure lies in the current change's artifacts or modified files. The README MUST document shell error traps for `check` authors: POSIX `sh` does not provide `pipefail`, pipeline status comes from the last command, and tools whose native exit code `1` means an execution error require explicit exit-code remapping so `1` remains reserved for anti-pattern-present results. The README MUST state that signal `status` transitions to `addressed` or `dismissed` are performed manually by a human and are never applied automatically. The README MUST document that a writer coining a new `<slug>` first lists existing `openspec/signals/*.md` and picks a slug that does not already exist, and that creating a signal never overwrites an existing file. The README MUST note the concurrent full-file-overwrite risk: when two runs write the same `<slug>.md` at once — including two runs independently coining the same natural slug for a new issue class — the losing writer's appended `## Occurrences` entry and `links`, or an entire newly created signal, can be lost; and a reviewer SHALL split a signal whose `## Occurrences` entries describe unrelated issues.
+The system SHALL provide `openspec/signals/README.md` that documents the signals layer. The README MUST describe what belongs in the signals layer, what does not belong, the signal file schema, the rule that a `<slug>` is an assigned issue-class identifier (not a transform of finding text), and the process for adding or updating a signal. The README MUST document the optional `check` frontmatter field: its single-line shell command form, its execution by passing the value as the single argument to `sh -c` from the project root, the exit-code convention (`0` means the anti-pattern is absent, `1` means it is present, any other exit code is an execution error), the rule that `check` commands are human-authored, the authoring rules that `check` commands MUST be read-only, fast, offline, and non-interactive, the rule that detection results are reported only as exit `0` or `1` while foreseeable execution errors (such as a missing path) MUST surface as another exit code rather than being collapsed into `0` or `1` by blind negation, and the YAML single-line quoting pitfalls (quotes and `#` truncation) for the field value. The README MUST document that newly authored `check` commands that can identify concrete instances print project-root-relative paths for detected instances, so cash review loops can classify whether a failure lies in the current change's artifacts or modified files. The README MUST document shell error traps for `check` authors: POSIX `sh` does not provide `pipefail`, pipeline status comes from the last command, and tools whose native exit code `1` means an execution error require explicit exit-code remapping so `1` remains reserved for anti-pattern-present results. The README MUST state that signal `status` transitions to `addressed` or `dismissed` are performed manually by a human and are never applied automatically. The README MUST document that a writer coining a new `<slug>` first lists existing `openspec/signals/*.md` and picks a slug that does not already exist, and that creating a signal never overwrites an existing file. The README MUST note the concurrent full-file-overwrite risk: when two runs write the same `<slug>.md` at once — including two runs independently coining the same natural slug for a new issue class — the losing writer's appended `## Occurrences` entry and `links`, or an entire newly created signal, can be lost; and a reviewer SHALL split a signal whose `## Occurrences` entries describe unrelated issues.
 
 #### Scenario: README documents schema, slug assignment, and human-maintained status
 
@@ -83,14 +123,54 @@ The system SHALL provide `openspec/signals/README.md` that documents the signals
 
 
 <!-- @trace
-source: tighten-review-loop-edge-cases
-updated: 2026-07-08
+source: fork-spectra-skills-to-cash
+updated: 2026-07-18
 code:
+  - scripts/spectra-plus/template/impact-granularity-block.md
   - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-ingest/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-drift.diff
   - scripts/spectra-plus/template/review-loop-block.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
+  - .agents/skills/spectra-apply-plus/SKILL.md
+  - scripts/spectra-plus/template/apply-response-language-block.md
+  - install-cash-skills.fish
+  - uninstall-spectra-plus-repair.fish
+  - scripts/cash-skills/variant-parity/cash-verify.diff
+  - scripts/spectra-plus/template/apply-notes-block.md
+  - .agents/skills/spectra-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - .agents/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - scripts/spectra-plus/template/no-park-end-block.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - AGENTS.md
+  - scripts/cash-skills/variant-parity/cash-audit.diff
+  - scripts/spectra-plus/template/artifact-language-block.md
+  - CASH-SKILLS.md
+  - scripts/spectra-plus/repair-all.fish
+  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-analyze/SKILL.md
+  - SPECTRA-PLUS.md
+  - .agents/skills/cash-audit/SKILL.md
+  - scripts/spectra-plus/template/signals-read-block.md
+  - scripts/spectra-plus/template/surgical-simplicity-block.md
+  - .agents/skills/cash-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ask.diff
+  - scripts/spectra-plus/generate.fish
+  - .agents/skills/cash-drift/SKILL.md
+  - install-spectra-plus.fish
+  - scripts/cash-skills/variant-parity/cash-analyze.diff
 tests:
+  - scripts/spectra-plus/tests/auto-restore-checks.fish
+  - scripts/spectra-plus/tests/repair-all-checks.fish
+  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
   - scripts/spectra-plus/tests/generator-checks.fish
+  - scripts/cash-skills/tests/skill-checks.fish
 -->
 
 ---
@@ -116,15 +196,52 @@ The system SHALL treat signal `status` and the optional `check` field as human-m
 - **AND** any pre-existing human-authored `check` field is left byte-identical
 
 <!-- @trace
-source: add-review-loop-discipline
-updated: 2026-07-07
+source: fork-spectra-skills-to-cash
+updated: 2026-07-18
 code:
-  - .agents/skills/spectra-verify/SKILL.md
+  - scripts/spectra-plus/template/impact-granularity-block.md
   - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/spectra-analyze/SKILL.md
-  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-ingest/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-drift.diff
   - scripts/spectra-plus/template/review-loop-block.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
   - .agents/skills/spectra-apply-plus/SKILL.md
+  - scripts/spectra-plus/template/apply-response-language-block.md
+  - install-cash-skills.fish
+  - uninstall-spectra-plus-repair.fish
+  - scripts/cash-skills/variant-parity/cash-verify.diff
+  - scripts/spectra-plus/template/apply-notes-block.md
+  - .agents/skills/spectra-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - .agents/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - scripts/spectra-plus/template/no-park-end-block.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - AGENTS.md
+  - scripts/cash-skills/variant-parity/cash-audit.diff
+  - scripts/spectra-plus/template/artifact-language-block.md
+  - CASH-SKILLS.md
+  - scripts/spectra-plus/repair-all.fish
+  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-analyze/SKILL.md
+  - SPECTRA-PLUS.md
+  - .agents/skills/cash-audit/SKILL.md
+  - scripts/spectra-plus/template/signals-read-block.md
+  - scripts/spectra-plus/template/surgical-simplicity-block.md
+  - .agents/skills/cash-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ask.diff
+  - scripts/spectra-plus/generate.fish
+  - .agents/skills/cash-drift/SKILL.md
+  - install-spectra-plus.fish
+  - scripts/cash-skills/variant-parity/cash-analyze.diff
 tests:
+  - scripts/spectra-plus/tests/auto-restore-checks.fish
+  - scripts/spectra-plus/tests/repair-all-checks.fish
+  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
   - scripts/spectra-plus/tests/generator-checks.fish
+  - scripts/cash-skills/tests/skill-checks.fish
 -->

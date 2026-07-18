@@ -26,3 +26,16 @@ discuss? → propose → apply ⇄ ingest → archive
 Changes can be parked（暫存）— temporarily moved out of `openspec/changes/`. Parked changes won't appear in `spectra list` but can be found with `spectra list --parked`. To restore: `spectra unpark <name>`. The `$spectra-apply` and `$spectra-ingest` skills handle parked changes automatically.
 
 <!-- SPECTRA:END -->
+
+## Project-owned Cash workflow override
+
+For this repository, cash workflow invocation takes precedence over the Spectra-managed `$spectra-*` workflow guidance above. Spectra CLI and artifact schema remain authoritative: cash skills continue to use `spectra` commands and `openspec/` artifacts.
+
+- Structured discussion → `$cash-discuss`
+- Plan or propose a change → `$cash-propose`
+- Implement or resume tasks → `$cash-apply`
+- Requirements changed during implementation → `$cash-ingest`, then resume `$cash-apply`
+- Archive completed work → `$cash-archive`
+- Commit one selected change → `$cash-commit`
+
+Effective workflow: `$cash-discuss`? → `$cash-propose` → `$cash-apply` ⇄ `$cash-ingest` → `$cash-archive` → `$cash-commit`.

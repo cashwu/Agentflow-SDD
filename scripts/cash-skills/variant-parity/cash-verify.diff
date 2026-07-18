@@ -1,0 +1,8 @@
+--- codex/cash-verify
++++ claude/cash-verify
+@@ -14 +14 @@
+-## Codex fork context
++## Claude fork context
+@@ -16 +16 @@
+-This generated Codex skill runs with `context: fork`. The rules in this section take precedence over the shared `verify` body below.
++This generated Claude Code skill runs with `context: fork`. The rules in this section take precedence over the shared `verify` body below.
