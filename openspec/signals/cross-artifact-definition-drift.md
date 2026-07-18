@@ -2,9 +2,9 @@
 id: cross-artifact-definition-drift
 type: recurring-finding
 status: open
-occurrences: 5
+occurrences: 6
 first_seen: 2026-07-07
-last_seen: 2026-07-16
+last_seen: 2026-07-18
 links:
   - openspec/changes/add-micro-verification-round/reviews/propose-r1.md
   - openspec/changes/add-review-loop-discipline/reviews/propose-r1.md
@@ -12,6 +12,7 @@ links:
   - openspec/changes/repair-all-uses-pinned-commit-inputs/reviews/apply-r2.md
   - openspec/changes/converge-plus-review-loop/reviews/propose-r1.md
   - openspec/changes/converge-plus-review-loop/reviews/apply-r3.md
+  - openspec/changes/add-versioned-cash-skill-batch-update/reviews/propose-r4.md
 ---
 
 # Cross-artifact definition drift
@@ -25,3 +26,4 @@ The same concept (a role's scope, an enumerated list, a rule's condition set) is
 - 2026-07-14 — repair-all-uses-pinned-commit-inputs — spectra-apply-plus round 2 — 文件把 pinned shared-input 保證擴張成整個 working tree 不影響內容，與 design 保留 target-local base skill 輸入的邊界不一致。
 - 2026-07-16 — converge-plus-review-loop — spectra-propose-plus round 1 — blocking finding 定義、動作清單、introduced_by 證據通道在 proposal/design/delta spec 初稿間表述分歧（clause (b) 依賴僅 apply-plus 才有義務提供的欄位）。
 - 2026-07-16 — converge-plus-review-loop — spectra-apply-plus round 3 — delta spec 的 round file outline 要求所有 `fix-introduced` finding 都含 `introduced_by`，模板卻只對 apply-plus Reviewer B 明定該欄位。
+- 2026-07-18 — add-versioned-cash-skill-batch-update — cash-propose round 4 — design 將 `Result:` 限定於 completed domain decisions，但 delta spec opening 無條件要求每次 invocation emit result，與 execution-failure scenario 的 no-domain-result 契約矛盾。
