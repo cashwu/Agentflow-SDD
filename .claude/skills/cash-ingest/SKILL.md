@@ -20,6 +20,8 @@ Update an existing Spectra change — from a plan file or conversation context.
 - `/cash-ingest agile-discovering-rocket`
 - `/cash-ingest` (use conversation context or auto-detect plan file)
 
+**Response language**: All user-facing responses in this workflow MUST be written in Traditional Chinese unless the user explicitly requests another language. Keep shell commands, file paths, code identifiers, schema field names, and quoted source text verbatim.
+
 **Steps**
 
 1. **Locate the requirement source**

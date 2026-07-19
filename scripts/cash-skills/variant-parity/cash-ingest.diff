@@ -6,15 +6,15 @@
 @@ -19 +19 @@
 -- `@cash-ingest agile-discovering-rocket.md`
 +- `@cash-ingest ~/.claude/plans/agile-discovering-rocket.md`
-@@ -27 +27 @@
+@@ -29 +29 @@
 -   a. **Argument provided** → treat as plan file reference (prepend `` and append `.md` if needed)
 +   a. **Argument provided** → treat as plan file reference (prepend `~/.claude/plans/` and append `.md` if needed)
-@@ -32 +32 @@
+@@ -34 +34 @@
 -   - Check conversation context for plan file path (plan mode system messages include the path like `<name>.md`)
 +   - Check conversation context for plan file path (plan mode system messages include the path like `~/.claude/plans/<name>.md`)
-@@ -40 +40 @@
+@@ -42 +42 @@
 -   - Check `` for recent files
 +   - Check `~/.claude/plans/` for recent files
-@@ -254 +254 @@
+@@ -256 +256 @@
 -- **NEVER** modify the original plan file in ``
 +- **NEVER** modify the original plan file in `~/.claude/plans/`

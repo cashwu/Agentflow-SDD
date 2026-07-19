@@ -364,7 +364,7 @@ Simplicity First 與 Surgical Changes 的目的是「不寫不必要的東西」
 
 
 
-11. **Cash-apply response language**
+**Cash-apply response language**
 
    For `cash-apply`, ai 的回覆要用中文.
 
@@ -406,7 +406,7 @@ Simplicity First 與 Surgical Changes 的目的是「不寫不必要的東西」
    - If the final round decision is `passed`, the final response MAY tell the user they can archive with `/cash-archive`.
    - If the final round decision is `aborted`, do NOT suggest archive; summarize the unresolved findings and point to the final round file.
 
-12. **Sub-Agent Review/Rating/Fix Loop**
+11. **Sub-Agent Review/Rating/Fix Loop**
 
    Run this review/rating/fix loop once per change, after the normal workflow has completed its required artifact or task work.
 

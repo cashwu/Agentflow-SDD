@@ -459,7 +459,7 @@ function copy_cash_source_fixture --argument-names destination
     command cp -R "$root_dir/.agents/skills" "$destination/.agents/"; or fail 'could not copy Codex cash source fixture'
     command cp -R "$root_dir/.claude/skills" "$destination/.claude/"; or fail 'could not copy Claude cash source fixture'
     command cp "$root_dir/install-cash-skills.fish" "$destination/install-cash-skills.fish"; or fail 'could not copy installer source fixture'
-    command cp "$root_dir/cash-skills.version" "$destination/cash-skills.version"; or fail 'could not copy bundle version fixture'
+    printf '1.0.0\n' >"$destination/cash-skills.version"; or fail 'could not write bundle version fixture'
 end
 
 function seed_retired_plus_skill --argument-names target variant skill declared_name
@@ -669,7 +669,7 @@ function assert_bundle_version_history_fixtures
     command mkdir -p "$fixture/.agents" "$fixture/.claude"; or fail 'could not create version governance inventory roots'
     command cp -R "$root_dir/.agents/skills" "$fixture/.agents/"; or fail 'could not copy version governance Codex inventory'
     command cp -R "$root_dir/.claude/skills" "$fixture/.claude/"; or fail 'could not copy version governance Claude inventory'
-    command cp "$root_dir/cash-skills.version" "$fixture/cash-skills.version"; or fail 'could not copy version governance bundle version'
+    printf '1.0.0\n' >"$fixture/cash-skills.version"; or fail 'could not write version governance bundle version'
     command git -C "$fixture" add .; or fail 'could not stage version introduction fixture'
     command git -C "$fixture" -c user.name=Cash -c user.email=cash@example.invalid commit -q -m 'introduce cash bundle 1.0.0'; or fail 'could not commit version introduction fixture'
 
@@ -811,12 +811,11 @@ function assert_version_contract_inventory
         set -l governed_literal (string join . 1 0 0)
         set -l expected_records \
             (string join \t CASH-SKILLS.md 1) \
-            (string join \t cash-skills.version 1) \
             (string join \t 'openspec/changes/<change>/design.md' 1) \
             (string join \t 'openspec/changes/<change>/tasks.md' 2) \
             (string join \t openspec/changes/archive/2026-07-04-guard-dirty-source-auto-repair/specs/spectra-plus-skills/spec.md 1) \
             (string join \t openspec/changes/archive/2026-07-04-version-spectra-plus-skills/specs/spectra-plus-skills/spec.md 1) \
-            (string join \t scripts/cash-skills/tests/skill-checks.fish 14)
+            (string join \t scripts/cash-skills/tests/skill-checks.fish 16)
         check_version_literal_occurrence_inventory "$root_dir" "$governed_literal" $expected_records
         or fail 'repository prior-version literal occurrence inventory drifted'
         assert_version_literal_inventory_fixture
