@@ -2,9 +2,9 @@
 id: task-verification-coverage-incomplete
 type: recurring-finding
 status: open
-occurrences: 5
+occurrences: 6
 first_seen: 2026-07-14
-last_seen: 2026-07-18
+last_seen: 2026-07-19
 links:
   - openspec/changes/repair-all-uses-pinned-commit-inputs/reviews/apply-r1.md
   - openspec/changes/converge-plus-review-loop/reviews/apply-r2.md
@@ -12,6 +12,7 @@ links:
   - openspec/changes/fork-spectra-skills-to-cash/reviews/apply-r2.md
   - openspec/changes/add-versioned-cash-skill-batch-update/reviews/apply-r4.md
   - openspec/changes/add-versioned-cash-skill-batch-update/reviews/apply-r6.md
+  - openspec/changes/chinese-spec-content/reviews/propose-r1.md
 ---
 
 # Task verification coverage incomplete
@@ -25,3 +26,4 @@ A task is marked complete after testing the primary outcome but omits one or mor
 - 2026-07-18 — fork-spectra-skills-to-cash — cash-apply rounds 1–2 — review workflow tasks 宣告完整 branch fixtures，但初版只有靜態 marker 與單檔 mutation，且 Round 1 修正先被 variant parity 代擋；最終改為同步 mutation 所有 canonical copies並由 branch-specific assertions 獨立 fail loud。
 - 2026-07-18 — add-versioned-cash-skill-batch-update — cash-apply round 4 — batch regression matrix 沒有真正的 dry-run `would-update` target，也未證明 `--all --force` 保留 newer target；補上獨立 older/newer fixtures、status assertions 與完整 tree 零變更證據。
 - 2026-07-18 — add-versioned-cash-skill-batch-update — cash-apply round 6 — retired-plus cleanup tasks 已標記完成，但 unsafe candidate matrix、四個 normal plan branches、newer+force preservation 與 exact batch summaries 尚未全部 fail loud；補上獨立 fixtures 與完整輸出 assertions。
+- 2026-07-19 — chinese-spec-content — cash-propose round 1 — C1 驗收 grep 以 cash-propose 措辭為模板推及四檔，cash-apply 實際措辭（'always English, regardless of any other language rule'）匹配不到，漏改不可偵測。

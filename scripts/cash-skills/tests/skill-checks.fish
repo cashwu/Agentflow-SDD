@@ -82,7 +82,7 @@ function assert_propose_contract --argument-names variant_root invocation
     for marker in '<!-- SIGNALS-READ-STEP -->' '<!-- MECHANICAL-SELF-CHECK -->' '<!-- GRADER-IMMUTABILITY -->' '<!-- LOOP-LEDGER-STEP -->' '<!-- SIGNALS-WRITE-STEP -->'
         assert_contains "$path" "$marker" 'cash-propose retained quality gate'
     end
-    for literal in 'proposal.md' 'design.md' 'tasks.md' 'spectra validate' 'Traditional Chinese' 'spec files MUST be written in English' 'exceeds 15'
+    for literal in 'proposal.md' 'design.md' 'tasks.md' 'spectra validate' 'Traditional Chinese' 'Traditional Chinese prose with English structural keywords' 'copied byte-for-byte from the current master spec' 'exceeds 15'
         assert_contains "$path" "$literal" 'cash-propose artifact and termination contract'
     end
     assert_contains "$path" "$invocation"'cash-ingest' 'cash-propose cash routing'
@@ -149,6 +149,7 @@ function assert_shared_gate_contract --argument-names variant_root skill
         'Do NOT add, modify, or remove its `check` field' \
         'SAME capability or domain AND SAME underlying rule or anti-pattern' \
         'Run-first-round claim verification' \
+        'Spec delta title-identity check' \
         'MUST NOT produce a signal'
         assert_contains "$path" "$literal" 'retained shared graded review branch'
     end

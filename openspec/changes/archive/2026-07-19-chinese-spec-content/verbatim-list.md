@@ -1,0 +1,57 @@
+# Verbatim 預掃清單（task 1.0）
+
+遷移前機械抽出的表格列/儲存格與粗體錨點中，與 SKILL.md（24 檔）或 scripts/cash-skills/tests/skill-checks.fish 原文 byte-substring 命中的項目。
+這些項目為 quoted source text，遷移後 MUST 位元組不變。
+
+- `openspec/specs/cash-skill-workflows/spec.md:15` — `WHEN`
+- `openspec/specs/cash-skill-workflows/spec.md:16` — `THEN`
+- `openspec/specs/cash-skill-workflows/spec.md:611` — `GIVEN`
+- `openspec/specs/cash-skill-workflows/spec.md:1152` — `Skill`
+- `openspec/specs/cash-skill-workflows/spec.md:1153` — `-----`
+- `openspec/specs/cash-skill-workflows/spec.md:1153` — `----------------------`
+- `openspec/specs/cash-skill-workflows/spec.md:1153` — `----------------`
+- `openspec/specs/cash-skill-workflows/spec.md:1153` — `-----------`
+- `openspec/specs/cash-skill-workflows/spec.md:1153` — `------------------`
+- `openspec/specs/cash-skill-workflows/spec.md:1154` — `cash-propose`
+- `openspec/specs/cash-skill-workflows/spec.md:1320` — `Content`
+- `openspec/specs/cash-skill-workflows/spec.md:1320` — `Section`
+- `openspec/specs/cash-skill-workflows/spec.md:1321` — `-------------`
+- `openspec/specs/cash-skill-workflows/spec.md:1321` — `------------------------------------------------------------------------------------------------------------------`
+- `openspec/specs/cash-skill-workflows/spec.md:1323` — `Reviewer Findings`
+- `openspec/specs/cash-skill-workflows/spec.md:1324` — `Rating`
+- `openspec/specs/cash-skill-workflows/spec.md:1325` — `Fix Actions`
+- `openspec/specs/cash-skill-workflows/spec.md:1326` — `Decision`
+- `openspec/specs/cash-skill-workflows/spec.md:2038` — `-------------------`
+- `openspec/specs/cash-skill-workflows/spec.md:2038` — `---------------`
+- `openspec/specs/cash-skill-workflows/spec.md:2039` — `micro`
+- `openspec/specs/cash-skill-workflows/spec.md:2041` — `full`
+- `openspec/specs/cash-skill-workflows/spec.md:2213` — `fixed_files`
+- `openspec/specs/cash-skill-workflows/spec.md:2213` — `decision`
+- `openspec/specs/cash-skill-workflows/spec.md:2213` — `skill`
+- `openspec/specs/cash-skill-workflows/spec.md:2213` — `warnings`
+- `openspec/specs/cash-skill-workflows/spec.md:2213` — `round_type`
+- `openspec/specs/cash-skill-workflows/spec.md:2213` — `round`
+- `openspec/specs/cash-skill-workflows/spec.md:2213` — `criticals`
+- `openspec/specs/cash-skill-workflows/spec.md:2214` — `----------`
+- `openspec/specs/cash-skill-workflows/spec.md:2214` — `--------`
+- `openspec/specs/cash-skill-workflows/spec.md:2214` — `---------`
+- `openspec/specs/cash-skill-workflows/spec.md:2215` — `propose`
+- `openspec/specs/cash-skill-workflows/spec.md:2215` — `next_round`
+- `openspec/specs/cash-skill-workflows/spec.md:2217` — `passed`
+- `openspec/specs/cash-skill-workflows/spec.md:2218` — `apply`
+- `openspec/specs/cash-skill-workflows/spec.md:2848` — `--------------------------`
+- `openspec/specs/cash-skill-workflows/spec.md:3366` — `Target`
+- `openspec/specs/cash-skill-workflows/spec.md:3366` — `Source`
+- `openspec/specs/cash-skill-workflows/spec.md:3368` — `1.9.9`
+- `openspec/specs/cash-skill-workflows/spec.md:3368` — `updated`
+- `openspec/specs/cash-skill-workflows/spec.md:3368` — `1.10.0`
+- `openspec/specs/cash-skill-workflows/spec.md:3369` — `2.0.0`
+- `openspec/specs/cash-skill-workflows/spec.md:3369` — `current`
+- `openspec/specs/cash-skill-workflows/spec.md:3370` — `3.0.0`
+- `openspec/specs/cash-skill-workflows/spec.md:3370` — `newer`
+- `openspec/specs/signals-shared-layer/spec.md:15` — `WHEN`
+- `openspec/specs/signals-shared-layer/spec.md:16` — `THEN`
+- `openspec/specs/signals-shared-layer/spec.md:22` — `------------`
+- `openspec/specs/signals-shared-layer/spec.md:22` — `-------------`
+- `openspec/specs/signals-shared-layer/spec.md:23` — `spec-requirement-no-backing-task`
+- `openspec/specs/signals-shared-layer/spec.md:37` — `GIVEN`

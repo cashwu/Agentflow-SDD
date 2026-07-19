@@ -2,97 +2,27 @@
 
 ## Purpose
 
-TBD - created by archiving change 'fork-spectra-skills-to-cash'. Update Purpose after archive.
+TBD - 由封存 change 'fork-spectra-skills-to-cash' 而建立。封存後請更新 Purpose。
 
 ## Requirements
 
-### Requirement: Cash skill inventory and ownership
+### Requirement: Cash skill 清單與所有權
 
-The repository SHALL provide exactly these twelve cash workflow skills for both Codex and Claude: `cash-analyze`, `cash-apply`, `cash-archive`, `cash-ask`, `cash-audit`, `cash-commit`, `cash-debug`, `cash-discuss`, `cash-drift`, `cash-ingest`, `cash-propose`, and `cash-verify`. Every cash skill file MUST be a source-controlled canonical file owned by this repository.
+本 repository SHALL 為 Codex 與 Claude 兩者提供恰好以下十二個 cash workflow skills：`cash-analyze`、`cash-apply`、`cash-archive`、`cash-ask`、`cash-audit`、`cash-commit`、`cash-debug`、`cash-discuss`、`cash-drift`、`cash-ingest`、`cash-propose` 與 `cash-verify`。每個 cash skill 檔案 MUST 是由本 repository 擁有、納入版本控制的 canonical 檔案。
 
-#### Scenario: Complete dual-variant inventory
+#### Scenario: 完整的雙變體清單
 
-- **WHEN** the cash skill inventory is checked
-- **THEN** all twelve skills exist under `.agents/skills/`
-- **AND** all twelve skills exist under `.claude/skills/`
-- **AND** no listed skill is missing from either variant
+- **WHEN** 檢查 cash skill 清單時
+- **THEN** 十二個 skills 全部存在於 `.agents/skills/` 之下
+- **AND** 十二個 skills 全部存在於 `.claude/skills/` 之下
+- **AND** 清單中沒有任何 skill 在任一變體中缺漏
 
-#### Scenario: Cash ownership metadata
+#### Scenario: Cash 所有權中繼資料
 
-- **WHEN** a cash skill frontmatter block is inspected
-- **THEN** its `name` equals its `cash-*` directory name
-- **AND** it does not contain `generatedBy: "Spectra"`
-- **AND** it does not contain `spectraPlusVersion`, `spectraPlusUpdated`, or `spectraPlusFingerprint`
-
-
-<!-- @trace
-source: fork-spectra-skills-to-cash
-updated: 2026-07-18
-code:
-  - scripts/spectra-plus/template/impact-granularity-block.md
-  - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/cash-archive/SKILL.md
-  - .agents/skills/cash-apply/SKILL.md
-  - .agents/skills/cash-verify/SKILL.md
-  - .agents/skills/cash-ingest/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-drift.diff
-  - scripts/spectra-plus/template/review-loop-block.md
-  - .agents/skills/cash-ask/SKILL.md
-  - .agents/skills/cash-debug/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
-  - scripts/spectra-plus/template/apply-response-language-block.md
-  - install-cash-skills.fish
-  - uninstall-spectra-plus-repair.fish
-  - scripts/cash-skills/variant-parity/cash-verify.diff
-  - scripts/spectra-plus/template/apply-notes-block.md
-  - .agents/skills/spectra-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-propose.diff
-  - .agents/skills/cash-propose/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ingest.diff
-  - scripts/spectra-plus/template/no-park-end-block.md
-  - .agents/skills/cash-discuss/SKILL.md
-  - AGENTS.md
-  - scripts/cash-skills/variant-parity/cash-audit.diff
-  - scripts/spectra-plus/template/artifact-language-block.md
-  - CASH-SKILLS.md
-  - scripts/spectra-plus/repair-all.fish
-  - scripts/spectra-plus/rules.yaml
-  - .agents/skills/cash-analyze/SKILL.md
-  - SPECTRA-PLUS.md
-  - .agents/skills/cash-audit/SKILL.md
-  - scripts/spectra-plus/template/signals-read-block.md
-  - scripts/spectra-plus/template/surgical-simplicity-block.md
-  - .agents/skills/cash-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ask.diff
-  - scripts/spectra-plus/generate.fish
-  - .agents/skills/cash-drift/SKILL.md
-  - install-spectra-plus.fish
-  - scripts/cash-skills/variant-parity/cash-analyze.diff
-tests:
-  - scripts/spectra-plus/tests/auto-restore-checks.fish
-  - scripts/spectra-plus/tests/repair-all-checks.fish
-  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
-  - scripts/spectra-plus/tests/generator-checks.fish
-  - scripts/cash-skills/tests/skill-checks.fish
--->
-
----
-### Requirement: Propose and apply absorb the former plus workflows
-
-The system SHALL expose the full proposal quality-gate workflow through `cash-propose` and the full implementation quality-gate workflow through `cash-apply`. The system MUST NOT provide a weaker cash base tier or any `cash-*-plus` skill.
-
-#### Scenario: Cash proposal is the single proposal tier
-
-- **WHEN** a user invokes `cash-propose`
-- **THEN** the workflow creates all artifacts required for apply
-- **AND** validates them before its sub-agent quality gate
-- **AND** no separate `cash-propose-plus` workflow is required
-
-#### Scenario: Cash apply is the single implementation tier
-
-- **WHEN** a user invokes `cash-apply`
-- **THEN** the workflow implements the selected change and runs its quality gate after all tasks complete
-- **AND** no separate `cash-apply-plus` workflow is required
+- **WHEN** 檢視某個 cash skill 的 frontmatter 區塊時
+- **THEN** 其 `name` 等於其 `cash-*` 目錄名稱
+- **AND** 其中不包含 `generatedBy: "Spectra"`
+- **AND** 其中不包含 `spectraPlusVersion`、`spectraPlusUpdated` 或 `spectraPlusFingerprint`
 
 
 <!-- @trace
@@ -147,100 +77,22 @@ tests:
 -->
 
 ---
-### Requirement: Cash namespace routes workflows while Spectra remains the artifact engine
+### Requirement: Propose 與 apply 吸收原有的 plus workflows
 
-Cash skills SHALL use the cash namespace for every skill-to-skill transition. Codex instructions MUST use `$cash-*`; Claude instructions MUST use the corresponding `/cash-*` syntax. Artifact operations MUST continue to use the Spectra CLI and the configured `openspec/` paths.
+系統 SHALL 透過 `cash-propose` 提供完整的提案品質關卡 workflow，並透過 `cash-apply` 提供完整的實作品質關卡 workflow。系統 MUST NOT 提供較弱的 cash 基礎層級或任何 `cash-*-plus` skill。
 
-#### Scenario: Internal workflow transition
+#### Scenario: Cash 提案是唯一的提案層級
 
-- **WHEN** `cash-discuss` recommends formalizing a decision
-- **THEN** it directs the user to `cash-propose`
-- **AND** it does not direct the user to a `spectra-*` or `cash-*-plus` skill
+- **WHEN** 使用者呼叫 `cash-propose`
+- **THEN** 該 workflow 建立 apply 所需的全部 artifacts
+- **AND** 在其 sub-agent 品質關卡之前先對它們完成驗證
+- **AND** 不需要另外的 `cash-propose-plus` workflow
 
-#### Scenario: Artifact command remains Spectra-owned
+#### Scenario: Cash apply 是唯一的實作層級
 
-- **WHEN** a cash skill lists, creates, validates, analyzes, or archives artifacts
-- **THEN** it invokes the applicable `spectra` CLI command
-- **AND** it reads or writes the configured `openspec/` artifact path
-- **AND** it does not introduce a cash CLI adapter
-
-
-<!-- @trace
-source: fork-spectra-skills-to-cash
-updated: 2026-07-18
-code:
-  - scripts/spectra-plus/template/impact-granularity-block.md
-  - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/cash-archive/SKILL.md
-  - .agents/skills/cash-apply/SKILL.md
-  - .agents/skills/cash-verify/SKILL.md
-  - .agents/skills/cash-ingest/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-drift.diff
-  - scripts/spectra-plus/template/review-loop-block.md
-  - .agents/skills/cash-ask/SKILL.md
-  - .agents/skills/cash-debug/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
-  - scripts/spectra-plus/template/apply-response-language-block.md
-  - install-cash-skills.fish
-  - uninstall-spectra-plus-repair.fish
-  - scripts/cash-skills/variant-parity/cash-verify.diff
-  - scripts/spectra-plus/template/apply-notes-block.md
-  - .agents/skills/spectra-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-propose.diff
-  - .agents/skills/cash-propose/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ingest.diff
-  - scripts/spectra-plus/template/no-park-end-block.md
-  - .agents/skills/cash-discuss/SKILL.md
-  - AGENTS.md
-  - scripts/cash-skills/variant-parity/cash-audit.diff
-  - scripts/spectra-plus/template/artifact-language-block.md
-  - CASH-SKILLS.md
-  - scripts/spectra-plus/repair-all.fish
-  - scripts/spectra-plus/rules.yaml
-  - .agents/skills/cash-analyze/SKILL.md
-  - SPECTRA-PLUS.md
-  - .agents/skills/cash-audit/SKILL.md
-  - scripts/spectra-plus/template/signals-read-block.md
-  - scripts/spectra-plus/template/surgical-simplicity-block.md
-  - .agents/skills/cash-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ask.diff
-  - scripts/spectra-plus/generate.fish
-  - .agents/skills/cash-drift/SKILL.md
-  - install-spectra-plus.fish
-  - scripts/cash-skills/variant-parity/cash-analyze.diff
-tests:
-  - scripts/spectra-plus/tests/auto-restore-checks.fish
-  - scripts/spectra-plus/tests/repair-all-checks.fish
-  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
-  - scripts/spectra-plus/tests/generator-checks.fish
-  - scripts/cash-skills/tests/skill-checks.fish
--->
-
----
-### Requirement: Cash proposal quality gate
-
-`cash-propose` SHALL create proposal, design, delta specs, and tasks according to the Spectra artifact DAG, run `spectra validate`, and then execute the shared graded review loop once per change. It MUST write non-spec artifacts and review prose in Traditional Chinese, keep spec files in English, leave the change active, and MUST NOT invoke apply or park.
-
-#### Scenario: Validation precedes review
-
-- **WHEN** all artifacts required for apply have been created
-- **THEN** `cash-propose` runs `spectra validate "<change>"`
-- **AND** fixes validation failures before starting review round 1
-- **AND** revalidates before the next round whenever a fix action changes an artifact
-
-#### Scenario: Proposal workflow terminates without apply
-
-- **WHEN** the proposal review loop ends with `passed` or `aborted`
-- **THEN** `cash-propose` records the final round and summary
-- **AND** leaves the change under `openspec/changes/`
-- **AND** does not invoke `cash-apply` or `spectra park`
-
-#### Scenario: Large impact list produces an advisory
-
-- **WHEN** proposal `## Impact` contains 16 affected-code entries after excluding `(none)` placeholders and counting each directory as one entry
-- **THEN** `cash-propose` prints a non-blocking split-by-capability advisory
-- **WHEN** the same count is 15
-- **THEN** `cash-propose` prints no impact-granularity advisory
+- **WHEN** 使用者呼叫 `cash-apply`
+- **THEN** 該 workflow 實作所選的 change，並在所有 tasks 完成後執行其品質關卡
+- **AND** 不需要另外的 `cash-apply-plus` workflow
 
 
 <!-- @trace
@@ -295,30 +147,22 @@ tests:
 -->
 
 ---
-### Requirement: Cash apply quality gate
+### Requirement: Cash namespace 負責 workflow 路由，Spectra 仍是 artifact 引擎
 
-`cash-apply` SHALL implement tasks from the selected change, maintain the implementation-notes contract, and start the shared graded review loop only after every task is complete. Archive guidance MUST remain withheld until the final round records `decision: passed`.
+Cash skills SHALL 在每一次 skill 之間的轉換使用 cash namespace。Codex 指示 MUST 使用 `$cash-*`；Claude 指示 MUST 使用對應的 `/cash-*` 語法。Artifact 操作 MUST 繼續使用 Spectra CLI 與設定的 `openspec/` 路徑。
 
-#### Scenario: Review starts after task completion
+#### Scenario: 內部 workflow 轉換
 
-- **WHEN** every checkbox in `tasks.md` is `[x]`
-- **THEN** `cash-apply` starts one per-change review loop
-- **AND** it does not start that loop per task
+- **WHEN** `cash-discuss` 建議將某項決策正式化
+- **THEN** 它引導使用者前往 `cash-propose`
+- **AND** 它不引導使用者前往任何 `spectra-*` 或 `cash-*-plus` skill
 
-#### Scenario: Archive guidance follows a passed gate
+#### Scenario: Artifact 指令仍由 Spectra 擁有
 
-- **WHEN** the apply review loop has not recorded `decision: passed`
-- **THEN** `cash-apply` does not recommend archive
-- **WHEN** the apply review loop records `decision: passed`
-- **THEN** the completion summary can direct the user to `cash-archive`
-
-#### Scenario: Design circuit breaker
-
-- **WHEN** a review-loop fix requires a synchronization primitive, identity or generation type, or state machine not defined in `design.md`
-- **THEN** `cash-apply` records `needs-design`
-- **AND** records `decision: aborted`
-- **AND** directs the user to `cash-ingest`
-- **AND** does not implement the missing design inside the fix loop
+- **WHEN** 某個 cash skill 列出、建立、驗證、分析或封存 artifacts
+- **THEN** 它呼叫適用的 `spectra` CLI 指令
+- **AND** 它讀取或寫入設定的 `openspec/` artifact 路徑
+- **AND** 它不引入 cash CLI 轉接層
 
 
 <!-- @trace
@@ -373,35 +217,30 @@ tests:
 -->
 
 ---
-### Requirement: Shared graded review convergence
+### Requirement: Cash 提案品質關卡
 
-The cash proposal and apply gates SHALL use a maximum of six rounds. A run's first round MUST be a full round with two fresh independent reviewers, the fourth round MUST be a full checkpoint when reached, and every other continued round MUST be a micro verification round with one fresh reviewer. The main agent MUST apply the defined confidence filter and derive decisions from the cumulative blocking set without a rater sub-agent or `quality_score`.
+`cash-propose` SHALL 依照 Spectra artifact DAG 建立 proposal、design、delta specs 與 tasks，執行 `spectra validate`，然後每個 change 執行一次共用的評分審查迴圈。它 MUST 以繁體中文撰寫非 spec artifacts 與審查文字、spec 檔依 Spec 檔案語言政策撰寫（繁體中文內文、英文結構關鍵字與規範動詞）、讓該 change 保持 active，且 MUST NOT 呼叫 apply 或 park。
 
-#### Scenario: Full first round
+#### Scenario: 驗證先於審查
 
-- **WHEN** a new review run starts
-- **THEN** it spawns Reviewer A for adherence and Reviewer B for quality as two fresh independent calls
-- **AND** records `round_type: full`
+- **WHEN** apply 所需的全部 artifacts 都已建立
+- **THEN** `cash-propose` 執行 `spectra validate "<change>"`
+- **AND** 在開始審查 round 1 之前修正驗證失敗
+- **AND** 每當 fix action 更動任一 artifact 時，在下一輪之前重新驗證
 
-#### Scenario: Micro verification round
+#### Scenario: 提案 workflow 結束時不進入 apply
 
-- **WHEN** a non-passing round is followed by a round whose run position is not 4
-- **THEN** the next round spawns one fresh Reviewer V
-- **AND** Reviewer V verifies every cumulative blocking member, recorded fixes, and fix-introduced defects
-- **AND** the round records `round_type: micro`
+- **WHEN** 提案審查迴圈以 `passed` 或 `aborted` 結束
+- **THEN** `cash-propose` 記錄最終回合與摘要
+- **AND** 將該 change 留在 `openspec/changes/` 之下
+- **AND** 不呼叫 `cash-apply` 或 `spectra park`
 
-#### Scenario: Blocking set reaches zero
+#### Scenario: 大型 impact 清單產生 advisory
 
-- **WHEN** the post-filter cumulative blocking set contains no Critical and no Warning member
-- **THEN** the round records `decision: passed`
-- **AND** no additional round starts
-
-#### Scenario: Six-round cap
-
-- **WHEN** round 6 retains a blocking member
-- **THEN** the round records `decision: aborted`
-- **AND** the workflow performs abort triage
-- **AND** it does not recommend an unchanged rerun
+- **WHEN** proposal 的 `## Impact` 在排除 `(none)` 佔位項並將每個目錄計為一個項目後，包含 16 個受影響程式碼項目
+- **THEN** `cash-propose` 印出一則非阻斷的按能力拆分 advisory
+- **WHEN** 相同計數為 15
+- **THEN** `cash-propose` 不印出任何 impact-granularity advisory
 
 
 <!-- @trace
@@ -456,98 +295,30 @@ tests:
 -->
 
 ---
-### Requirement: Review records use cash provenance
+### Requirement: Cash apply 品質關卡
 
-Each cash review round SHALL write one immutable round file under `openspec/changes/<change>/reviews/`. Proposal files MUST use `propose-r<N>.md`; apply files MUST use `apply-r<N>.md`. Round headings and source-skill provenance MUST identify cash workflows, while stable schema field names and decision values remain unchanged.
+`cash-apply` SHALL 實作所選 change 的 tasks、維護 implementation-notes 契約，並僅在每個 task 都完成後才啟動共用的評分審查迴圈。在最終回合記錄 `decision: passed` 之前，archive 指引 MUST 持續保留不提供。
 
-#### Scenario: Cash proposal round record
+#### Scenario: 審查在任務完成後啟動
 
-- **WHEN** a `cash-propose` round completes
-- **THEN** its heading is `# Cash Propose Review — Round <N>`
-- **AND** it contains `## Reviewer Findings`, `## Rating`, `## Fix Actions`, and `## Decision` in that order
-- **AND** its decision is exactly `passed`, `next_round`, or `aborted`
+- **WHEN** `tasks.md` 中每個核取方塊皆為 `[x]`
+- **THEN** `cash-apply` 啟動一個以 change 為單位的審查迴圈
+- **AND** 它不會按 task 逐一啟動該迴圈
 
-#### Scenario: Shared ledger
+#### Scenario: Archive 指引跟隨通過的關卡
 
-- **WHEN** a cash review round is finalized
-- **THEN** exactly one row is appended to `reviews/loop-ledger.tsv`
-- **AND** the row retains the seven-field ledger contract
-- **AND** the source skill is recorded as `propose` or `apply`
+- **WHEN** apply 審查迴圈尚未記錄 `decision: passed`
+- **THEN** `cash-apply` 不建議 archive
+- **WHEN** apply 審查迴圈記錄了 `decision: passed`
+- **THEN** 完成摘要可以引導使用者前往 `cash-archive`
 
+#### Scenario: 設計斷路器
 
-<!-- @trace
-source: fork-spectra-skills-to-cash
-updated: 2026-07-18
-code:
-  - scripts/spectra-plus/template/impact-granularity-block.md
-  - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/cash-archive/SKILL.md
-  - .agents/skills/cash-apply/SKILL.md
-  - .agents/skills/cash-verify/SKILL.md
-  - .agents/skills/cash-ingest/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-drift.diff
-  - scripts/spectra-plus/template/review-loop-block.md
-  - .agents/skills/cash-ask/SKILL.md
-  - .agents/skills/cash-debug/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
-  - scripts/spectra-plus/template/apply-response-language-block.md
-  - install-cash-skills.fish
-  - uninstall-spectra-plus-repair.fish
-  - scripts/cash-skills/variant-parity/cash-verify.diff
-  - scripts/spectra-plus/template/apply-notes-block.md
-  - .agents/skills/spectra-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-propose.diff
-  - .agents/skills/cash-propose/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ingest.diff
-  - scripts/spectra-plus/template/no-park-end-block.md
-  - .agents/skills/cash-discuss/SKILL.md
-  - AGENTS.md
-  - scripts/cash-skills/variant-parity/cash-audit.diff
-  - scripts/spectra-plus/template/artifact-language-block.md
-  - CASH-SKILLS.md
-  - scripts/spectra-plus/repair-all.fish
-  - scripts/spectra-plus/rules.yaml
-  - .agents/skills/cash-analyze/SKILL.md
-  - SPECTRA-PLUS.md
-  - .agents/skills/cash-audit/SKILL.md
-  - scripts/spectra-plus/template/signals-read-block.md
-  - scripts/spectra-plus/template/surgical-simplicity-block.md
-  - .agents/skills/cash-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ask.diff
-  - scripts/spectra-plus/generate.fish
-  - .agents/skills/cash-drift/SKILL.md
-  - install-spectra-plus.fish
-  - scripts/cash-skills/variant-parity/cash-analyze.diff
-tests:
-  - scripts/spectra-plus/tests/auto-restore-checks.fish
-  - scripts/spectra-plus/tests/repair-all-checks.fish
-  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
-  - scripts/spectra-plus/tests/generator-checks.fish
-  - scripts/cash-skills/tests/skill-checks.fish
--->
-
----
-### Requirement: Cash review gates preserve governed inputs and signals
-
-Cash review gates SHALL preserve accepted-risks consent, grader immutability, deterministic signal checks, confidence filtering, fix propagation, abort triage, and signals write behavior from the migrated quality-gate baseline. Automated fix actions MUST NOT create, modify, or remove a signal `check` field.
-
-#### Scenario: Signal provenance is normalized
-
-- **WHEN** a qualifying Critical or Warning finding is written to a signal
-- **THEN** the occurrence identifies `cash-propose` or `cash-apply` as its source skill
-- **AND** the signal lifecycle and issue-class matching rules remain unchanged
-
-#### Scenario: Accepted risk requires consent
-
-- **WHEN** a finding is proposed for `accepted-risks.md`
-- **THEN** the ledger entry is written only after explicit user consent in the current session
-- **AND** no fix action edits that ledger without consent
-
-#### Scenario: Protected grader input
-
-- **WHEN** a fix action or self-check encounters a signal `check` field
-- **THEN** it treats the field as immutable grader input
-- **AND** it does not alter the field
+- **WHEN** 某個審查迴圈修正需要 `design.md` 未定義的同步原語、身分或世代型別、或狀態機
+- **THEN** `cash-apply` 記錄 `needs-design`
+- **AND** 記錄 `decision: aborted`
+- **AND** 引導使用者前往 `cash-ingest`
+- **AND** 不在修正迴圈內實作缺少的設計
 
 
 <!-- @trace
@@ -602,16 +373,35 @@ tests:
 -->
 
 ---
-### Requirement: Spectra updates do not mutate cash skills
+### Requirement: 共用的評分審查收斂
 
-Running `spectra update` or `spectra update --force` SHALL NOT create, modify, rename, or delete any cash skill file.
+cash 提案與 apply 關卡 SHALL 最多使用六輪。一次執行的第一輪 MUST 是由兩位全新獨立 reviewers 進行的 full 輪，第四輪在到達時 MUST 是 full checkpoint，其餘每個接續輪 MUST 是由一位全新 reviewer 進行的 micro 驗證輪。主 agent MUST 套用既定的信心過濾器，並從累積 blocking 集合推導決策，不使用 rater sub-agent 或 `quality_score`。
 
-#### Scenario: Forced update isolation
+#### Scenario: Full 第一輪
 
-- **GIVEN** an isolated project contains the complete cash skill inventory
-- **WHEN** `spectra update --force` runs in that project
-- **THEN** every cash skill checksum remains byte-identical
-- **AND** Spectra-managed files remain outside the cash ownership boundary
+- **WHEN** 一次新的審查執行開始
+- **THEN** 它以兩個全新獨立呼叫產生負責 adherence 的 Reviewer A 與負責品質的 Reviewer B
+- **AND** 記錄 `round_type: full`
+
+#### Scenario: Micro 驗證輪
+
+- **WHEN** 未通過的一輪之後接續一輪，且該輪的執行位置不是 4
+- **THEN** 下一輪產生一位全新的 Reviewer V
+- **AND** Reviewer V 驗證每個累積 blocking 成員、已記錄的修正，以及修正引入的缺陷
+- **AND** 該輪記錄 `round_type: micro`
+
+#### Scenario: Blocking 集合歸零
+
+- **WHEN** 過濾後的累積 blocking 集合不含任何 Critical 成員也不含任何 Warning 成員
+- **THEN** 該輪記錄 `decision: passed`
+- **AND** 不再開始額外的一輪
+
+#### Scenario: 六輪上限
+
+- **WHEN** round 6 仍保有 blocking 成員
+- **THEN** 該輪記錄 `decision: aborted`
+- **AND** workflow 執行 abort triage
+- **AND** 它不建議在未做任何變更下重跑
 
 
 <!-- @trace
@@ -666,114 +456,324 @@ tests:
 -->
 
 ---
-### Requirement: Stateless cross-project installer
+### Requirement: 審查紀錄使用 cash 來源標示
 
-The repository SHALL provide `install-cash-skills.fish` as the only cash installation and update CLI. It MUST accept exactly one of `--target <project>`, `--register <project>`, `--unregister <project>`, `--list`, or `--all`; `--dry-run` and `--force` MUST be valid only with `--target` or `--all`. In target mode, the installer MUST validate the complete 24-file source inventory, source bundle version, target receipt when present, target directory, every managed destination conflict, and the exact retired plus skill candidates before its first target write. It SHALL remove recognized `.agents` and `.claude` `spectra-propose-plus` and `spectra-apply-plus` directories as part of a successful install, adoption, upgrade, repair, or equal-version cleanup, while preserving every other Spectra skill and unknown legacy content. It SHALL remain stateless with respect to automatic project discovery and scheduling while managing the target-local receipt and explicit user registry required for version and drift decisions. For each completed target-domain decision, it MUST emit exactly one terminal result line for `update`, `current`, `newer`, or `conflict`; conflict MUST exit with code 2, every other domain result MUST exit with code 0, and execution failures MUST exit with code 1 without emitting a domain result.
+每個 cash 審查輪 SHALL 在 `openspec/changes/<change>/reviews/` 之下寫入一個不可變的 round 檔案。提案檔 MUST 使用 `propose-r<N>.md`；apply 檔 MUST 使用 `apply-r<N>.md`。回合標題與來源 skill 的 provenance MUST 標明 cash workflows，而穩定的 schema 欄位名稱與 decision 值保持不變。
 
-#### Scenario: Install into a clean target
+#### Scenario: Cash 提案回合紀錄
 
-- **WHEN** the installer receives a valid target with no cash destinations and no receipt
-- **THEN** it installs all 24 canonical skill files
-- **AND** every installed file is byte-identical to its source
-- **AND** it publishes the current receipt
-- **AND** it reports `Result: update`
-- **AND** it exits with code 0
+- **WHEN** 一個 `cash-propose` 回合完成
+- **THEN** 其標題為 `# Cash Propose Review — Round <N>`
+- **AND** 它依此順序包含 `## Reviewer Findings`、`## Rating`、`## Fix Actions` 與 `## Decision`
+- **AND** 其 decision 恰為 `passed`、`next_round` 或 `aborted`
 
-#### Scenario: Identical legacy target is adopted
+#### Scenario: 共用 ledger
 
-- **WHEN** all 24 managed target files are byte-identical to the source and no receipt exists
-- **THEN** the installer leaves all skill files unchanged
-- **AND** it publishes the current receipt
-- **AND** it reports `Result: update`
-- **AND** it exits with code 0
+- **WHEN** 一個 cash 審查回合定案
+- **THEN** 恰好一列被附加到 `reviews/loop-ledger.tsv`
+- **AND** 該列保留七欄位 ledger 契約
+- **AND** 來源 skill 記錄為 `propose` 或 `apply`
 
-#### Scenario: Mixed legacy target conflicts before writes
 
-- **GIVEN** no receipt exists and the managed destinations are mixed, incomplete, or differ from the source
-- **WHEN** the installer runs without `--force`
-- **THEN** it reports every conflicting destination
-- **AND** it reports `Result: conflict`
-- **AND** it exits with code 2
-- **AND** it does not install, replace, or publish any managed state
+<!-- @trace
+source: fork-spectra-skills-to-cash
+updated: 2026-07-18
+code:
+  - scripts/spectra-plus/template/impact-granularity-block.md
+  - .agents/skills/spectra-propose-plus/SKILL.md
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-ingest/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-drift.diff
+  - scripts/spectra-plus/template/review-loop-block.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
+  - .agents/skills/spectra-apply-plus/SKILL.md
+  - scripts/spectra-plus/template/apply-response-language-block.md
+  - install-cash-skills.fish
+  - uninstall-spectra-plus-repair.fish
+  - scripts/cash-skills/variant-parity/cash-verify.diff
+  - scripts/spectra-plus/template/apply-notes-block.md
+  - .agents/skills/spectra-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - .agents/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - scripts/spectra-plus/template/no-park-end-block.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - AGENTS.md
+  - scripts/cash-skills/variant-parity/cash-audit.diff
+  - scripts/spectra-plus/template/artifact-language-block.md
+  - CASH-SKILLS.md
+  - scripts/spectra-plus/repair-all.fish
+  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-analyze/SKILL.md
+  - SPECTRA-PLUS.md
+  - .agents/skills/cash-audit/SKILL.md
+  - scripts/spectra-plus/template/signals-read-block.md
+  - scripts/spectra-plus/template/surgical-simplicity-block.md
+  - .agents/skills/cash-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ask.diff
+  - scripts/spectra-plus/generate.fish
+  - .agents/skills/cash-drift/SKILL.md
+  - install-spectra-plus.fish
+  - scripts/cash-skills/variant-parity/cash-analyze.diff
+tests:
+  - scripts/spectra-plus/tests/auto-restore-checks.fish
+  - scripts/spectra-plus/tests/repair-all-checks.fish
+  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
+  - scripts/spectra-plus/tests/generator-checks.fish
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
 
-#### Scenario: Clean older target upgrades without force
+---
+### Requirement: Cash 審查關卡保留受治理的輸入與 signals
 
-- **GIVEN** a valid receipt records a version lower than the source
-- **AND** every managed target file matches its recorded receipt digest
-- **WHEN** the installer runs without `--force`
-- **THEN** it replaces the 24 managed files with the source bundle
-- **AND** it publishes the new receipt
-- **AND** it reports `Result: update`
-- **AND** it exits with code 0
+Cash 審查關卡 SHALL 保留遷移前品質關卡基線中的 accepted-risks 同意機制、grader 不可變性、確定性 signal 檢查、信心過濾、修正傳播、abort triage 與 signals 寫入行為。自動化 fix actions MUST NOT 建立、修改或移除 signal 的 `check` 欄位。
 
-#### Scenario: Equal target is current
+#### Scenario: Signal 來源標示被正規化
 
-- **GIVEN** a valid receipt records the source version
-- **AND** all source and target file digests match the receipt
-- **WHEN** the installer runs
-- **THEN** it reports `Result: current`
-- **AND** it performs no target write
-- **AND** it exits with code 0
+- **WHEN** 符合條件的 Critical 或 Warning finding 被寫入 signal
+- **THEN** 該 occurrence 標明 `cash-propose` 或 `cash-apply` 為其來源 skill
+- **AND** signal 生命週期與 issue-class 比對規則保持不變
 
-#### Scenario: Recognized retired plus skills are removed by installation
+#### Scenario: 接受風險需要同意
 
-- **GIVEN** one or more exact retired plus directories contain only a regular `SKILL.md` with a closed frontmatter block containing exactly one matching `name` field for `spectra-propose-plus` or `spectra-apply-plus`
-- **WHEN** the installer completes an install, adoption, upgrade, repair, or equal-version cleanup
-- **THEN** it removes each recognized plus `SKILL.md` and its now-empty skill directory
-- **AND** it preserves every non-plus Spectra skill and every path outside the four exact retired plus directories
-- **AND** an otherwise current target reports `Result: update`
+- **WHEN** 某個 finding 被提議寫入 `accepted-risks.md`
+- **THEN** 只有在目前 session 中取得使用者明確同意後才寫入該 ledger 條目
+- **AND** 任何 fix action 都不會在未經同意下編輯該 ledger
 
-#### Scenario: Unsafe retired plus candidate fails before writes
+#### Scenario: 受保護的 grader 輸入
 
-- **GIVEN** an exact retired plus path is a symlink, is not a directory, contains an entry other than `SKILL.md`, or has a missing, symlinked, unreadable, malformed-frontmatter, duplicate-name, conflicting-name, or name-mismatched `SKILL.md`
-- **WHEN** the installer performs preflight
-- **THEN** it exits with code 1 without a domain result
-- **AND** it does not modify cash files, receipt, or any retired plus candidate
+- **WHEN** fix action 或 self-check 遇到 signal 的 `check` 欄位
+- **THEN** 它將該欄位視為不可變的 grader 輸入
+- **AND** 它不更動該欄位
 
-#### Scenario: Equal-version source mutation is an integrity failure
 
-- **GIVEN** a valid receipt records the source version
-- **AND** at least one current source digest differs from the receipt digest
-- **WHEN** the installer runs with or without `--force`
-- **THEN** it exits with code 1 without a domain result
-- **AND** it performs no target write
+<!-- @trace
+source: fork-spectra-skills-to-cash
+updated: 2026-07-18
+code:
+  - scripts/spectra-plus/template/impact-granularity-block.md
+  - .agents/skills/spectra-propose-plus/SKILL.md
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-ingest/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-drift.diff
+  - scripts/spectra-plus/template/review-loop-block.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
+  - .agents/skills/spectra-apply-plus/SKILL.md
+  - scripts/spectra-plus/template/apply-response-language-block.md
+  - install-cash-skills.fish
+  - uninstall-spectra-plus-repair.fish
+  - scripts/cash-skills/variant-parity/cash-verify.diff
+  - scripts/spectra-plus/template/apply-notes-block.md
+  - .agents/skills/spectra-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - .agents/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - scripts/spectra-plus/template/no-park-end-block.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - AGENTS.md
+  - scripts/cash-skills/variant-parity/cash-audit.diff
+  - scripts/spectra-plus/template/artifact-language-block.md
+  - CASH-SKILLS.md
+  - scripts/spectra-plus/repair-all.fish
+  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-analyze/SKILL.md
+  - SPECTRA-PLUS.md
+  - .agents/skills/cash-audit/SKILL.md
+  - scripts/spectra-plus/template/signals-read-block.md
+  - scripts/spectra-plus/template/surgical-simplicity-block.md
+  - .agents/skills/cash-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ask.diff
+  - scripts/spectra-plus/generate.fish
+  - .agents/skills/cash-drift/SKILL.md
+  - install-spectra-plus.fish
+  - scripts/cash-skills/variant-parity/cash-analyze.diff
+tests:
+  - scripts/spectra-plus/tests/auto-restore-checks.fish
+  - scripts/spectra-plus/tests/repair-all-checks.fish
+  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
+  - scripts/spectra-plus/tests/generator-checks.fish
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
 
-#### Scenario: Newer target is preserved
+---
+### Requirement: Spectra 更新不改動 cash skills
 
-- **GIVEN** a valid receipt records a version greater than the source
-- **WHEN** the installer runs with or without `--force`
-- **THEN** it reports `Result: newer`
-- **AND** it performs no target write
-- **AND** it exits with code 0
-- **AND** it does not remove retired plus candidates
+執行 `spectra update` 或 `spectra update --force` SHALL NOT 建立、修改、重新命名或刪除任何 cash skill 檔案。
 
-#### Scenario: Drift conflicts before writes
+#### Scenario: 強制更新隔離
 
-- **GIVEN** a valid older or equal-version receipt and at least one managed target file differs from its trusted comparison content
-- **AND** when versions are equal every current source digest matches the receipt
-- **WHEN** the installer runs without `--force`
-- **THEN** it identifies every conflicting destination
-- **AND** it reports `Result: conflict`
-- **AND** it exits with code 2
-- **AND** it does not install, replace, or publish any managed state
+- **GIVEN** 一個隔離的專案包含完整的 cash skill 清單
+- **WHEN** `spectra update --force` 在該專案中執行
+- **THEN** 每個 cash skill 的 checksum 保持位元組相同
+- **AND** Spectra 管理的檔案保持在 cash 所有權邊界之外
 
-#### Scenario: Force replaces only managed destinations
 
-- **GIVEN** the target version is not newer than the source
-- **AND** all source, receipt, and filesystem validation has succeeded
-- **WHEN** the installer runs with `--force`
-- **THEN** it installs or replaces differing managed cash destinations
-- **AND** it publishes a receipt for the resulting 24 files
-- **AND** it preserves every file outside the explicit 24-file inventory, receipt, and recognized retired plus entries
-- **AND** it removes only recognized entries among the four exact retired plus directories
-- **AND** it reports `Result: update`
+<!-- @trace
+source: fork-spectra-skills-to-cash
+updated: 2026-07-18
+code:
+  - scripts/spectra-plus/template/impact-granularity-block.md
+  - .agents/skills/spectra-propose-plus/SKILL.md
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-ingest/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-drift.diff
+  - scripts/spectra-plus/template/review-loop-block.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
+  - .agents/skills/spectra-apply-plus/SKILL.md
+  - scripts/spectra-plus/template/apply-response-language-block.md
+  - install-cash-skills.fish
+  - uninstall-spectra-plus-repair.fish
+  - scripts/cash-skills/variant-parity/cash-verify.diff
+  - scripts/spectra-plus/template/apply-notes-block.md
+  - .agents/skills/spectra-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - .agents/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - scripts/spectra-plus/template/no-park-end-block.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - AGENTS.md
+  - scripts/cash-skills/variant-parity/cash-audit.diff
+  - scripts/spectra-plus/template/artifact-language-block.md
+  - CASH-SKILLS.md
+  - scripts/spectra-plus/repair-all.fish
+  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-analyze/SKILL.md
+  - SPECTRA-PLUS.md
+  - .agents/skills/cash-audit/SKILL.md
+  - scripts/spectra-plus/template/signals-read-block.md
+  - scripts/spectra-plus/template/surgical-simplicity-block.md
+  - .agents/skills/cash-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ask.diff
+  - scripts/spectra-plus/generate.fish
+  - .agents/skills/cash-drift/SKILL.md
+  - install-spectra-plus.fish
+  - scripts/cash-skills/variant-parity/cash-analyze.diff
+tests:
+  - scripts/spectra-plus/tests/auto-restore-checks.fish
+  - scripts/spectra-plus/tests/repair-all-checks.fish
+  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
+  - scripts/spectra-plus/tests/generator-checks.fish
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
 
-#### Scenario: Dry run has no persistent effects
+---
+### Requirement: 無狀態的跨專案安裝器
 
-- **WHEN** the installer runs with `--dry-run`
-- **THEN** it reports the domain result and complete action plan using normal preflight rules
-- **AND** it does not create a target directory, target temporary file, receipt, registry, cache, lock, LaunchAgent, or background process
-- **AND** it does not remove a retired plus skill
+本 repository SHALL 提供 `install-cash-skills.fish` 作為唯一的 cash 安裝與更新 CLI。它 MUST 恰好接受 `--target <project>`、`--register <project>`、`--unregister <project>`、`--list` 或 `--all` 其中之一；`--dry-run` 與 `--force` MUST 僅在搭配 `--target` 或 `--all` 時有效。在 target 模式下，安裝器 MUST 在首次寫入 target 之前，驗證完整的 24 檔來源清單、來源 bundle 版本、存在時的 target receipt、target 目錄、每個受管目的地的衝突，以及精確的已除役 plus skill 候選項。它 SHALL 在成功的安裝、認養、升級、修復或同版本清理過程中，移除可辨識的 `.agents` 與 `.claude` 下的 `spectra-propose-plus` 與 `spectra-apply-plus` 目錄，同時保留其他所有 Spectra skill 與未知的 legacy 內容。它在自動專案探索與排程方面 SHALL 保持無狀態，同時管理版本與漂移判斷所需的 target 本地 receipt 與明確的使用者 registry。對每個完成的 target 領域判定，它 MUST 恰好輸出一行終端結果，值為 `update`、`current`、`newer` 或 `conflict`；conflict MUST 以 code 2 結束，其他每種領域結果 MUST 以 code 0 結束，而執行失敗 MUST 以 code 1 結束且不輸出領域結果。
+
+#### Scenario: 安裝至乾淨的 target
+
+- **WHEN** 安裝器收到一個沒有任何 cash 目的地也沒有 receipt 的有效 target
+- **THEN** 它安裝全部 24 個 canonical skill 檔案
+- **AND** 每個安裝的檔案皆與其來源位元組相同
+- **AND** 它發佈當前的 receipt
+- **AND** 它回報 `Result: update`
+- **AND** 它以 code 0 結束
+
+#### Scenario: 完全相同的 legacy target 被認養
+
+- **WHEN** 全部 24 個受管 target 檔案皆與來源位元組相同且不存在 receipt
+- **THEN** 安裝器保持所有 skill 檔案不變
+- **AND** 它發佈當前的 receipt
+- **AND** 它回報 `Result: update`
+- **AND** 它以 code 0 結束
+
+#### Scenario: 混雜的 legacy target 在寫入前即衝突
+
+- **GIVEN** 不存在 receipt，且受管目的地為混雜、不完整或與來源不同
+- **WHEN** 安裝器在未帶 `--force` 下執行
+- **THEN** 它回報每個衝突的目的地
+- **AND** 它回報 `Result: conflict`
+- **AND** 它以 code 2 結束
+- **AND** 它不安裝、不取代也不發佈任何受管狀態
+
+#### Scenario: 乾淨的較舊 target 無需 force 即可升級
+
+- **GIVEN** 有效的 receipt 記錄了低於來源的版本
+- **AND** 每個受管 target 檔案皆符合其記錄的 receipt digest
+- **WHEN** 安裝器在未帶 `--force` 下執行
+- **THEN** 它以來源 bundle 取代 24 個受管檔案
+- **AND** 它發佈新的 receipt
+- **AND** 它回報 `Result: update`
+- **AND** 它以 code 0 結束
+
+#### Scenario: 版本相同的 target 為 current
+
+- **GIVEN** 有效的 receipt 記錄了來源版本
+- **AND** 所有來源與 target 檔案的 digests 皆符合該 receipt
+- **WHEN** 安裝器執行
+- **THEN** 它回報 `Result: current`
+- **AND** 它不對 target 進行任何寫入
+- **AND** 它以 code 0 結束
+
+#### Scenario: 安裝過程移除可辨識的已除役 plus skills
+
+- **GIVEN** 一個或多個精確的已除役 plus 目錄僅包含一個一般的 `SKILL.md`，其封閉的 frontmatter 區塊恰好含有一個符合 `spectra-propose-plus` 或 `spectra-apply-plus` 的 `name` 欄位
+- **WHEN** 安裝器完成安裝、認養、升級、修復或同版本清理
+- **THEN** 它移除每個可辨識的 plus `SKILL.md` 及其隨之清空的 skill 目錄
+- **AND** 它保留每個非 plus 的 Spectra skill，以及四個精確已除役 plus 目錄以外的每個路徑
+- **AND** 一個除此之外為 current 的 target 回報 `Result: update`
+
+#### Scenario: 不安全的已除役 plus 候選項在寫入前即失敗
+
+- **GIVEN** 某個精確的已除役 plus 路徑是 symlink、不是目錄、包含 `SKILL.md` 以外的項目，或其 `SKILL.md` 缺失、為 symlink、不可讀、frontmatter 格式錯誤、name 重複、name 衝突或 name 不符
+- **WHEN** 安裝器執行 preflight
+- **THEN** 它以 code 1 結束且不輸出領域結果
+- **AND** 它不修改 cash 檔案、receipt 或任何已除役 plus 候選項
+
+#### Scenario: 同版本下的來源變異屬完整性失敗
+
+- **GIVEN** 有效的 receipt 記錄了來源版本
+- **AND** 至少一個當前來源 digest 與 receipt digest 不同
+- **WHEN** 安裝器在帶或不帶 `--force` 下執行
+- **THEN** 它以 code 1 結束且不輸出領域結果
+- **AND** 它不對 target 進行任何寫入
+
+#### Scenario: 較新的 target 被保留
+
+- **GIVEN** 有效的 receipt 記錄了高於來源的版本
+- **WHEN** 安裝器在帶或不帶 `--force` 下執行
+- **THEN** 它回報 `Result: newer`
+- **AND** 它不對 target 進行任何寫入
+- **AND** 它以 code 0 結束
+- **AND** 它不移除已除役 plus 候選項
+
+#### Scenario: 漂移在寫入前即衝突
+
+- **GIVEN** 存在有效的較舊或同版本 receipt，且至少一個受管 target 檔案與其可信比對內容不同
+- **AND** 當版本相同時，每個當前來源 digest 皆符合該 receipt
+- **WHEN** 安裝器在未帶 `--force` 下執行
+- **THEN** 它指出每個衝突的目的地
+- **AND** 它回報 `Result: conflict`
+- **AND** 它以 code 2 結束
+- **AND** 它不安裝、不取代也不發佈任何受管狀態
+
+#### Scenario: Force 僅取代受管目的地
+
+- **GIVEN** target 版本不高於來源
+- **AND** 所有來源、receipt 與檔案系統驗證皆已成功
+- **WHEN** 安裝器帶 `--force` 執行
+- **THEN** 它安裝或取代有差異的受管 cash 目的地
+- **AND** 它為最終的 24 個檔案發佈 receipt
+- **AND** 它保留明確 24 檔清單、receipt 與可辨識已除役 plus 項目以外的每個檔案
+- **AND** 它僅移除四個精確已除役 plus 目錄中可辨識的項目
+- **AND** 它回報 `Result: update`
+
+#### Scenario: Dry run 不產生持久性影響
+
+- **WHEN** 安裝器帶 `--dry-run` 執行
+- **THEN** 它依一般 preflight 規則回報領域結果與完整行動計畫
+- **AND** 它不建立 target 目錄、target 暫存檔、receipt、registry、cache、lock、LaunchAgent 或背景行程
+- **AND** 它不移除任何已除役 plus skill
 
 
 <!-- @trace
@@ -792,299 +792,22 @@ tests:
 -->
 
 ---
-### Requirement: Cash installation has no repair automation
+### Requirement: Cash 安裝不含修復自動化
 
-The cash installer MUST NOT compute freshness from Git state, schedule repair, install a LaunchAgent, fork a background process, or modify an active or non-plus Spectra-managed skill. During an explicit target installation it SHALL remove only recognized entries among the four exact retired `spectra-propose-plus` and `spectra-apply-plus` directories and SHALL NOT remove any other Spectra skill. Cash skill maintenance SHALL occur only through explicit source version changes and explicit installer invocations. Target receipts and the user registry SHALL persist only to support those explicit invocations and MUST NOT trigger future work.
+cash 安裝器 MUST NOT 從 Git 狀態計算新鮮度、排程修復、安裝 LaunchAgent、fork 背景行程，或修改使用中或非 plus 的 Spectra 管理 skill。在明確的 target 安裝期間，它 SHALL 僅移除四個精確已除役 `spectra-propose-plus` 與 `spectra-apply-plus` 目錄中可辨識的項目，且 SHALL NOT 移除任何其他 Spectra skill。cash skill 的維護 SHALL 僅透過明確的來源版本變更與明確的安裝器呼叫進行。target receipts 與使用者 registry SHALL 僅為支援那些明確呼叫而持久保存，且 MUST NOT 觸發未來的工作。
 
-#### Scenario: Completed cash installation
+#### Scenario: 完成的 cash 安裝
 
-- **WHEN** a cash installation succeeds
-- **THEN** persistent state consists only of the target cash skill files and target receipt
-- **AND** no future process is scheduled
-- **AND** a later source change does not propagate until the installer is explicitly invoked again
+- **WHEN** 一次 cash 安裝成功
+- **THEN** 持久狀態僅由 target 的 cash skill 檔案與 target receipt 組成
+- **AND** 沒有任何未來的行程被排程
+- **AND** 之後的來源變更在安裝器被再次明確呼叫之前不會傳播
 
-#### Scenario: Completed registry operation
+#### Scenario: 完成的 registry 操作
 
-- **WHEN** a target is registered, unregistered, or listed
-- **THEN** no LaunchAgent, daemon, scheduled task, cache, lock, or background process is created
-- **AND** the registry does not cause a later source change to propagate by itself
-
-
-<!-- @trace
-source: add-versioned-cash-skill-batch-update
-updated: 2026-07-18
-code:
-  - .agents/skills/spectra-apply/SKILL.md
-  - CASH-SKILLS.md
-  - cash-skills.version
-  - .agents/skills/spectra-analyze/SKILL.md
-  - .agents/skills/spectra-verify/SKILL.md
-  - install-cash-skills.fish
-  - .agents/skills/spectra-propose/SKILL.md
-tests:
-  - scripts/cash-skills/tests/skill-checks.fish
--->
-
----
-### Requirement: Cash commit preserves archive-first allowlisting
-
-`cash-commit` SHALL collect and commit only artifacts that belong to the selected change and its explicit tracking file. When the user selects archive-first handling, it MUST archive before staging, collect the archive output paths, exclude unrelated dirty files, and MUST NOT treat deleted generated plus skills as an implicit allowlist exception.
-
-#### Scenario: Archive-first commit excludes unrelated changes
-
-- **GIVEN** the worktree contains files unrelated to the selected change
-- **WHEN** the user confirms archive-first handling in `cash-commit`
-- **THEN** `cash-commit` archives the selected change before staging
-- **AND** stages only the selected change artifacts, archive output, and explicit tracking file
-- **AND** leaves unrelated dirty files unstaged
-
-#### Scenario: No generated-plus deletion exception
-
-- **WHEN** a deleted `spectra-*-plus` path appears in git status
-- **THEN** `cash-commit` does not automatically classify that path as protected change output
-- **AND** normal selected-change allowlisting determines whether the path is staged
-
-
-<!-- @trace
-source: fork-spectra-skills-to-cash
-updated: 2026-07-18
-code:
-  - scripts/spectra-plus/template/impact-granularity-block.md
-  - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/cash-archive/SKILL.md
-  - .agents/skills/cash-apply/SKILL.md
-  - .agents/skills/cash-verify/SKILL.md
-  - .agents/skills/cash-ingest/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-drift.diff
-  - scripts/spectra-plus/template/review-loop-block.md
-  - .agents/skills/cash-ask/SKILL.md
-  - .agents/skills/cash-debug/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
-  - scripts/spectra-plus/template/apply-response-language-block.md
-  - install-cash-skills.fish
-  - uninstall-spectra-plus-repair.fish
-  - scripts/cash-skills/variant-parity/cash-verify.diff
-  - scripts/spectra-plus/template/apply-notes-block.md
-  - .agents/skills/spectra-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-propose.diff
-  - .agents/skills/cash-propose/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ingest.diff
-  - scripts/spectra-plus/template/no-park-end-block.md
-  - .agents/skills/cash-discuss/SKILL.md
-  - AGENTS.md
-  - scripts/cash-skills/variant-parity/cash-audit.diff
-  - scripts/spectra-plus/template/artifact-language-block.md
-  - CASH-SKILLS.md
-  - scripts/spectra-plus/repair-all.fish
-  - scripts/spectra-plus/rules.yaml
-  - .agents/skills/cash-analyze/SKILL.md
-  - SPECTRA-PLUS.md
-  - .agents/skills/cash-audit/SKILL.md
-  - scripts/spectra-plus/template/signals-read-block.md
-  - scripts/spectra-plus/template/surgical-simplicity-block.md
-  - .agents/skills/cash-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ask.diff
-  - scripts/spectra-plus/generate.fish
-  - .agents/skills/cash-drift/SKILL.md
-  - install-spectra-plus.fish
-  - scripts/cash-skills/variant-parity/cash-analyze.diff
-tests:
-  - scripts/spectra-plus/tests/auto-restore-checks.fish
-  - scripts/spectra-plus/tests/repair-all-checks.fish
-  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
-  - scripts/spectra-plus/tests/generator-checks.fish
-  - scripts/cash-skills/tests/skill-checks.fish
--->
-
----
-### Requirement: One-time legacy repair cleanup
-
-The repository SHALL provide `uninstall-spectra-plus-repair.fish [--dry-run]`. A successful non-dry run MUST unload and remove the known `com.spectra.plus.repair` and `com.agentflow.spectra-plus.repair` LaunchAgents, remove their plist files, remove `$HOME/.config/spectra-plus/projects.txt`, and remove `$HOME/.cache/spectra-plus`. It MUST preserve `$HOME/Library/Logs/spectra-plus-repair.log`.
-
-#### Scenario: Installed automation is removed
-
-- **WHEN** the cleanup runs with one or both known LaunchAgents installed
-- **THEN** it prints every target path found in the legacy repair registry before removing that registry
-- **AND** it unloads each installed known label
-- **AND** removes the corresponding plist
-- **AND** removes the repair registry and cache after successful unloads
-- **AND** preserves the diagnostic log
-
-#### Scenario: Cleanup is idempotent
-
-- **WHEN** none of the known LaunchAgents, plists, registry, or cache exist
-- **THEN** cleanup reports a successful no-op
-- **AND** exits with code 0
-
-#### Scenario: Unexpected unload failure stops cleanup
-
-- **GIVEN** a known plist exists
-- **WHEN** `launchctl bootout` fails for a reason other than not-loaded or not-found
-- **THEN** cleanup exits non-zero
-- **AND** preserves the failing plist, registry, and cache
-- **AND** prints the exact manual cleanup command to stderr
-
-#### Scenario: Registry read failure stops before launchctl
-
-- **GIVEN** the legacy registry path exists but is not a readable regular file or cannot be read completely
-- **WHEN** cleanup performs preflight
-- **THEN** cleanup exits non-zero before invoking `launchctl`
-- **AND** preserves the plist, registry, cache, and diagnostic log
-
-#### Scenario: Generic not-found text is not service absence
-
-- **GIVEN** `launchctl print` fails with an error containing `not found` that does not exactly identify the queried known service as absent
-- **WHEN** cleanup classifies the result
-- **THEN** cleanup treats it as an unexpected failure
-- **AND** preserves all removable legacy state
-
-#### Scenario: Cleanup dry run
-
-- **WHEN** cleanup runs with `--dry-run`
-- **THEN** it lists the exact unload and removal actions
-- **AND** lists every target path found in the legacy repair registry
-- **AND** it does not invoke `launchctl bootout`
-- **AND** it does not remove any file or directory
-
-
-<!-- @trace
-source: fork-spectra-skills-to-cash
-updated: 2026-07-18
-code:
-  - scripts/spectra-plus/template/impact-granularity-block.md
-  - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/cash-archive/SKILL.md
-  - .agents/skills/cash-apply/SKILL.md
-  - .agents/skills/cash-verify/SKILL.md
-  - .agents/skills/cash-ingest/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-drift.diff
-  - scripts/spectra-plus/template/review-loop-block.md
-  - .agents/skills/cash-ask/SKILL.md
-  - .agents/skills/cash-debug/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
-  - scripts/spectra-plus/template/apply-response-language-block.md
-  - install-cash-skills.fish
-  - uninstall-spectra-plus-repair.fish
-  - scripts/cash-skills/variant-parity/cash-verify.diff
-  - scripts/spectra-plus/template/apply-notes-block.md
-  - .agents/skills/spectra-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-propose.diff
-  - .agents/skills/cash-propose/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ingest.diff
-  - scripts/spectra-plus/template/no-park-end-block.md
-  - .agents/skills/cash-discuss/SKILL.md
-  - AGENTS.md
-  - scripts/cash-skills/variant-parity/cash-audit.diff
-  - scripts/spectra-plus/template/artifact-language-block.md
-  - CASH-SKILLS.md
-  - scripts/spectra-plus/repair-all.fish
-  - scripts/spectra-plus/rules.yaml
-  - .agents/skills/cash-analyze/SKILL.md
-  - SPECTRA-PLUS.md
-  - .agents/skills/cash-audit/SKILL.md
-  - scripts/spectra-plus/template/signals-read-block.md
-  - scripts/spectra-plus/template/surgical-simplicity-block.md
-  - .agents/skills/cash-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ask.diff
-  - scripts/spectra-plus/generate.fish
-  - .agents/skills/cash-drift/SKILL.md
-  - install-spectra-plus.fish
-  - scripts/cash-skills/variant-parity/cash-analyze.diff
-tests:
-  - scripts/spectra-plus/tests/auto-restore-checks.fish
-  - scripts/spectra-plus/tests/repair-all-checks.fish
-  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
-  - scripts/spectra-plus/tests/generator-checks.fish
-  - scripts/cash-skills/tests/skill-checks.fish
--->
-
----
-### Requirement: Legacy plus implementation is retired
-
-The repository MUST remove the four generated `spectra-propose-plus` and `spectra-apply-plus` outputs, `scripts/spectra-plus/`, and `install-spectra-plus.fish`. It MUST remove active plus deletion-guard dependencies from the project workflow while leaving non-plus Spectra-managed skills untouched.
-
-#### Scenario: Legacy repository paths are absent
-
-- **WHEN** migration implementation is complete
-- **THEN** all proposal-listed legacy plus paths are absent
-- **AND** the Claude and Codex `spectra-commit` files match their unpatched Spectra-owned baseline without the generated-plus deletion exception
-- **AND** all non-plus `spectra-*` skills remain available for Spectra ownership
-- **AND** project workflow guidance uses cash skills
-
-
-<!-- @trace
-source: fork-spectra-skills-to-cash
-updated: 2026-07-18
-code:
-  - scripts/spectra-plus/template/impact-granularity-block.md
-  - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/cash-archive/SKILL.md
-  - .agents/skills/cash-apply/SKILL.md
-  - .agents/skills/cash-verify/SKILL.md
-  - .agents/skills/cash-ingest/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-drift.diff
-  - scripts/spectra-plus/template/review-loop-block.md
-  - .agents/skills/cash-ask/SKILL.md
-  - .agents/skills/cash-debug/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
-  - scripts/spectra-plus/template/apply-response-language-block.md
-  - install-cash-skills.fish
-  - uninstall-spectra-plus-repair.fish
-  - scripts/cash-skills/variant-parity/cash-verify.diff
-  - scripts/spectra-plus/template/apply-notes-block.md
-  - .agents/skills/spectra-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-propose.diff
-  - .agents/skills/cash-propose/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ingest.diff
-  - scripts/spectra-plus/template/no-park-end-block.md
-  - .agents/skills/cash-discuss/SKILL.md
-  - AGENTS.md
-  - scripts/cash-skills/variant-parity/cash-audit.diff
-  - scripts/spectra-plus/template/artifact-language-block.md
-  - CASH-SKILLS.md
-  - scripts/spectra-plus/repair-all.fish
-  - scripts/spectra-plus/rules.yaml
-  - .agents/skills/cash-analyze/SKILL.md
-  - SPECTRA-PLUS.md
-  - .agents/skills/cash-audit/SKILL.md
-  - scripts/spectra-plus/template/signals-read-block.md
-  - scripts/spectra-plus/template/surgical-simplicity-block.md
-  - .agents/skills/cash-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ask.diff
-  - scripts/spectra-plus/generate.fish
-  - .agents/skills/cash-drift/SKILL.md
-  - install-spectra-plus.fish
-  - scripts/cash-skills/variant-parity/cash-analyze.diff
-tests:
-  - scripts/spectra-plus/tests/auto-restore-checks.fish
-  - scripts/spectra-plus/tests/repair-all-checks.fish
-  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
-  - scripts/spectra-plus/tests/generator-checks.fish
-  - scripts/cash-skills/tests/skill-checks.fish
--->
-
----
-### Requirement: Cash contract regression suite
-
-`scripts/cash-skills/tests/skill-checks.fish` SHALL verify inventory, metadata, namespace routing, quality-gate markers, bundle version governance, receipt schema, direct installer branches, registry branches, batch installer branches, cleanup branches, legacy removal, variant parity, and forced Spectra update isolation. The suite MUST use isolated targets, an isolated `HOME`, an isolated mutable source copy for runtime fixtures, explicit Git histories containing version-introduction and later unrelated commits for version-governance fixtures, and a stubbed `launchctl` for mutating test cases.
-
-#### Scenario: Full regression suite passes
-
-- **WHEN** the cash contract suite runs against a compliant repository
-- **THEN** every required installer, version, receipt, registry, batch, cleanup, parity, and isolation branch passes
-- **AND** no actual user LaunchAgent, registry, receipt, cache, or external project is modified
-
-#### Scenario: Contract drift fails loudly
-
-- **WHEN** a managed cash file, version, receipt field, command result, installer branch, registry branch, batch branch, cleanup branch, or isolation invariant violates this specification
-- **THEN** the suite exits non-zero
-- **AND** its diagnostics identify the failed invariant and relevant project-relative fixture or path
-
-#### Scenario: Version fixture inventory remains complete
-
-- **WHEN** the bundle version or any hardcoded version fixture changes
-- **THEN** the suite verifies every repository assertion of the prior version was inventoried and updated
-- **AND** ordering fixtures cover major, minor, patch, leading-zero, and arbitrary-length component boundaries
+- **WHEN** 某個 target 被註冊、取消註冊或列出
+- **THEN** 不建立任何 LaunchAgent、daemon、排程任務、cache、lock 或背景行程
+- **AND** registry 本身不會使之後的來源變更自行傳播
 
 
 <!-- @trace
@@ -1103,56 +826,333 @@ tests:
 -->
 
 ---
-### Requirement: cash-propose quality gate
+### Requirement: Cash commit 保留 archive-first 允許清單機制
 
-The system SHALL provide a `cash-propose` skill that retains the complete artifact-creation contract for proposal, design, specs, and tasks (proposal, design, specs, tasks) but replaces the inline self-review and analyze-fix loop with a sub-agent review/rating/fix loop. The skill MUST run `spectra validate` before entering the sub-agent loop, so validation fixes happen before the quality gate reviews the final artifact state. The skill MUST run the loop at per-change granularity (after all required artifacts are written and validation has passed, not per artifact). The skill MUST cap the loop at 6 rounds. The skill MUST NOT use a rater sub-agent and MUST NOT produce a `quality_score`; instead the main agent SHALL derive the round decision mechanically from the post-filter findings. The run's first round MUST be treated as passing if and only if, after the confidence filter, no surviving finding has `severity == Critical` and no surviving finding has `severity == Warning`; in a re-run whose cumulative blocking set was seeded, the first round instead uses the cumulative-blocking-set pass condition per the `Graded convergence and micro-verification round` requirement. A round after the run's first round MUST be treated as passing if and only if, after the confidence filter, the cumulative blocking set contains no `Critical` and no `Warning` finding, where blocking and the cumulative blocking set are defined by the `Graded convergence and micro-verification round` requirement; non-blocking findings route to triage per that requirement. When a round's decision is `next_round`, the main agent MUST derive the next round's type (full or micro) per the `Graded convergence and micro-verification round` requirement. Fix obligations in this requirement are subject to the grader-protection exception defined in the `Review loop grader immutability` requirement and to the consented accepted-risks path defined in the `Accepted-risks ledger` and `Review round action obligation` requirements. The skill MUST NOT execute `spectra park` at the end of its workflow.
+`cash-commit` SHALL 僅收集並提交屬於所選 change 的 artifacts 及其明確的追蹤檔案。當使用者選擇 archive-first 處理時，它 MUST 在 staging 之前先封存、收集封存輸出路徑、排除無關的 dirty 檔案，且 MUST NOT 將已刪除的生成式 plus skills 視為隱含的允許清單例外。
 
-#### Scenario: Loop reaches pass condition before max rounds
+#### Scenario: Archive-first 提交排除無關變更
 
-- **WHEN** a round completes with an empty cumulative blocking set after the confidence filter
-- **THEN** the skill writes the corresponding round file with `decision: passed`
-- **AND** stops the loop without starting another round
-- **AND** continues to the final summary without running post-gate validation fixes
-- **AND** does not execute `spectra park`
+- **GIVEN** worktree 中含有與所選 change 無關的檔案
+- **WHEN** 使用者在 `cash-commit` 中確認 archive-first 處理
+- **THEN** `cash-commit` 在 staging 之前先封存所選 change
+- **AND** 僅 stage 所選 change 的 artifacts、封存輸出與明確的追蹤檔案
+- **AND** 讓無關的 dirty 檔案維持未 staged
 
-#### Scenario: Validation precedes the quality gate
+#### Scenario: 沒有生成式 plus 刪除例外
 
-- **WHEN** `cash-propose` has created all artifacts required for apply
-- **THEN** it runs `spectra validate "<name>"`
-- **AND** fixes validation errors before the first review-loop round
-- **AND** the review loop starts only after validation passes
+- **WHEN** git status 中出現已刪除的 `spectra-*-plus` 路徑
+- **THEN** `cash-commit` 不會自動將該路徑歸類為受保護的 change 輸出
+- **AND** 由一般的所選 change 允許清單機制決定該路徑是否被 stage
 
-- **WHEN** a review-loop Fix Action modifies proposal, design, tasks, or spec artifacts
-- **THEN** it runs `spectra validate "<name>"` again
-- **AND** fixes validation errors before starting the next review-loop round
 
-#### Scenario: Surviving blocking Warning forces another round
+<!-- @trace
+source: fork-spectra-skills-to-cash
+updated: 2026-07-18
+code:
+  - scripts/spectra-plus/template/impact-granularity-block.md
+  - .agents/skills/spectra-propose-plus/SKILL.md
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-ingest/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-drift.diff
+  - scripts/spectra-plus/template/review-loop-block.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
+  - .agents/skills/spectra-apply-plus/SKILL.md
+  - scripts/spectra-plus/template/apply-response-language-block.md
+  - install-cash-skills.fish
+  - uninstall-spectra-plus-repair.fish
+  - scripts/cash-skills/variant-parity/cash-verify.diff
+  - scripts/spectra-plus/template/apply-notes-block.md
+  - .agents/skills/spectra-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - .agents/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - scripts/spectra-plus/template/no-park-end-block.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - AGENTS.md
+  - scripts/cash-skills/variant-parity/cash-audit.diff
+  - scripts/spectra-plus/template/artifact-language-block.md
+  - CASH-SKILLS.md
+  - scripts/spectra-plus/repair-all.fish
+  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-analyze/SKILL.md
+  - SPECTRA-PLUS.md
+  - .agents/skills/cash-audit/SKILL.md
+  - scripts/spectra-plus/template/signals-read-block.md
+  - scripts/spectra-plus/template/surgical-simplicity-block.md
+  - .agents/skills/cash-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ask.diff
+  - scripts/spectra-plus/generate.fish
+  - .agents/skills/cash-drift/SKILL.md
+  - install-spectra-plus.fish
+  - scripts/cash-skills/variant-parity/cash-analyze.diff
+tests:
+  - scripts/spectra-plus/tests/auto-restore-checks.fish
+  - scripts/spectra-plus/tests/repair-all-checks.fish
+  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
+  - scripts/spectra-plus/tests/generator-checks.fish
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
 
-- **WHEN** a round completes with no blocking `Critical` finding but at least one blocking `Warning` finding in the cumulative blocking set after the confidence filter
-- **THEN** the skill writes the round file with `decision: next_round`
-- **AND** fixes the blocking Warning findings before starting the next round, except any finding withheld under the `Review loop grader immutability` requirement (recorded as unfixed-due-to-grader-protection and remaining surviving) and any finding accepted through the consent path of the `Accepted-risks ledger` requirement (recorded as a downgrade trace and removed from the cumulative blocking set)
-- **AND** derives the next round's type per the `Graded convergence and micro-verification round` requirement
+---
+### Requirement: 一次性的 legacy 修復清理
 
-#### Scenario: Loop hits 6-round cap without passing
+本 repository SHALL 提供 `uninstall-spectra-plus-repair.fish [--dry-run]`。一次成功的非 dry run MUST 卸載並移除已知的 `com.spectra.plus.repair` 與 `com.agentflow.spectra-plus.repair` LaunchAgents、移除其 plist 檔案、移除 `$HOME/.config/spectra-plus/projects.txt`，並移除 `$HOME/.cache/spectra-plus`。它 MUST 保留 `$HOME/Library/Logs/spectra-plus-repair.log`。
 
-- **WHEN** the loop completes 6 rounds without meeting the pass condition
-- **THEN** the skill writes the sixth round with `decision: aborted`
-- **AND** prints a warning summarising the unresolved findings
-- **AND** runs the abort triage per the `Abort triage` requirement
-- **AND** ends the workflow without parking the change
+#### Scenario: 已安裝的自動化被移除
 
-#### Scenario: Park is never invoked
+- **WHEN** 清理在一個或兩個已知 LaunchAgents 已安裝的情況下執行
+- **THEN** 它在移除 legacy 修復 registry 之前，先印出該 registry 中找到的每個 target 路徑
+- **AND** 它卸載每個已安裝的已知 label
+- **AND** 移除對應的 plist
+- **AND** 在卸載成功後移除修復 registry 與 cache
+- **AND** 保留診斷 log
 
-- **WHEN** `cash-propose` ends its workflow under any outcome
-- **THEN** the workflow never invokes `spectra park`
-- **AND** the change directory remains under `openspec/changes/` (not parked)
+#### Scenario: 清理具冪等性
 
-##### Example: end-of-workflow path comparison
+- **WHEN** 已知的 LaunchAgents、plists、registry 或 cache 皆不存在
+- **THEN** 清理回報一次成功的 no-op
+- **AND** 以 code 0 結束
 
-| Skill | Inline self-review | Analyze-fix loop | Sub-agent loop (max 6) | Park at end |
+#### Scenario: 非預期的卸載失敗使清理停止
+
+- **GIVEN** 存在某個已知的 plist
+- **WHEN** `launchctl bootout` 因 not-loaded 或 not-found 以外的原因失敗
+- **THEN** 清理以非零結束
+- **AND** 保留該失敗的 plist、registry 與 cache
+- **AND** 將精確的手動清理指令印到 stderr
+
+#### Scenario: Registry 讀取失敗在 launchctl 之前即停止
+
+- **GIVEN** legacy registry 路徑存在，但不是可讀的一般檔案或無法被完整讀取
+- **WHEN** 清理執行 preflight
+- **THEN** 清理在呼叫 `launchctl` 之前以非零結束
+- **AND** 保留 plist、registry、cache 與診斷 log
+
+#### Scenario: 泛用的 not-found 文字不代表服務不存在
+
+- **GIVEN** `launchctl print` 失敗且錯誤訊息含有 `not found`，但未精確指明所查詢的已知服務不存在
+- **WHEN** 清理對該結果進行分類
+- **THEN** 清理將其視為非預期失敗
+- **AND** 保留所有可移除的 legacy 狀態
+
+#### Scenario: 清理的 dry run
+
+- **WHEN** 清理帶 `--dry-run` 執行
+- **THEN** 它列出精確的卸載與移除動作
+- **AND** 列出 legacy 修復 registry 中找到的每個 target 路徑
+- **AND** 它不呼叫 `launchctl bootout`
+- **AND** 它不移除任何檔案或目錄
+
+
+<!-- @trace
+source: fork-spectra-skills-to-cash
+updated: 2026-07-18
+code:
+  - scripts/spectra-plus/template/impact-granularity-block.md
+  - .agents/skills/spectra-propose-plus/SKILL.md
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-ingest/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-drift.diff
+  - scripts/spectra-plus/template/review-loop-block.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
+  - .agents/skills/spectra-apply-plus/SKILL.md
+  - scripts/spectra-plus/template/apply-response-language-block.md
+  - install-cash-skills.fish
+  - uninstall-spectra-plus-repair.fish
+  - scripts/cash-skills/variant-parity/cash-verify.diff
+  - scripts/spectra-plus/template/apply-notes-block.md
+  - .agents/skills/spectra-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - .agents/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - scripts/spectra-plus/template/no-park-end-block.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - AGENTS.md
+  - scripts/cash-skills/variant-parity/cash-audit.diff
+  - scripts/spectra-plus/template/artifact-language-block.md
+  - CASH-SKILLS.md
+  - scripts/spectra-plus/repair-all.fish
+  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-analyze/SKILL.md
+  - SPECTRA-PLUS.md
+  - .agents/skills/cash-audit/SKILL.md
+  - scripts/spectra-plus/template/signals-read-block.md
+  - scripts/spectra-plus/template/surgical-simplicity-block.md
+  - .agents/skills/cash-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ask.diff
+  - scripts/spectra-plus/generate.fish
+  - .agents/skills/cash-drift/SKILL.md
+  - install-spectra-plus.fish
+  - scripts/cash-skills/variant-parity/cash-analyze.diff
+tests:
+  - scripts/spectra-plus/tests/auto-restore-checks.fish
+  - scripts/spectra-plus/tests/repair-all-checks.fish
+  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
+  - scripts/spectra-plus/tests/generator-checks.fish
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
+
+---
+### Requirement: Legacy plus 實作已除役
+
+本 repository MUST 移除四個生成的 `spectra-propose-plus` 與 `spectra-apply-plus` 輸出、`scripts/spectra-plus/` 與 `install-spectra-plus.fish`。它 MUST 從專案 workflow 中移除仍在作用的 plus 刪除防護相依，同時保持非 plus 的 Spectra 管理 skills 不受影響。
+
+#### Scenario: Legacy repository 路徑皆不存在
+
+- **WHEN** 遷移實作完成
+- **THEN** 提案所列的所有 legacy plus 路徑皆不存在
+- **AND** Claude 與 Codex 的 `spectra-commit` 檔案符合其未修補的 Spectra 所有 baseline，不含生成式 plus 刪除例外
+- **AND** 所有非 plus 的 `spectra-*` skills 仍可供 Spectra 所有權使用
+- **AND** 專案 workflow 指引使用 cash skills
+
+
+<!-- @trace
+source: fork-spectra-skills-to-cash
+updated: 2026-07-18
+code:
+  - scripts/spectra-plus/template/impact-granularity-block.md
+  - .agents/skills/spectra-propose-plus/SKILL.md
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-ingest/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-drift.diff
+  - scripts/spectra-plus/template/review-loop-block.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
+  - .agents/skills/spectra-apply-plus/SKILL.md
+  - scripts/spectra-plus/template/apply-response-language-block.md
+  - install-cash-skills.fish
+  - uninstall-spectra-plus-repair.fish
+  - scripts/cash-skills/variant-parity/cash-verify.diff
+  - scripts/spectra-plus/template/apply-notes-block.md
+  - .agents/skills/spectra-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - .agents/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - scripts/spectra-plus/template/no-park-end-block.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - AGENTS.md
+  - scripts/cash-skills/variant-parity/cash-audit.diff
+  - scripts/spectra-plus/template/artifact-language-block.md
+  - CASH-SKILLS.md
+  - scripts/spectra-plus/repair-all.fish
+  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-analyze/SKILL.md
+  - SPECTRA-PLUS.md
+  - .agents/skills/cash-audit/SKILL.md
+  - scripts/spectra-plus/template/signals-read-block.md
+  - scripts/spectra-plus/template/surgical-simplicity-block.md
+  - .agents/skills/cash-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ask.diff
+  - scripts/spectra-plus/generate.fish
+  - .agents/skills/cash-drift/SKILL.md
+  - install-spectra-plus.fish
+  - scripts/cash-skills/variant-parity/cash-analyze.diff
+tests:
+  - scripts/spectra-plus/tests/auto-restore-checks.fish
+  - scripts/spectra-plus/tests/repair-all-checks.fish
+  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
+  - scripts/spectra-plus/tests/generator-checks.fish
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
+
+---
+### Requirement: Cash 合約回歸測試套件
+
+`scripts/cash-skills/tests/skill-checks.fish` SHALL 驗證清單、中繼資料、namespace 路由、品質關卡標記、bundle 版本治理、receipt schema、直接安裝器分支、registry 分支、批次安裝器分支、清理分支、legacy 移除、變體對等性，以及強制 Spectra 更新隔離。該套件 MUST 使用隔離的 targets、隔離的 `HOME`、供 runtime fixtures 使用的隔離可變來源副本、供版本治理 fixtures 使用且包含版本引入 commit 與其後無關 commits 的明確 Git 歷史，以及供變更性測試案例使用的 stubbed `launchctl`。
+
+#### Scenario: 完整回歸套件通過
+
+- **WHEN** cash 合約套件對一個合規的 repository 執行
+- **THEN** 每個必要的安裝器、版本、receipt、registry、批次、清理、對等性與隔離分支皆通過
+- **AND** 沒有任何實際的使用者 LaunchAgent、registry、receipt、cache 或外部專案被修改
+
+#### Scenario: 合約漂移大聲失敗
+
+- **WHEN** 某個受管 cash 檔案、版本、receipt 欄位、指令結果、安裝器分支、registry 分支、批次分支、清理分支或隔離不變量違反本規格
+- **THEN** 該套件以非零結束
+- **AND** 其診斷訊息指出失敗的不變量與相關的專案相對 fixture 或路徑
+
+#### Scenario: 版本 fixture 清單保持完整
+
+- **WHEN** bundle 版本或任何硬編碼的版本 fixture 變更
+- **THEN** 該套件驗證 repository 中對先前版本的每處斷言皆已被盤點並更新
+- **AND** 排序 fixtures 涵蓋 major、minor、patch、前導零與任意長度分量的邊界
+
+
+<!-- @trace
+source: add-versioned-cash-skill-batch-update
+updated: 2026-07-18
+code:
+  - .agents/skills/spectra-apply/SKILL.md
+  - CASH-SKILLS.md
+  - cash-skills.version
+  - .agents/skills/spectra-analyze/SKILL.md
+  - .agents/skills/spectra-verify/SKILL.md
+  - install-cash-skills.fish
+  - .agents/skills/spectra-propose/SKILL.md
+tests:
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
+
+---
+### Requirement: cash-propose 品質關卡
+
+系統 SHALL 提供一個 `cash-propose` skill，保留 proposal、design、specs 與 tasks 的完整 artifact 建立合約（proposal、design、specs、tasks），但以 sub-agent 審查／評分／修正迴圈取代行內自我審查與 analyze-fix 迴圈。該 skill MUST 在進入 sub-agent 迴圈之前執行 `spectra validate`，使驗證修正發生在品質關卡審查最終 artifact 狀態之前。該 skill MUST 以 per-change 粒度執行迴圈（在所有必要 artifacts 寫入且驗證通過之後，而非逐 artifact）。該 skill MUST 將迴圈上限設為 6 輪。該 skill MUST NOT 使用 rater sub-agent 且 MUST NOT 產生 `quality_score`；主 agent SHALL 改為從過濾後的 findings 以機械方式推導該輪決策。當且僅當信心過濾後沒有任何存活 finding 具 `severity == Critical` 也沒有任何存活 finding 具 `severity == Warning` 時，該次執行的第一輪 MUST 被視為通過；在累積 blocking 集合已被 seed 的重跑中，第一輪改依 `分級收斂與 micro 驗證輪` requirement 使用累積 blocking 集合的通過條件。當且僅當信心過濾後累積 blocking 集合不含任何 `Critical` 也不含任何 `Warning` finding 時，該次執行第一輪之後的一輪 MUST 被視為通過，其中 blocking 與累積 blocking 集合由 `分級收斂與 micro 驗證輪` requirement 定義；非 blocking findings 依該 requirement 進入 triage。當某一輪的決策為 `next_round` 時，主 agent MUST 依 `分級收斂與 micro 驗證輪` requirement 推導下一輪的型別（full 或 micro）。本 requirement 中的修正義務受 `審查迴圈的 grader 不可變性` requirement 定義的 grader 保護例外，以及 `接受風險 ledger` 與 `審查輪的行動義務` requirements 定義的經同意接受風險路徑所約束。該 skill MUST NOT 在其 workflow 結尾執行 `spectra park`。
+
+#### Scenario: 迴圈在達到輪數上限前滿足通過條件
+
+- **WHEN** 某一輪完成時，信心過濾後的累積 blocking 集合為空
+- **THEN** 該 skill 寫入對應的 round 檔案並記錄 `decision: passed`
+- **AND** 停止迴圈且不再開始另一輪
+- **AND** 直接進入最終摘要，不執行關卡後的驗證修正
+- **AND** 不執行 `spectra park`
+
+#### Scenario: 驗證先於品質關卡
+
+- **WHEN** `cash-propose` 已建立 apply 所需的全部 artifacts
+- **THEN** 它執行 `spectra validate "<name>"`
+- **AND** 在第一個審查迴圈輪之前修正驗證錯誤
+- **AND** 審查迴圈僅在驗證通過後才開始
+
+- **WHEN** 審查迴圈的 Fix Action 修改了 proposal、design、tasks 或 spec artifacts
+- **THEN** 它再次執行 `spectra validate "<name>"`
+- **AND** 在開始下一個審查迴圈輪之前修正驗證錯誤
+
+#### Scenario: 存活的 blocking Warning 迫使再進行一輪
+
+- **WHEN** 某一輪完成時，信心過濾後的累積 blocking 集合中沒有 blocking `Critical` finding，但至少有一個 blocking `Warning` finding
+- **THEN** 該 skill 寫入 round 檔案並記錄 `decision: next_round`
+- **AND** 在開始下一輪之前修正這些 blocking Warning findings，但下列除外：依 `審查迴圈的 grader 不可變性` requirement 被保留不修的 finding（記錄為 unfixed-due-to-grader-protection 且維持存活），以及經 `接受風險 ledger` requirement 同意路徑接受的 finding（記錄為 downgrade trace 並自累積 blocking 集合移除）
+- **AND** 依 `分級收斂與 micro 驗證輪` requirement 推導下一輪的型別
+
+#### Scenario: 迴圈到達 6 輪上限仍未通過
+
+- **WHEN** 迴圈完成 6 輪仍未滿足通過條件
+- **THEN** 該 skill 寫入第六輪並記錄 `decision: aborted`
+- **AND** 印出摘要說明未解決 findings 的警告
+- **AND** 依 `Abort 後的 triage` requirement 執行 abort triage
+- **AND** 結束 workflow 而不 park 該 change
+
+#### Scenario: 永不呼叫 park
+
+- **WHEN** `cash-propose` 在任何結果下結束其 workflow
+- **THEN** 該 workflow 永不呼叫 `spectra park`
+- **AND** change 目錄仍保留在 `openspec/changes/` 之下（未被 park）
+
+##### Example: workflow 結尾路徑比較
+
+| Skill | 行內自我審查 | Analyze-fix 迴圈 | Sub-agent 迴圈（上限 6） | 結尾 park |
 | ----- | ------------------ | ---------------- | ---------------------- | ----------- |
-| cash-propose          | yes | yes (max 2)  | no  | yes |
-| cash-propose  | no  | no           | yes | no  |
+| cash-propose          | 是 | 是（上限 2）  | 否  | 是 |
+| cash-propose  | 否  | 否           | 是 | 否  |
 
 
 
@@ -1209,39 +1209,39 @@ tests:
 -->
 
 ---
-### Requirement: cash-apply quality gate
+### Requirement: cash-apply 品質關卡
 
-The system SHALL provide a `cash-apply` skill that retains the complete task-execution contract and appends a sub-agent review/rating/fix loop after all tasks complete. The skill MUST run the loop at per-change granularity (once, after every task is marked complete in `tasks.md`). The skill MUST cap the loop at 6 rounds. The skill MUST NOT suggest archiving the change before the review loop has ended with `decision: passed`. The skill MUST NOT use a rater sub-agent and MUST NOT produce a `quality_score`; instead the main agent SHALL derive the round decision mechanically from the post-filter findings. The run's first round MUST be treated as passing if and only if, after the confidence filter, no surviving finding has `severity == Critical` and no surviving finding has `severity == Warning`; in a re-run whose cumulative blocking set was seeded, the first round instead uses the cumulative-blocking-set pass condition per the `Graded convergence and micro-verification round` requirement. A round after the run's first round MUST be treated as passing if and only if, after the confidence filter, the cumulative blocking set contains no `Critical` and no `Warning` finding, where blocking and the cumulative blocking set are defined by the `Graded convergence and micro-verification round` requirement; non-blocking findings route to triage per that requirement. When a round's decision is `next_round`, the main agent MUST derive the next round's type (full or micro) per the `Graded convergence and micro-verification round` requirement. Fix obligations in this requirement are subject to the grader-protection exception defined in the `Review loop grader immutability` requirement and to the consented accepted-risks path defined in the `Accepted-risks ledger` and `Review round action obligation` requirements.
+系統 SHALL 提供一個 `cash-apply` skill，保留完整的任務執行合約，並在所有 tasks 完成後附加一個 sub-agent 審查／評分／修正迴圈。該 skill MUST 以 per-change 粒度執行迴圈（僅一次，在 `tasks.md` 中每個 task 都標記完成之後）。該 skill MUST 將迴圈上限設為 6 輪。該 skill MUST NOT 在審查迴圈以 `decision: passed` 結束之前建議封存該 change。該 skill MUST NOT 使用 rater sub-agent 且 MUST NOT 產生 `quality_score`；主 agent SHALL 改為從過濾後的 findings 以機械方式推導該輪決策。當且僅當信心過濾後沒有任何存活 finding 具 `severity == Critical` 也沒有任何存活 finding 具 `severity == Warning` 時，該次執行的第一輪 MUST 被視為通過；在累積 blocking 集合已被 seed 的重跑中，第一輪改依 `分級收斂與 micro 驗證輪` requirement 使用累積 blocking 集合的通過條件。當且僅當信心過濾後累積 blocking 集合不含任何 `Critical` 也不含任何 `Warning` finding 時，該次執行第一輪之後的一輪 MUST 被視為通過，其中 blocking 與累積 blocking 集合由 `分級收斂與 micro 驗證輪` requirement 定義；非 blocking findings 依該 requirement 進入 triage。當某一輪的決策為 `next_round` 時，主 agent MUST 依 `分級收斂與 micro 驗證輪` requirement 推導下一輪的型別（full 或 micro）。本 requirement 中的修正義務受 `審查迴圈的 grader 不可變性` requirement 定義的 grader 保護例外，以及 `接受風險 ledger` 與 `審查輪的行動義務` requirements 定義的經同意接受風險路徑所約束。
 
-#### Scenario: Review loop runs after tasks complete
+#### Scenario: 審查迴圈在 tasks 完成後執行
 
-- **WHEN** every checkbox in `tasks.md` reads `[x]`
-- **THEN** `cash-apply` starts the sub-agent review/rating/fix loop
-- **AND** does not start the loop earlier
+- **WHEN** `tasks.md` 中的每個 checkbox 皆為 `[x]`
+- **THEN** `cash-apply` 開始 sub-agent 審查／評分／修正迴圈
+- **AND** 不會更早開始該迴圈
 
-#### Scenario: Surviving blocking Critical forces another round
+#### Scenario: 存活的 blocking Critical 迫使再進行一輪
 
-- **WHEN** a round completes with at least one blocking `Critical` finding in the cumulative blocking set after the confidence filter
-- **THEN** the skill writes the round file with `decision: next_round`
-- **AND** fixes the blocking Critical findings before starting the next round, except any finding withheld under the `Review loop grader immutability` requirement (recorded as unfixed-due-to-grader-protection and remaining surviving) and any finding accepted through the consent path of the `Accepted-risks ledger` requirement (recorded as a downgrade trace and removed from the cumulative blocking set)
-- **AND** derives the next round's type per the `Graded convergence and micro-verification round` requirement
+- **WHEN** 某一輪完成時，信心過濾後的累積 blocking 集合中至少有一個 blocking `Critical` finding
+- **THEN** 該 skill 寫入 round 檔案並記錄 `decision: next_round`
+- **AND** 在開始下一輪之前修正這些 blocking Critical findings，但下列除外：依 `審查迴圈的 grader 不可變性` requirement 被保留不修的 finding（記錄為 unfixed-due-to-grader-protection 且維持存活），以及經 `接受風險 ledger` requirement 同意路徑接受的 finding（記錄為 downgrade trace 並自累積 blocking 集合移除）
+- **AND** 依 `分級收斂與 micro 驗證輪` requirement 推導下一輪的型別
 
-#### Scenario: Loop hits 6-round cap
+#### Scenario: 迴圈到達 6 輪上限
 
-- **WHEN** the loop completes 6 rounds without meeting the pass condition
-- **THEN** the skill writes the sixth round with `decision: aborted`
-- **AND** prints a warning summarising the unresolved findings
-- **AND** runs the abort triage per the `Abort triage` requirement
-- **AND** ends the workflow
+- **WHEN** 迴圈完成 6 輪仍未滿足通過條件
+- **THEN** 該 skill 寫入第六輪並記錄 `decision: aborted`
+- **AND** 印出摘要說明未解決 findings 的警告
+- **AND** 依 `Abort 後的 triage` requirement 執行 abort triage
+- **AND** 結束 workflow
 
-#### Scenario: Archive guidance waits for gate pass
+#### Scenario: 封存指引等待關卡通過
 
-- **WHEN** all tasks are complete but the review loop has not passed yet
-- **THEN** `cash-apply` states that archive guidance is deferred until the cash quality gate passes
-- **AND** does not tell the user to run `spectra archive`, `/cash-archive`, or `$cash-archive`
+- **WHEN** 所有 tasks 已完成但審查迴圈尚未通過
+- **THEN** `cash-apply` 說明封存指引將延後至 cash 品質關卡通過之後
+- **AND** 不指示使用者執行 `spectra archive`、`/cash-archive` 或 `$cash-archive`
 
-- **WHEN** the final review-loop round has `decision: passed`
-- **THEN** the final response may suggest archiving the change
+- **WHEN** 最終審查迴圈輪為 `decision: passed`
+- **THEN** 最終回覆可以建議封存該 change
 
 
 
@@ -1298,120 +1298,40 @@ tests:
 -->
 
 ---
-### Requirement: Round file output contract
+### Requirement: Round 檔案輸出合約
 
-The system SHALL write one round file per loop round to `openspec/changes/<change>/reviews/`. File names MUST follow the pattern `propose-r<N>.md` for `cash-propose` and `apply-r<N>.md` for `cash-apply`, where `<N>` is the 1-based round number; a re-run after an abort continues `<N>` from the last existing round file per the `Abort triage` requirement. Each round file MUST contain exactly four top-level `##` sections, in this fixed order: `## Reviewer Findings`, `## Rating`, `## Fix Actions`, `## Decision`, plus the round heading at the top. The `## Rating` section MUST NOT contain a `quality_score` field; it MUST record the `Critical` count and the `Warning` count of the post-filter cumulative blocking set (in the run's first round, of the surviving findings, which are all blocking; in a seeded re-run's first round, of the cumulative blocking set), the count of non-blocking triaged findings, `critical_gap` (boolean), `round_type` (exactly one of `full` or `micro`), and a rationale paragraph explaining the mechanical decision.
+系統 SHALL 為每個迴圈輪在 `openspec/changes/<change>/reviews/` 寫入一個 round 檔案。檔名 MUST 遵循 `cash-propose` 使用 `propose-r<N>.md`、`cash-apply` 使用 `apply-r<N>.md` 的模式，其中 `<N>` 是以 1 起算的輪次編號；abort 之後的重跑依 `Abort 後的 triage` requirement 由最後一個既有 round 檔案接續 `<N>`。每個 round 檔案 MUST 恰好包含四個頂層 `##` 區段，依此固定順序：`## Reviewer Findings`、`## Rating`、`## Fix Actions`、`## Decision`，另加檔案頂端的回合標題。`## Rating` 區段 MUST NOT 含有 `quality_score` 欄位；它 MUST 記錄過濾後累積 blocking 集合的 `Critical` 計數與 `Warning` 計數（在該次執行的第一輪，為存活 findings 的計數，此時它們全部皆為 blocking；在已 seed 重跑的第一輪，為累積 blocking 集合的計數）、非 blocking 已 triage findings 的計數、`critical_gap`（boolean）、`round_type`（恰為 `full` 或 `micro` 之一），以及一段說明機械決策的理由。
 
-#### Scenario: Round file structure
+#### Scenario: Round 檔案結構
 
-- **WHEN** any round of a cash skill completes
-- **THEN** a file at `openspec/changes/<change>/reviews/<skill>-r<N>.md` exists
-- **AND** the file starts with a level-1 heading naming the skill and round
-- **AND** the file contains exactly four `##` headings: `Reviewer Findings`, `Rating`, `Fix Actions`, `Decision`, and the leading round summary heading is `#` not `##`
+- **WHEN** 任一 cash skill 的任一輪完成
+- **THEN** 存在位於 `openspec/changes/<change>/reviews/<skill>-r<N>.md` 的檔案
+- **AND** 該檔案以標明 skill 與輪次的 level-1 標題開頭
+- **AND** 該檔案恰好包含四個 `##` 標題：`Reviewer Findings`、`Rating`、`Fix Actions`、`Decision`，且開頭的回合摘要標題是 `#` 而非 `##`
 
-#### Scenario: Rating section omits quality_score
+#### Scenario: Rating 區段省略 quality_score
 
-- **WHEN** the `## Rating` section of any round file is written
-- **THEN** it contains no `quality_score` field
-- **AND** it records the cumulative blocking set's `Critical` count, the cumulative blocking set's `Warning` count, the non-blocking triaged count, `critical_gap`, `round_type`, and a rationale paragraph
+- **WHEN** 寫入任一 round 檔案的 `## Rating` 區段
+- **THEN** 其中不含 `quality_score` 欄位
+- **AND** 它記錄累積 blocking 集合的 `Critical` 計數、累積 blocking 集合的 `Warning` 計數、非 blocking 已 triage 計數、`critical_gap`、`round_type`，以及一段理由說明
 
-##### Example: required round file outline
+##### Example: 必要的 round 檔案大綱
 
-| Section                | Heading level | Content                                                                                                            |
+| Section                | 標題層級      | Content                                                                                                            |
 | ---------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Round heading          | `#`           | e.g., `Cash Propose Review — Round 2`                                                                              |
-| `Reviewer Findings`    | `##`          | Three subsections: Critical, Warning, Suggestion. Each finding lists `severity`, `confidence`, `layer`, `location`, `summary`, `recommendation`, `disposition` (rounds after the first, and a seeded re-run's first round), `introduced_by` (cash-apply Reviewer B findings, and any finding tagged `fix-introduced`), and reviewer source (`A`, `B`, `A+B`, or `V`) |
-| `Rating`               | `##`          | cumulative blocking `Critical` count, cumulative blocking `Warning` count, non-blocking triaged count, `critical_gap` (boolean), `round_type` (`full` or `micro`), `rationale` (text) |
-| `Fix Actions`          | `##`          | List of changes made this round with file paths and rationale, plus triage notes, downgrade traces, and disposition-correction records |
-| `Decision`             | `##`          | One of `passed`, `next_round`, `aborted`                                                                           |
+| 回合標題               | `#`           | 例如 `Cash Propose Review — Round 2`                                                                               |
+| `Reviewer Findings`    | `##`          | 三個子區段：Critical、Warning、Suggestion。每個 finding 列出 `severity`、`confidence`、`layer`、`location`、`summary`、`recommendation`、`disposition`（第一輪之後的各輪，以及已 seed 重跑的第一輪）、`introduced_by`（cash-apply Reviewer B 的 findings，以及任何被標記為 `fix-introduced` 的 finding），與 reviewer 來源（`A`、`B`、`A+B` 或 `V`） |
+| `Rating`               | `##`          | 累積 blocking `Critical` 計數、累積 blocking `Warning` 計數、非 blocking 已 triage 計數、`critical_gap`（boolean）、`round_type`（`full` 或 `micro`）、`rationale`（文字） |
+| `Fix Actions`          | `##`          | 本輪所做變更的清單，附檔案路徑與理由，另加 triage 註記、downgrade traces 與 disposition 更正紀錄 |
+| `Decision`             | `##`          | `passed`、`next_round`、`aborted` 三者之一                                                                         |
 
-#### Scenario: Final round decision values
+#### Scenario: 最終輪的 decision 值
 
-- **WHEN** the loop ends successfully
-- **THEN** the final round file has `Decision: passed`
+- **WHEN** 迴圈成功結束
+- **THEN** 最終 round 檔案為 `Decision: passed`
 
-- **WHEN** the loop ends by hitting the 6-round cap
-- **THEN** the final round file has `Decision: aborted`
-
-
-
-
-<!-- @trace
-source: fork-spectra-skills-to-cash
-updated: 2026-07-18
-code:
-  - scripts/spectra-plus/template/impact-granularity-block.md
-  - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/cash-archive/SKILL.md
-  - .agents/skills/cash-apply/SKILL.md
-  - .agents/skills/cash-verify/SKILL.md
-  - .agents/skills/cash-ingest/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-drift.diff
-  - scripts/spectra-plus/template/review-loop-block.md
-  - .agents/skills/cash-ask/SKILL.md
-  - .agents/skills/cash-debug/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
-  - scripts/spectra-plus/template/apply-response-language-block.md
-  - install-cash-skills.fish
-  - uninstall-spectra-plus-repair.fish
-  - scripts/cash-skills/variant-parity/cash-verify.diff
-  - scripts/spectra-plus/template/apply-notes-block.md
-  - .agents/skills/spectra-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-propose.diff
-  - .agents/skills/cash-propose/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ingest.diff
-  - scripts/spectra-plus/template/no-park-end-block.md
-  - .agents/skills/cash-discuss/SKILL.md
-  - AGENTS.md
-  - scripts/cash-skills/variant-parity/cash-audit.diff
-  - scripts/spectra-plus/template/artifact-language-block.md
-  - CASH-SKILLS.md
-  - scripts/spectra-plus/repair-all.fish
-  - scripts/spectra-plus/rules.yaml
-  - .agents/skills/cash-analyze/SKILL.md
-  - SPECTRA-PLUS.md
-  - .agents/skills/cash-audit/SKILL.md
-  - scripts/spectra-plus/template/signals-read-block.md
-  - scripts/spectra-plus/template/surgical-simplicity-block.md
-  - .agents/skills/cash-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ask.diff
-  - scripts/spectra-plus/generate.fish
-  - .agents/skills/cash-drift/SKILL.md
-  - install-spectra-plus.fish
-  - scripts/cash-skills/variant-parity/cash-analyze.diff
-tests:
-  - scripts/spectra-plus/tests/auto-restore-checks.fish
-  - scripts/spectra-plus/tests/repair-all-checks.fish
-  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
-  - scripts/spectra-plus/tests/generator-checks.fish
-  - scripts/cash-skills/tests/skill-checks.fish
--->
-
----
-### Requirement: Fresh sub-agent per round
-
-The system SHALL spawn fresh sub-agents for every review step. The skill MUST NOT reuse a sub-agent across rounds. Each FULL round MUST spawn exactly TWO reviewer sub-agents in parallel — `Reviewer A` (artifact/implementation adherence) and `Reviewer B` (bug/quality scan). Each MICRO round MUST spawn exactly ONE fresh verification reviewer sub-agent — `Reviewer V` (delta verification), per the `Graded convergence and micro-verification round` requirement. The skill MUST NOT spawn a rater sub-agent. The skill MUST NOT perform review inline in the main agent context. A pre-spawn short-circuit abort round per the `Abort triage` requirement records `round_type: full` but spawns no reviewer sub-agents; it is the explicit exception to the two-reviewer mandate. After the round's reviewer sub-agents complete, the main agent SHALL aggregate findings (deduplicate by `location + summary`), apply the confidence filter (see `Confidence-scored findings` requirement), and derive the round decision mechanically without any further sub-agent call — from the filtered findings in the run's first round (or, in a seeded re-run's first round, from the cumulative blocking set), and from the cumulative blocking set defined by the `Graded convergence and micro-verification round` requirement in every later round.
-
-#### Scenario: Two reviewers and no rater per round
-
-- **WHEN** a full round begins
-- **THEN** the skill makes two parallel sub-agent calls for `Reviewer A` and `Reviewer B`, dispatched in a single message
-- **AND** makes no rater sub-agent call
-- **AND** Reviewer A and Reviewer B do not see each other's findings
-- **AND** the main agent derives `decision` from the post-filter findings and the cumulative blocking set itself
-
-#### Scenario: Micro round spawns exactly one verification reviewer
-
-- **WHEN** a micro round begins
-- **THEN** the skill makes exactly one sub-agent call for `Reviewer V`
-- **AND** makes no `Reviewer A`, `Reviewer B`, or rater sub-agent call in that round
-- **AND** the main agent derives `decision` from the post-filter findings and the cumulative blocking set itself
-
-#### Scenario: No sub-agent reuse across rounds
-
-- **WHEN** round N+1 begins after round N
-- **THEN** the skill spawns brand-new reviewer sub-agents for round N+1 (`Reviewer A` and `Reviewer B` for a full round, `Reviewer V` for a micro round)
-- **AND** does not pass the prior round's sub-agent state forward
+- **WHEN** 迴圈因到達 6 輪上限而結束
+- **THEN** 最終 round 檔案為 `Decision: aborted`
 
 
 
@@ -1468,33 +1388,30 @@ tests:
 -->
 
 ---
-### Requirement: Confidence-scored findings and filter
+### Requirement: 每輪使用全新 sub-agent
 
-The system SHALL require every reviewer finding to carry a `confidence` integer from `0` to `100`. The main agent MUST apply a confidence filter before deriving the round decision. Findings with `confidence < 50` MUST be dropped entirely and SHALL NOT appear in the round file's `## Reviewer Findings` section; downgrade traces mandated by the `Accepted-risks ledger` and `cash-apply introduced-by evidence` requirements appear in `## Fix Actions` and are the explicit exception. Findings with `confidence` in `[50, 80)` MUST be downgraded to `Suggestion` regardless of the reviewer's original severity classification. Only findings with `confidence >= 80` MAY appear as `Critical` or `Warning` in the post-filter round file. `critical_gap` MUST be `true` if and only if the post-filter cumulative blocking set contains at least one `Critical` finding (in the run's first round, at least one surviving `Critical` finding with `confidence >= 80`; a seeded re-run's first round uses the cumulative blocking set). Direct artifact-requirement violations (citing a specific `SHALL`, Implementation Contract item, or task description line) MUST score `100` so the filter does not demote them. The accepted-risks downgrade defined in the `Accepted-risks ledger` requirement and the cash-apply `introduced_by` downgrade defined in the `cash-apply introduced-by evidence` requirement take precedence over the score-100 invariant: a finding that matches an accepted-risks entry, or an cash-apply `Reviewer B` `Critical` or `Warning` finding without a verifiable `introduced_by`, MUST be scored at most `25` even when it cites a specific artifact clause.
+系統 SHALL 為每個審查步驟產生全新的 sub-agents。該 skill MUST NOT 跨輪重複使用 sub-agent。每個 full 輪 MUST 恰好平行產生兩位 reviewer sub-agents——`Reviewer A`（artifact／實作遵循度）與 `Reviewer B`（bug／品質掃描）。每個 micro 輪 MUST 依 `分級收斂與 micro 驗證輪` requirement 恰好產生一位全新的驗證 reviewer sub-agent——`Reviewer V`（差異驗證）。該 skill MUST NOT 產生 rater sub-agent。該 skill MUST NOT 在主 agent 情境中以行內方式執行審查。依 `Abort 後的 triage` requirement 在產生前即短路的 abort 輪會記錄 `round_type: full` 但不產生任何 reviewer sub-agents；它是雙 reviewer 強制規定的明確例外。在該輪的 reviewer sub-agents 完成後，主 agent SHALL 彙整 findings（以 `location + summary` 去重）、套用信心過濾器（見 `具信心分數的 findings 與過濾器` requirement），並在不再進行任何 sub-agent 呼叫的情況下以機械方式推導該輪決策——在該次執行的第一輪從過濾後的 findings（或在已 seed 重跑的第一輪，從累積 blocking 集合），在其後每一輪則從 `分級收斂與 micro 驗證輪` requirement 定義的累積 blocking 集合。
 
-#### Scenario: Filter drops low-confidence findings
+#### Scenario: 每輪兩位 reviewers 且沒有 rater
 
-- **WHEN** a reviewer reports a finding with `confidence == 30`
-- **THEN** the finding does not appear in the round file
-- **AND** it does not contribute to the round decision
+- **WHEN** 一個 full 輪開始
+- **THEN** 該 skill 以單一訊息派發，對 `Reviewer A` 與 `Reviewer B` 進行兩個平行 sub-agent 呼叫
+- **AND** 不進行任何 rater sub-agent 呼叫
+- **AND** Reviewer A 與 Reviewer B 看不到彼此的 findings
+- **AND** 主 agent 自行從過濾後的 findings 與累積 blocking 集合推導 `decision`
 
-#### Scenario: Filter downgrades mid-confidence Critical to Suggestion
+#### Scenario: Micro 輪恰好產生一位驗證 reviewer
 
-- **WHEN** a reviewer reports a `Critical` finding with `confidence == 60`
-- **THEN** the round file lists it under `Suggestion`, not `Critical`
-- **AND** `critical_gap` is not set to `true` solely on account of this finding
+- **WHEN** 一個 micro 輪開始
+- **THEN** 該 skill 恰好進行一次 `Reviewer V` 的 sub-agent 呼叫
+- **AND** 該輪不進行任何 `Reviewer A`、`Reviewer B` 或 rater 的 sub-agent 呼叫
+- **AND** 主 agent 自行從過濾後的 findings 與累積 blocking 集合推導 `decision`
 
-#### Scenario: Artifact-citation findings are not demoted
+#### Scenario: 不跨輪重複使用 sub-agent
 
-- **WHEN** a reviewer cites a specific `SHALL` clause from `spec.md` or a contract item from `design.md` that the artifact set or implementation does not satisfy
-- **THEN** the reviewer scores the finding `confidence == 100`
-- **AND** the finding survives the filter and may be classified `Critical`
-
-#### Scenario: Accepted-risk match overrides the score-100 invariant
-
-- **WHEN** a finding cites a specific artifact clause AND matches an accepted-risks entry at the same location with the same defect mechanism
-- **THEN** the main agent scores the finding at most `25`
-- **AND** the finding does not survive as `Critical` or `Warning`
+- **WHEN** 第 N 輪之後第 N+1 輪開始
+- **THEN** 該 skill 為第 N+1 輪產生全新的 reviewer sub-agents（full 輪為 `Reviewer A` 與 `Reviewer B`，micro 輪為 `Reviewer V`）
+- **AND** 不把前一輪的 sub-agent 狀態往後傳遞
 
 
 
@@ -1551,113 +1468,33 @@ tests:
 -->
 
 ---
-### Requirement: Sub-agent failure handling
+### Requirement: 具信心分數的 findings 與過濾器
 
-The system SHALL retry a failed sub-agent call once within the same round. If the retry also fails, the skill MUST abort the entire cash workflow with a clear error and SHALL NOT mark the round as `passed` or continue to the next round. If both parallel reviewers fail within the same round, the skill MUST treat it as a single reviewer-role failure (one retry) rather than two separate failures.
+系統 SHALL 要求每個 reviewer finding 帶有 `0` 到 `100` 的 `confidence` 整數。主 agent MUST 在推導該輪決策之前套用信心過濾器。`confidence < 50` 的 findings MUST 被完全捨棄，且 SHALL NOT 出現在 round 檔案的 `## Reviewer Findings` 區段；由 `接受風險 ledger` 與 `cash-apply 的 introduced-by 證據` requirements 強制要求的 downgrade traces 出現在 `## Fix Actions`，是明確的例外。`confidence` 落在 `[50, 80)` 的 findings MUST 被降級為 `Suggestion`，無論 reviewer 原本的嚴重度分類為何。只有 `confidence >= 80` 的 findings MAY 在過濾後的 round 檔案中以 `Critical` 或 `Warning` 出現。當且僅當過濾後的累積 blocking 集合至少含有一個 `Critical` finding 時（在該次執行的第一輪，為至少一個 `confidence >= 80` 的存活 `Critical` finding；已 seed 重跑的第一輪使用累積 blocking 集合），`critical_gap` MUST 為 `true`。直接違反 artifact requirement 的 findings（引用特定 `SHALL`、Implementation Contract 項目或 task 描述行者）MUST 給 `100` 分，使過濾器不會將其降級。`接受風險 ledger` requirement 定義的接受風險降級，與 `cash-apply 的 introduced-by 證據` requirement 定義的 cash-apply `introduced_by` 降級，優先於 100 分不變量：符合某個 accepted-risks 項目的 finding，或沒有可驗證 `introduced_by` 的 cash-apply `Reviewer B` `Critical` 或 `Warning` finding，即使引用了特定 artifact 條文，也 MUST 至多給 `25` 分。
 
-#### Scenario: Single sub-agent failure recovers
+#### Scenario: 過濾器捨棄低信心 findings
 
-- **WHEN** a reviewer sub-agent fails (no response or malformed output)
-- **THEN** the skill retries that same reviewer role once with a fresh invocation
-- **AND** the round continues if the retry succeeds
+- **WHEN** reviewer 回報一個 `confidence == 30` 的 finding
+- **THEN** 該 finding 不出現在 round 檔案中
+- **AND** 它不參與該輪決策
 
-#### Scenario: Two consecutive sub-agent failures abort
+#### Scenario: 過濾器將中等信心的 Critical 降級為 Suggestion
 
-- **WHEN** the same sub-agent role fails twice in a single round
-- **THEN** the skill aborts the cash workflow
-- **AND** writes a round file with `decision: aborted` and a note describing the failure
+- **WHEN** reviewer 回報一個 `confidence == 60` 的 `Critical` finding
+- **THEN** round 檔案將它列在 `Suggestion` 之下，而非 `Critical`
+- **AND** `critical_gap` 不會僅因這個 finding 而被設為 `true`
 
-#### Scenario: Both parallel reviewers failing counts as one role failure
+#### Scenario: 引用 artifact 的 findings 不被降級
 
-- **WHEN** both `Reviewer A` and `Reviewer B` fail in the same round
-- **THEN** the skill treats it as a single reviewer-role failure
-- **AND** retries the reviewer role once (both reviewers re-dispatched in parallel)
-- **AND** only aborts if the retry also fails
+- **WHEN** reviewer 引用 artifact 集合或實作未滿足的 `spec.md` 特定 `SHALL` 條文或 `design.md` 合約項目
+- **THEN** 該 reviewer 給該 finding `confidence == 100`
+- **AND** 該 finding 通過過濾器並可被分類為 `Critical`
 
+#### Scenario: 符合已接受風險凌駕 100 分不變量
 
-
-
-<!-- @trace
-source: fork-spectra-skills-to-cash
-updated: 2026-07-18
-code:
-  - scripts/spectra-plus/template/impact-granularity-block.md
-  - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/cash-archive/SKILL.md
-  - .agents/skills/cash-apply/SKILL.md
-  - .agents/skills/cash-verify/SKILL.md
-  - .agents/skills/cash-ingest/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-drift.diff
-  - scripts/spectra-plus/template/review-loop-block.md
-  - .agents/skills/cash-ask/SKILL.md
-  - .agents/skills/cash-debug/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
-  - scripts/spectra-plus/template/apply-response-language-block.md
-  - install-cash-skills.fish
-  - uninstall-spectra-plus-repair.fish
-  - scripts/cash-skills/variant-parity/cash-verify.diff
-  - scripts/spectra-plus/template/apply-notes-block.md
-  - .agents/skills/spectra-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-propose.diff
-  - .agents/skills/cash-propose/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ingest.diff
-  - scripts/spectra-plus/template/no-park-end-block.md
-  - .agents/skills/cash-discuss/SKILL.md
-  - AGENTS.md
-  - scripts/cash-skills/variant-parity/cash-audit.diff
-  - scripts/spectra-plus/template/artifact-language-block.md
-  - CASH-SKILLS.md
-  - scripts/spectra-plus/repair-all.fish
-  - scripts/spectra-plus/rules.yaml
-  - .agents/skills/cash-analyze/SKILL.md
-  - SPECTRA-PLUS.md
-  - .agents/skills/cash-audit/SKILL.md
-  - scripts/spectra-plus/template/signals-read-block.md
-  - scripts/spectra-plus/template/surgical-simplicity-block.md
-  - .agents/skills/cash-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ask.diff
-  - scripts/spectra-plus/generate.fish
-  - .agents/skills/cash-drift/SKILL.md
-  - install-spectra-plus.fish
-  - scripts/cash-skills/variant-parity/cash-analyze.diff
-tests:
-  - scripts/spectra-plus/tests/auto-restore-checks.fish
-  - scripts/spectra-plus/tests/repair-all-checks.fish
-  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
-  - scripts/spectra-plus/tests/generator-checks.fish
-  - scripts/cash-skills/tests/skill-checks.fish
--->
-
----
-### Requirement: cash-commit archive-first allowlist
-
-The system SHALL make `cash-commit` collect archive-first commit files through an explicit allowlist after `spectra archive` completes. The archive-first commit set MUST include tracked source files from the pre-archive confirmed commit set, files belonging to the selected change archive, and spec sync files from `openspec/specs/` when the user explicitly selected spec sync during the archive sub-flow. The archive-first commit set MUST NOT include unrelated dirty files discovered by the post-archive `git status --porcelain` scan.
-
-#### Scenario: unrelated deletion exists before archive-first commit
-
-- **WHEN** `cash-commit` is committing change `demo-change` with archive-first enabled
-- **AND** `git status --porcelain` already contains `D .agents/skills/cash-apply/SKILL.md` before `spectra archive demo-change` runs
-- **THEN** the default commit set excludes `.agents/skills/cash-apply/SKILL.md`
-- **AND** the commit plan displays that deletion outside the included archive-related files
-
-#### Scenario: archive files are included after archive succeeds
-
-- **WHEN** `spectra archive demo-change` moves files from `openspec/changes/demo-change/` to `openspec/changes/archive/2026-05-19-demo-change/`
-- **THEN** `cash-commit` includes deletions under `openspec/changes/demo-change/`
-- **AND** `cash-commit` includes additions or modifications under `openspec/changes/archive/2026-05-19-demo-change/`
-- **AND** `cash-commit` excludes dirty files outside the selected change archive, tracked source files, and explicitly selected spec sync files
-
-#### Scenario: spec sync files require explicit sync selection
-
-- **WHEN** the user selects spec sync during the archive sub-flow for `demo-change`
-- **THEN** `cash-commit` includes resulting changes under `openspec/specs/`
-- **AND** the updated commit plan displays them as Spec Sync Changes
-
-#### Scenario: archive path wording is current
-
-- **WHEN** `cash-commit` displays the updated archive-first commit plan
-- **THEN** the archived file section names `openspec/changes/archive/<date>-<change>/`
-- **AND** the archive-first workflow text does not name `openspec/archived/`
+- **WHEN** 一個 finding 引用特定 artifact 條文 AND 在相同位置以相同缺陷機制符合某個 accepted-risks 項目
+- **THEN** 主 agent 給該 finding 至多 `25` 分
+- **AND** 該 finding 不以 `Critical` 或 `Warning` 存活
 
 
 
@@ -1714,47 +1551,28 @@ tests:
 -->
 
 ---
-### Requirement: Cash review loop writes signals after the loop ends
+### Requirement: Sub-agent 失敗處理
 
-The canonical `cash-propose` and `cash-apply` skill files SHALL each contain a governed signal-writing step marked with the unique sentinel comment `<!-- SIGNALS-WRITE-STEP -->`. After the review loop ends (the round file `decision` is `passed` or `aborted`), the main agent writes signals for the post-filter findings the loop surfaced. This step MUST run only after the loop's mechanical decision is already recorded, MUST NOT change the `decision` of any round file, and MUST apply to both Claude and Codex variants.
+系統 SHALL 在同一輪內對失敗的 sub-agent 呼叫重試一次。若重試也失敗，該 skill MUST 以清楚的錯誤中止整個 cash workflow，且 SHALL NOT 將該輪標記為 `passed` 或繼續進入下一輪。若兩位平行 reviewers 在同一輪內都失敗，該 skill MUST 將其視為單一 reviewer 角色失敗（重試一次），而非兩次個別失敗。
 
-The write target set SHALL be every finding that, in any single round of the current change's loop, survived the confidence filter as `Critical` or `Warning`, deduplicated by issue class so each class is processed once. The step MUST cover findings from any round, not only the final round, so that a finding caught and fixed in an early round of an otherwise passing loop still produces a signal. Findings classified `Suggestion`, and any finding with `confidence < 80`, MUST NOT produce a signal. For each deduplicated finding class, the main agent SHALL read existing signals under `openspec/signals/` and judge issue-class match by this rubric: a finding matches an existing signal when both share the same capability or domain AND point to the same underlying rule or anti-pattern; differing free-text wording alone does not make a different class, but a different root cause does. When the finding matches an existing `open` signal, the main agent MUST reuse that signal's slug and update it in place — increment `occurrences`, update `last_seen`, append an `## Occurrences` entry, and append the source round file path to `links` — without changing its `status`. When no `open` signal matches (including when only an `addressed` or `dismissed` signal matches), the main agent MUST create a new signal with `status: open` and `occurrences: 1`. Before coining the new `<slug>`, the main agent MUST list existing `openspec/signals/*.md` files and choose a `<slug>` that does not already exist (disambiguating with a suffix when the natural slug is taken). Creating a new signal MUST NOT overwrite any existing signal file, and MUST NOT change any existing signal's human-maintained `status`. When uncertain whether a finding matches an existing signal, the main agent MUST prefer creating a new signal over merging into an existing one.
+#### Scenario: 單一 sub-agent 失敗可恢復
 
-#### Scenario: Coined slug does not overwrite an unrelated existing signal
+- **WHEN** 某位 reviewer sub-agent 失敗（無回應或輸出格式錯誤）
+- **THEN** 該 skill 以全新呼叫對同一 reviewer 角色重試一次
+- **AND** 若重試成功，該輪繼續進行
 
-- **WHEN** the main agent coins a `<slug>` for a new signal and a file with that slug already exists for a different (non-matching) issue class
-- **THEN** the main agent chooses a different, not-yet-used `<slug>` instead
-- **AND** the existing signal file is not overwritten
+#### Scenario: 連續兩次 sub-agent 失敗即中止
 
-#### Scenario: Early-round fixed finding still creates a signal in a passing loop
+- **WHEN** 同一 sub-agent 角色在單一輪內失敗兩次
+- **THEN** 該 skill 中止 cash workflow
+- **AND** 寫入一個含 `decision: aborted` 與失敗描述註記的 round 檔案
 
-- **WHEN** a `Warning` finding survives the confidence filter in round 1, is fixed, and the loop later passes with no surviving `Critical` or `Warning` in the final round
-- **AND** no existing `open` signal matches its issue class
-- **THEN** after the loop ends the main agent creates a signal under an assigned `<slug>` with `status: open` and `occurrences: 1`
-- **AND** the round file `decision` is unchanged by this step
+#### Scenario: 兩位平行 reviewers 同時失敗計為一次角色失敗
 
-#### Scenario: Finding matching an existing open signal updates it in place
-
-- **WHEN** a post-filter `Critical` or `Warning` finding matches an existing `open` signal's issue class per the rubric
-- **THEN** the main agent reuses that signal's slug, increments its `occurrences`, updates `last_seen`, appends an `## Occurrences` entry, and appends the round file path to `links`
-- **AND** the main agent does not change that signal's `status`
-
-#### Scenario: Recurrence of an addressed issue does not overwrite resolved status
-
-- **WHEN** a post-filter finding matches only an `addressed` or `dismissed` signal's issue class
-- **THEN** the main agent creates a new signal under a different assigned `<slug>` with `status: open`
-- **AND** the main agent does not change the matched resolved signal's `status`
-
-#### Scenario: Suggestion and low-confidence findings produce no signal
-
-- **WHEN** a finding is classified `Suggestion`, or any finding has `confidence < 80` after filtering
-- **THEN** the main agent does not create or update any signal for it
-
-#### Scenario: Signal write failure does not fail the cash workflow
-
-- **WHEN** writing a signal under `openspec/signals/` fails
-- **THEN** the main agent prints a warning
-- **AND** the cash workflow does not fail solely because of the signal write failure
+- **WHEN** `Reviewer A` 與 `Reviewer B` 在同一輪內都失敗
+- **THEN** 該 skill 將其視為單一 reviewer 角色失敗
+- **AND** 對該 reviewer 角色重試一次（兩位 reviewers 平行重新派發）
+- **AND** 僅在重試也失敗時才中止
 
 
 
@@ -1811,33 +1629,36 @@ tests:
 -->
 
 ---
-### Requirement: cash-propose reads open signals for prioritization
+### Requirement: cash-commit 的 archive-first 允許清單
 
-The canonical Claude and Codex `cash-propose` skill files SHALL read `open` signals under `openspec/signals/` after the existing "Scan existing specs for relevance" step. The read step MUST be marked with the unique sentinel comment `<!-- SIGNALS-READ-STEP -->`. The read MUST be informational: the skill SHALL surface relevant `open` signals as a prioritization summary, MUST NOT block the workflow, MUST NOT require user confirmation, and MUST NOT modify any signal. When `openspec/signals/` is absent or contains no `open` signal, the skill MUST continue silently. This read behavior MUST NOT be added to `cash-apply`.
+系統 SHALL 使 `cash-commit` 在 `spectra archive` 完成後，透過明確的允許清單收集 archive-first 提交檔案。archive-first 提交集合 MUST 包含封存前已確認提交集合中的 tracked 來源檔案、屬於所選 change 封存的檔案，以及使用者在封存子流程中明確選擇 spec sync 時來自 `openspec/specs/` 的 spec sync 檔案。archive-first 提交集合 MUST NOT 包含封存後 `git status --porcelain` 掃描發現的無關 dirty 檔案。
 
-#### Scenario: Relevant open signals are surfaced during cash-propose
+#### Scenario: archive-first 提交前已存在無關刪除
 
-- **WHEN** `cash-propose` runs and `openspec/signals/` contains `open` signals relevant to the requirement
-- **THEN** the skill displays those signals as an informational prioritization summary after the spec scan step
-- **AND** the skill does not modify any signal
-- **AND** the skill does not require user confirmation to continue
+- **WHEN** `cash-commit` 在啟用 archive-first 下提交 change `demo-change`
+- **AND** 在 `spectra archive demo-change` 執行之前，`git status --porcelain` 已含有 `D .agents/skills/cash-apply/SKILL.md`
+- **THEN** 預設提交集合排除 `.agents/skills/cash-apply/SKILL.md`
+- **AND** 提交計畫將該刪除顯示在被納入的封存相關檔案之外
 
-#### Scenario: No open signals continues silently
+#### Scenario: 封存成功後納入封存檔案
 
-- **WHEN** `cash-propose` runs and `openspec/signals/` is absent or has no `open` signal
-- **THEN** the skill continues without surfacing a signals summary
+- **WHEN** `spectra archive demo-change` 將檔案從 `openspec/changes/demo-change/` 移至 `openspec/changes/archive/2026-05-19-demo-change/`
+- **THEN** `cash-commit` 納入 `openspec/changes/demo-change/` 之下的刪除
+- **AND** `cash-commit` 納入 `openspec/changes/archive/2026-05-19-demo-change/` 之下的新增或修改
+- **AND** `cash-commit` 排除所選 change 封存、tracked 來源檔案與明確選擇的 spec sync 檔案以外的 dirty 檔案
 
-#### Scenario: cash-apply does not gain the read step
+#### Scenario: spec sync 檔案需要明確的 sync 選擇
 
-- **WHEN** the canonical `.claude/skills/cash-apply/SKILL.md` and `.agents/skills/cash-apply/SKILL.md` files are inspected
-- **THEN** the cash-apply skill files do not contain the `<!-- SIGNALS-READ-STEP -->` sentinel
-- **AND** the cash-apply skill files do contain the `<!-- SIGNALS-WRITE-STEP -->` sentinel in their governed signal-writing section
+- **WHEN** 使用者在 `demo-change` 的封存子流程中選擇 spec sync
+- **THEN** `cash-commit` 納入 `openspec/specs/` 之下的相應變更
+- **AND** 更新後的提交計畫將它們顯示為 Spec Sync Changes
 
-#### Scenario: cash-propose contains both read and write steps
+#### Scenario: 封存路徑措辭為現行版本
 
-- **WHEN** the canonical `.claude/skills/cash-propose/SKILL.md` and `.agents/skills/cash-propose/SKILL.md` files are inspected
-- **THEN** both cash-propose skill files contain the `<!-- SIGNALS-READ-STEP -->` and `<!-- SIGNALS-WRITE-STEP -->` sentinels
-- **AND** neither file carries generated-output metadata or a do-not-edit marker
+- **WHEN** `cash-commit` 顯示更新後的 archive-first 提交計畫
+- **THEN** 封存檔案區段標明 `openspec/changes/archive/<date>-<change>/`
+- **AND** archive-first workflow 文字不提及 `openspec/archived/`
+
 
 
 
@@ -1893,148 +1714,327 @@ tests:
 -->
 
 ---
-### Requirement: Graded convergence and micro-verification round
+### Requirement: Cash 審查迴圈在迴圈結束後寫入 signals
 
-The system SHALL grade review-loop convergence by finding layer. Every reviewer finding MUST carry a `layer` field whose value is exactly one of `design` or `text`. A finding MUST be classified `text` only when it concerns cross-artifact consistency (counts, identifier spelling, wording, or section synchronization) AND fixing it does not change any design decision or behavioral statement; every other finding MUST be classified `design`. When a reviewer cannot decide between the two values, it MUST classify the finding as `design`. While applying the confidence filter, the main agent MUST re-check every finding classified `text` and MUST reclassify it to `design` when the fix could touch behavior or a design statement; the main agent MUST NOT reclassify a `design` finding to `text`. When full-round reviewers independently raise the same finding (deduplicated by `location + summary`) with different `layer` values, the merged finding MUST take `layer == design`. The `layer` field MUST NOT participate in round-type derivation.
+canonical 的 `cash-propose` 與 `cash-apply` skill 檔案 SHALL 各自包含一個受治理的 signal 寫入步驟，以唯一的 sentinel 註解 `<!-- SIGNALS-WRITE-STEP -->` 標記。在審查迴圈結束後（round 檔案的 `decision` 為 `passed` 或 `aborted`），主 agent 為迴圈揭露的過濾後 findings 寫入 signals。此步驟 MUST 僅在迴圈的機械決策已被記錄之後執行、MUST NOT 更改任何 round 檔案的 `decision`，且 MUST 同時適用於 Claude 與 Codex 兩個變體。
 
-The loop SHALL run two round types: full rounds and micro rounds (delta verification rounds). The first round of a loop run MUST be a full round. When a round's decision is `next_round`, the main agent MUST derive the next round's type mechanically from its position within the current loop run alone: the next round is a full round if and only if it is the fourth round of the current run; otherwise the next round is a micro round. Consecutive micro rounds are valid. Fix actions that modify behavior MUST NOT escalate the next round's type; the fourth-round checkpoint is the only full re-scan after the run's first round. Micro rounds MUST count toward the 6-round cap and MUST produce a round file like any other round.
+寫入目標集合 SHALL 是在當前 change 迴圈的任一單輪中，以 `Critical` 或 `Warning` 通過信心過濾器存活的每個 finding，並依 issue class 去重，使每個 class 只被處理一次。此步驟 MUST 涵蓋任一輪的 findings，而不僅是最終輪，使得在一個整體通過的迴圈中於早期輪被抓到並修正的 finding 仍會產生 signal。被分類為 `Suggestion` 的 findings，以及任何 `confidence < 80` 的 finding，MUST NOT 產生 signal。對每個去重後的 finding class，主 agent SHALL 讀取 `openspec/signals/` 之下的既有 signals，並依此準則判斷 issue class 是否相符：當一個 finding 與既有 signal 共享相同的能力或領域 AND 指向相同的底層規則或反模式時即為相符；僅自由文字措辭不同不構成不同的 class，但根本原因不同則構成。當該 finding 符合既有的 `open` signal 時，主 agent MUST 重用該 signal 的 slug 並就地更新——遞增 `occurrences`、更新 `last_seen`、附加一筆 `## Occurrences` 項目，並將來源 round 檔案路徑附加到 `links`——且不更改其 `status`。當沒有任何 `open` signal 相符時（包括只有 `addressed` 或 `dismissed` signal 相符的情況），主 agent MUST 建立一個 `status: open` 且 `occurrences: 1` 的新 signal。在鑄造新的 `<slug>` 之前，主 agent MUST 列出既有的 `openspec/signals/*.md` 檔案，並選擇一個尚不存在的 `<slug>`（當自然 slug 已被占用時以後綴消歧）。建立新 signal MUST NOT 覆寫任何既有的 signal 檔案，且 MUST NOT 更改任何既有 signal 由人工維護的 `status`。當不確定某個 finding 是否符合既有 signal 時，主 agent MUST 偏好建立新 signal 而非併入既有者。
 
-Except in an unseeded run's first round, every reviewer of a round (Reviewer V in micro rounds; Reviewer A and Reviewer B in the fourth-round checkpoint or a seeded re-run's first round) MUST tag each `Critical` or `Warning` finding with a `disposition` field whose value is exactly one of: `unresolved-prior` — the finding matches a blocking finding from a prior round of this loop (or, in a re-run, a bucket-1 finding carried from the prior run per the `Abort triage` requirement), whether or not a fix was recorded for it: a re-report is itself evidence that any recorded fix did not resolve it; `fix-introduced` — the finding is attributed, by an explicit fix-action reference carried in the finding, to one or more modifications recorded in `## Fix Actions` sections of this loop (or, in a seeded re-run, of the prior run); every reviewer of these rounds — including Reviewer V and cash-propose reviewers — MUST attach that reference when tagging `fix-introduced`; or `new` — the finding matches no prior blocking finding; a finding that matches only a prior non-blocking triage note is also tagged `new` and stays non-blocking without producing a duplicate triage note or signal; its recorded action under the `Review round action obligation` requirement is a one-line cross-reference note naming the original round's triage note, which is neither a duplicate triage note nor a new signal. Disposition matching operates on the same artifact or file plus the same defect mechanism; recorded line ranges are advisory and a shifted range does not break a match. To make dispositions evaluable, the main agent MUST provide, in the reviewer context of every round after the run's first round, every prior round file of this loop (in a seeded re-run, including the prior run's round files or their extracts) AND the current cumulative-blocking-set member list; when the accumulated round files exceed practical context size, the main agent MUST instead provide per-round extracts containing each round's surviving findings and complete `## Fix Actions` content, and MUST record a one-line note in the current round's `## Fix Actions` naming the rounds provided as extracts. The main agent MUST verify each disposition tag against the prior round files and MUST correct a tag that does not hold; for every finding tagged `new`, the main agent MUST additionally check whether its location was modified by this loop's — and, in a seeded re-run, the prior run's — recorded fix actions and, when the defect stems from those modifications, correct the tag to `fix-introduced` supplying the fix-action reference in the correction record; every correction MUST be recorded in that round file's `## Fix Actions` naming the finding, the reviewer's original tag, the corrected tag, and the evidence, and every correction that changes a blocking disposition to a non-blocking one MUST be listed in the completion output. When findings deduplicated by `location + summary` carry divergent `disposition` values, the merged finding MUST take the blocking disposition (`unresolved-prior` or `fix-introduced` wins over `new`). Round files of completed rounds are immutable during an active loop: fix records and triage notes MUST be written only in the round in which they occur, and the main agent MUST NOT retroactively edit a prior round file.
+#### Scenario: 鑄造的 slug 不覆寫無關的既有 signal
 
-A surviving `Critical` or `Warning` finding is blocking if and only if its verified disposition is `unresolved-prior` or `fix-introduced`. A finding whose most recent prior status in this loop is a non-blocking triage note remains non-blocking and MUST NOT re-enter the blocking set, with one exception: when later evidence attributes the finding to recorded fix actions, it re-enters as `fix-introduced` through a traced disposition correction. Every other surviving finding with disposition `new` is non-blocking: the main agent MUST record it as a triage note in that round file's `## Fix Actions` section, MUST include it in the signals write step target set, and MUST list it in the completion output; for a non-blocking `Critical` finding, the completion output MUST additionally recommend creating a follow-up change proposal. Non-blocking findings MUST NOT cause a `next_round` decision.
+- **WHEN** 主 agent 為新 signal 鑄造 `<slug>`，而該 slug 的檔案已存在且屬於不同（不相符）的 issue class
+- **THEN** 主 agent 改選一個尚未使用的不同 `<slug>`
+- **AND** 既有的 signal 檔案不被覆寫
 
-The main agent MUST additionally maintain the run's cumulative blocking set: every blocking finding of the run enters the set when found, counts toward every subsequent round decision even when no reviewer re-reports it, and leaves the set only through one of exactly two removal events: (a) resolved — a resolving fix was recorded for it AND a subsequent round's reviewer verified the resolution (the finding is not re-reported and the verification confirms the fix at the fixed location); Reviewer V, the fourth-round checkpoint reviewers, and a seeded re-run's first-round reviewers MUST each return an explicit resolved/unresolved verdict per member, and when verdicts diverge any `unresolved` verdict keeps the member in the set; every exit-(a) removal MUST be recorded in the removing round's `## Fix Actions` naming the member, the resolving fix reference, and the verifying reviewer; or (b) accepted — the finding matches, at the same artifact or file with the same defect mechanism, an accepted-risks entry consented per the `Accepted-risks ledger` requirement; the main agent MUST re-evaluate the set against the accepted-risks ledger every round and MUST record each such removal as a downgrade trace in that round file's `## Fix Actions`. Members withheld under grader protection have no autonomous in-loop removal path — a fix is prohibited, and only the consented accepted-risks exit (b) applies to them. When every member of the cumulative blocking set is withheld under grader protection and no consented exit is obtainable, the main agent MUST NOT spawn further reviewer rounds and MUST end the loop with `decision: aborted` and the abort triage; when this condition first holds during a round's fix phase, after the mechanical decision was derived, the current round's not-yet-finalized file records `decision: aborted` with the abort triage, overriding the derived `next_round`. Except in an unseeded run's first round, a round passes if and only if, after the confidence filter, the cumulative blocking set contains no `Critical` and no `Warning` finding. The run's first round retains the undivided pass condition: every surviving `Critical` or `Warning` finding in the first round is blocking. In a re-run whose cumulative blocking set was seeded per the `Abort triage` requirement, the run's first round MUST instead use the cumulative-blocking-set pass condition, and its reviewers MUST tag dispositions against the prior run's round files (the bucket-1 triage in the final round file enumerates the seeded members).
+#### Scenario: 早期輪已修正的 finding 在通過的迴圈中仍建立 signal
 
-A micro round MUST spawn exactly ONE fresh verification reviewer sub-agent (`Reviewer V — Verification`) instead of the two full-round reviewers. Reviewer V MUST receive as context: the artifact paths (and, for cash-apply, the changed-file list), every prior round file of this loop (or the extract fallback defined above), the current cumulative-blocking-set member list, the accepted-risks ledger when it exists, and the same relevant `open` signals context that full-round reviewers receive. Reviewer V's scope MUST be limited to: whether each member of the cumulative blocking set is resolved (whether or not a fix was recorded for it) — returning an explicit resolved/unresolved verdict per member, whether fix propagation is complete (every occurrence of each concept touched by a fix is synchronized across all artifacts and, for cash-apply, the changed files), and whether the fixes introduced new defects. In cash-apply micro rounds, Reviewer V MUST additionally perform the per-round `implementation-notes.md` reading obligation defined for Reviewer A in the Implementation Notes Protocol, including its file-absent and `open-question` severity rules. Reviewer V findings MUST carry the same fields as full-round findings (including `layer`, `confidence`, and `disposition`) and MUST pass through the same confidence filter. If the cumulative blocking set is empty after the filter in a micro round, the decision is `passed`; if any blocking `Critical` or `Warning` remains, the decision is `next_round` and the next round's type is derived from its position within the run per this requirement, subject to the existing 6-round cap (a sixth round that does not meet the pass condition records `decision: aborted`).
+- **WHEN** 一個 `Warning` finding 在 round 1 通過信心過濾器存活、被修正，且迴圈之後在最終輪沒有存活的 `Critical` 或 `Warning` 而通過
+- **AND** 沒有既有的 `open` signal 符合其 issue class
+- **THEN** 迴圈結束後，主 agent 以指派的 `<slug>` 建立一個 `status: open` 且 `occurrences: 1` 的 signal
+- **AND** 此步驟不更動 round 檔案的 `decision`
 
-#### Scenario: Round after the first round defaults to a micro round
+#### Scenario: 符合既有 open signal 的 finding 就地更新該 signal
 
-- **WHEN** the run's first round completes with `decision: next_round`
-- **THEN** the second round is derived as a micro round
-- **AND** the second round spawns exactly one `Reviewer V` sub-agent
+- **WHEN** 一個過濾後的 `Critical` 或 `Warning` finding 依準則符合既有 `open` signal 的 issue class
+- **THEN** 主 agent 重用該 signal 的 slug、遞增其 `occurrences`、更新 `last_seen`、附加一筆 `## Occurrences` 項目，並將 round 檔案路徑附加到 `links`
+- **AND** 主 agent 不更改該 signal 的 `status`
 
-#### Scenario: Fourth round checkpoint is a full round
+#### Scenario: 已處理議題的復發不覆寫已解決狀態
 
-- **WHEN** the run's third round completes with `decision: next_round`
-- **THEN** the fourth round is derived as a full round
-- **AND** the fourth round spawns `Reviewer A` and `Reviewer B` in parallel
-- **AND** both reviewers receive every prior round file of this loop (or the defined extract fallback) and the current cumulative-blocking-set member list in their context
-- **AND** both reviewers additionally return the same per-member resolved/unresolved verdicts over the cumulative blocking set as Reviewer V, so exit-(a) removals stay available at the checkpoint
-- **AND** when the two reviewers' verdicts for a member diverge, any `unresolved` verdict keeps the member in the set
+- **WHEN** 過濾後的 finding 僅符合 `addressed` 或 `dismissed` signal 的 issue class
+- **THEN** 主 agent 以另外指派的 `<slug>` 建立 `status: open` 的新 signal
+- **AND** 主 agent 不更改所符合之已解決 signal 的 `status`
 
-#### Scenario: Rounds after the checkpoint return to micro
+#### Scenario: Suggestion 與低信心 findings 不產生 signal
 
-- **WHEN** the run's fourth round completes with `decision: next_round`
-- **THEN** the fifth round is derived as a micro round
-- **AND** consecutive micro rounds (fifth and sixth) are valid
+- **WHEN** 一個 finding 被分類為 `Suggestion`，或任何 finding 在過濾後 `confidence < 80`
+- **THEN** 主 agent 不為它建立或更新任何 signal
 
-#### Scenario: Behavior-modifying fixes do not escalate the round type
+#### Scenario: Signal 寫入失敗不使 cash workflow 失敗
 
-- **WHEN** a fix action after a round's decision modifies implementation behavior or a design statement
-- **THEN** the next round's type remains derived from its position within the run alone
-- **AND** no re-derivation to a full round occurs
+- **WHEN** 在 `openspec/signals/` 之下寫入 signal 失敗
+- **THEN** 主 agent 印出警告
+- **AND** cash workflow 不單獨因該 signal 寫入失敗而失敗
 
-#### Scenario: New finding routes to triage instead of blocking
 
-- **WHEN** a round after the run's first round surfaces a surviving `Critical` finding whose verified disposition is `new`
-- **THEN** the main agent records it as a triage note in that round file's `## Fix Actions` section
-- **AND** it enters the signals write step target set and the completion output with a follow-up change proposal recommendation
-- **AND** it does not participate in the round decision
 
-#### Scenario: Fix-introduced regression blocks the pass
 
-- **WHEN** a round after the run's first round surfaces a surviving `Critical` finding whose `introduced_by` references modifications recorded in prior `## Fix Actions` sections of this loop
-- **THEN** the finding's disposition is `fix-introduced` and it is blocking
-- **AND** the round file records `decision: next_round`
+<!-- @trace
+source: fork-spectra-skills-to-cash
+updated: 2026-07-18
+code:
+  - scripts/spectra-plus/template/impact-granularity-block.md
+  - .agents/skills/spectra-propose-plus/SKILL.md
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-ingest/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-drift.diff
+  - scripts/spectra-plus/template/review-loop-block.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
+  - .agents/skills/spectra-apply-plus/SKILL.md
+  - scripts/spectra-plus/template/apply-response-language-block.md
+  - install-cash-skills.fish
+  - uninstall-spectra-plus-repair.fish
+  - scripts/cash-skills/variant-parity/cash-verify.diff
+  - scripts/spectra-plus/template/apply-notes-block.md
+  - .agents/skills/spectra-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - .agents/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - scripts/spectra-plus/template/no-park-end-block.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - AGENTS.md
+  - scripts/cash-skills/variant-parity/cash-audit.diff
+  - scripts/spectra-plus/template/artifact-language-block.md
+  - CASH-SKILLS.md
+  - scripts/spectra-plus/repair-all.fish
+  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-analyze/SKILL.md
+  - SPECTRA-PLUS.md
+  - .agents/skills/cash-audit/SKILL.md
+  - scripts/spectra-plus/template/signals-read-block.md
+  - scripts/spectra-plus/template/surgical-simplicity-block.md
+  - .agents/skills/cash-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ask.diff
+  - scripts/spectra-plus/generate.fish
+  - .agents/skills/cash-drift/SKILL.md
+  - install-spectra-plus.fish
+  - scripts/cash-skills/variant-parity/cash-analyze.diff
+tests:
+  - scripts/spectra-plus/tests/auto-restore-checks.fish
+  - scripts/spectra-plus/tests/repair-all-checks.fish
+  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
+  - scripts/spectra-plus/tests/generator-checks.fish
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
 
-#### Scenario: Ineffective fix keeps the finding blocking
+---
+### Requirement: cash-propose 讀取 open signals 以決定優先序
 
-- **WHEN** a resolving fix was recorded for a blocking finding and a later round re-reports the same finding at the same location with the same defect mechanism
-- **THEN** the finding's disposition is `unresolved-prior` and it remains blocking
-- **AND** it is not routed to the `new` bucket on account of the recorded fix
+canonical 的 Claude 與 Codex `cash-propose` skill 檔案 SHALL 在既有的「Scan existing specs for relevance」步驟之後讀取 `openspec/signals/` 之下的 `open` signals。該讀取步驟 MUST 以唯一的 sentinel 註解 `<!-- SIGNALS-READ-STEP -->` 標記。該讀取 MUST 是資訊性的：skill SHALL 將相關的 `open` signals 呈現為優先序摘要、MUST NOT 阻擋 workflow、MUST NOT 要求使用者確認，且 MUST NOT 修改任何 signal。當 `openspec/signals/` 不存在或不含任何 `open` signal 時，skill MUST 靜默地繼續。此讀取行為 MUST NOT 加入 `cash-apply`。
 
-#### Scenario: Cumulative set member is removed only by verified resolution or acceptance
+#### Scenario: cash-propose 期間呈現相關的 open signals
 
-- **WHEN** a resolving fix is recorded for a cumulative-blocking-set member and the subsequent round's reviewer verifies the resolution without re-reporting it
-- **THEN** the member is removed from the cumulative blocking set
+- **WHEN** `cash-propose` 執行且 `openspec/signals/` 含有與需求相關的 `open` signals
+- **THEN** 該 skill 在 spec 掃描步驟後將那些 signals 顯示為資訊性的優先序摘要
+- **AND** 該 skill 不修改任何 signal
+- **AND** 該 skill 不要求使用者確認即可繼續
 
-- **WHEN** a cumulative-blocking-set member matches a consented accepted-risks entry at the same file with the same defect mechanism
-- **THEN** the member is removed from the cumulative blocking set
-- **AND** the removal is recorded as a downgrade trace in that round file's `## Fix Actions`
+#### Scenario: 沒有 open signals 時靜默繼續
 
-#### Scenario: Triaged non-blocking finding does not re-enter the blocking set
+- **WHEN** `cash-propose` 執行且 `openspec/signals/` 不存在或沒有任何 `open` signal
+- **THEN** 該 skill 繼續執行且不呈現 signals 摘要
 
-- **WHEN** a later round re-reports a finding whose most recent prior status in this loop is a non-blocking triage note, at the same location with the same defect mechanism, without new evidence attributing it to recorded fix actions
-- **THEN** the finding remains non-blocking
-- **AND** it does not cause a `next_round` decision
+#### Scenario: cash-apply 不獲得讀取步驟
 
-#### Scenario: Seeded member blocks a re-run's first round
+- **WHEN** 檢查 canonical 的 `.claude/skills/cash-apply/SKILL.md` 與 `.agents/skills/cash-apply/SKILL.md` 檔案
+- **THEN** cash-apply skill 檔案不含 `<!-- SIGNALS-READ-STEP -->` sentinel
+- **AND** cash-apply skill 檔案在其受治理的 signal 寫入區段中確實含有 `<!-- SIGNALS-WRITE-STEP -->` sentinel
 
-- **WHEN** a re-run's first round completes, a seeded bucket-1 member is not re-reported by the round's reviewers, and its per-member verdict is `unresolved` (or no resolving fix was recorded for it in the prior run)
-- **THEN** the cumulative blocking set still contains that member
-- **AND** the round's decision is not `passed`
+#### Scenario: cash-propose 同時包含讀取與寫入步驟
 
-#### Scenario: Unresolved blocking finding cannot be silently passed
+- **WHEN** 檢查 canonical 的 `.claude/skills/cash-propose/SKILL.md` 與 `.agents/skills/cash-propose/SKILL.md` 檔案
+- **THEN** 兩個 cash-propose skill 檔案皆含有 `<!-- SIGNALS-READ-STEP -->` 與 `<!-- SIGNALS-WRITE-STEP -->` sentinels
+- **AND** 兩個檔案皆不帶有生成輸出中繼資料或 do-not-edit 標記
 
-- **WHEN** a prior round's blocking finding has only a grader-protection note and no resolving fix, and the current round's reviewer does not re-report it
-- **THEN** the cumulative blocking set still contains that finding
-- **AND** the current round's decision is not `passed`
 
-#### Scenario: Fully grader-protected blocking set short-circuits to abort
 
-- **WHEN** every member of the cumulative blocking set is withheld under grader protection and no consented accepted-risks exit is obtainable
-- **THEN** the main agent does not spawn further reviewer rounds
-- **AND** the loop ends immediately with `decision: aborted` and the abort triage
+<!-- @trace
+source: fork-spectra-skills-to-cash
+updated: 2026-07-18
+code:
+  - scripts/spectra-plus/template/impact-granularity-block.md
+  - .agents/skills/spectra-propose-plus/SKILL.md
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-ingest/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-drift.diff
+  - scripts/spectra-plus/template/review-loop-block.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
+  - .agents/skills/spectra-apply-plus/SKILL.md
+  - scripts/spectra-plus/template/apply-response-language-block.md
+  - install-cash-skills.fish
+  - uninstall-spectra-plus-repair.fish
+  - scripts/cash-skills/variant-parity/cash-verify.diff
+  - scripts/spectra-plus/template/apply-notes-block.md
+  - .agents/skills/spectra-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - .agents/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - scripts/spectra-plus/template/no-park-end-block.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - AGENTS.md
+  - scripts/cash-skills/variant-parity/cash-audit.diff
+  - scripts/spectra-plus/template/artifact-language-block.md
+  - CASH-SKILLS.md
+  - scripts/spectra-plus/repair-all.fish
+  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-analyze/SKILL.md
+  - SPECTRA-PLUS.md
+  - .agents/skills/cash-audit/SKILL.md
+  - scripts/spectra-plus/template/signals-read-block.md
+  - scripts/spectra-plus/template/surgical-simplicity-block.md
+  - .agents/skills/cash-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ask.diff
+  - scripts/spectra-plus/generate.fish
+  - .agents/skills/cash-drift/SKILL.md
+  - install-spectra-plus.fish
+  - scripts/cash-skills/variant-parity/cash-analyze.diff
+tests:
+  - scripts/spectra-plus/tests/auto-restore-checks.fish
+  - scripts/spectra-plus/tests/repair-all-checks.fish
+  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
+  - scripts/spectra-plus/tests/generator-checks.fish
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
 
-#### Scenario: Divergent dispositions merge conservatively
+---
+### Requirement: 分級收斂與 micro 驗證輪
 
-- **WHEN** findings deduplicated by `location + summary` carry divergent `disposition` values
-- **THEN** the merged finding takes the blocking disposition, with `unresolved-prior` or `fix-introduced` winning over `new`
+系統 SHALL 依 finding 的 layer 為審查迴圈收斂分級。每個 reviewer finding MUST 帶有 `layer` 欄位，其值恰為 `design` 或 `text` 之一。一個 finding MUST 僅在下列情況才被分類為 `text`：它涉及跨 artifact 一致性（計數、識別字拼寫、措辭或章節同步）AND 修正它不會改變任何設計決策或行為敘述；其他每個 finding MUST 被分類為 `design`。當 reviewer 無法在兩個值之間決定時，它 MUST 將該 finding 分類為 `design`。在套用信心過濾器時，主 agent MUST 重新檢查每個被分類為 `text` 的 finding，且當修正可能觸及行為或設計敘述時 MUST 將其重新分類為 `design`；主 agent MUST NOT 將 `design` finding 重新分類為 `text`。當 full 輪的 reviewers 各自獨立提出同一 finding（以 `location + summary` 去重）但 `layer` 值不同時，合併後的 finding MUST 取 `layer == design`。`layer` 欄位 MUST NOT 參與輪型別推導。
 
-#### Scenario: Disposition correction leaves a trace
+迴圈 SHALL 執行兩種輪型別：full 輪與 micro 輪（差異驗證輪）。一次迴圈執行的第一輪 MUST 是 full 輪。當某一輪的決策為 `next_round` 時，主 agent MUST 僅從下一輪在當前迴圈執行中的位置以機械方式推導其型別：當且僅當下一輪是本次執行的第四輪時，它才是 full 輪；否則下一輪是 micro 輪。連續的 micro 輪是有效的。修改行為的修正動作 MUST NOT 使下一輪的型別升級；第四輪 checkpoint 是本次執行第一輪之後唯一的完整重新掃描。micro 輪 MUST 計入 6 輪上限，且 MUST 如同其他輪一樣產生 round 檔案。
 
-- **WHEN** the main agent corrects a reviewer's `disposition` tag from `fix-introduced` to `new`
-- **THEN** that round file's `## Fix Actions` records the finding, the original tag, the corrected tag, and the evidence
-- **AND** the completion output lists the correction because it changed a blocking disposition to a non-blocking one
+除了未 seed 執行的第一輪之外，一輪中的每位 reviewer（micro 輪中的 Reviewer V；第四輪 checkpoint 或已 seed 重跑第一輪中的 Reviewer A 與 Reviewer B）MUST 為每個 `Critical` 或 `Warning` finding 標上 `disposition` 欄位，其值恰為下列之一：`unresolved-prior`——該 finding 符合本迴圈先前某輪的 blocking finding（或在重跑中，符合依 `Abort 後的 triage` requirement 自前次執行帶入的 bucket-1 finding），無論是否曾為其記錄修正：再次被回報本身就是任何已記錄修正未解決它的證據；`fix-introduced`——該 finding 經由 finding 中攜帶的明確 fix-action 參照，被歸因於本迴圈（或在已 seed 重跑中，前次執行）`## Fix Actions` 區段所記錄的一項或多項修改；這些輪的每位 reviewer——包括 Reviewer V 與 cash-propose 的 reviewers——在標記 `fix-introduced` 時 MUST 附上該參照；或 `new`——該 finding 不符合任何先前的 blocking finding；僅符合先前非 blocking triage 註記的 finding 也標為 `new` 並維持非 blocking，不產生重複的 triage 註記或 signal；其依 `審查輪的行動義務` requirement 記錄的動作是一行指名原輪 triage 註記的交叉參照註記，該註記既不是重複的 triage 註記也不是新的 signal。disposition 比對以相同 artifact 或檔案加上相同缺陷機制運作；記錄的行號範圍僅供參考，範圍位移不會破壞比對。為了讓 dispositions 可被評估，主 agent MUST 在本次執行第一輪之後每一輪的 reviewer 情境中，提供本迴圈每個先前的 round 檔案（在已 seed 重跑中，包括前次執行的 round 檔案或其摘錄）AND 當前累積 blocking 集合成員清單；當累積的 round 檔案超出實際可用的情境大小時，主 agent MUST 改為提供每輪摘錄，內含各輪的存活 findings 與完整的 `## Fix Actions` 內容，且 MUST 在當前輪的 `## Fix Actions` 記錄一行註記，指名以摘錄提供的輪次。主 agent MUST 對照先前的 round 檔案驗證每個 disposition 標記，且 MUST 更正不成立的標記；對每個標為 `new` 的 finding，主 agent MUST 額外檢查其位置是否曾被本迴圈——以及在已 seed 重跑中，前次執行——記錄的修正動作修改過，且當缺陷源自那些修改時，將標記更正為 `fix-introduced` 並在更正紀錄中提供 fix-action 參照；每次更正 MUST 記錄在該輪檔案的 `## Fix Actions` 中，指名該 finding、reviewer 的原始標記、更正後的標記與證據，且每次將 blocking disposition 改為非 blocking 的更正 MUST 列在完成輸出中。當以 `location + summary` 去重的 findings 帶有分歧的 `disposition` 值時，合併後的 finding MUST 取 blocking 的 disposition（`unresolved-prior` 或 `fix-introduced` 勝過 `new`）。已完成輪的 round 檔案在進行中的迴圈期間不可變：修正紀錄與 triage 註記 MUST 只寫在其發生的那一輪，且主 agent MUST NOT 回頭編輯先前的 round 檔案。
 
-#### Scenario: Completed round files are immutable during the loop
+當且僅當一個存活的 `Critical` 或 `Warning` finding 經驗證的 disposition 為 `unresolved-prior` 或 `fix-introduced` 時，它才是 blocking。在本迴圈中最近一次先前狀態為非 blocking triage 註記的 finding 維持非 blocking，且 MUST NOT 重新進入 blocking 集合，僅有一個例外：當後續證據將該 finding 歸因於已記錄的修正動作時，它經由留有紀錄的 disposition 更正以 `fix-introduced` 重新進入。其他每個 disposition 為 `new` 的存活 finding 都是非 blocking：主 agent MUST 將它記錄為該輪檔案 `## Fix Actions` 區段中的 triage 註記、MUST 將它納入 signals 寫入步驟的目標集合，且 MUST 將它列在完成輸出中；對於非 blocking 的 `Critical` finding，完成輸出 MUST 額外建議建立後續的 change 提案。非 blocking findings MUST NOT 導致 `next_round` 決策。
 
-- **WHEN** a fix action could shrink the cumulative blocking set by inserting a fix record or triage note into a prior round's file
-- **THEN** the main agent does not edit the prior round file
-- **AND** fix records and triage notes are written only in the round in which they occur
+主 agent MUST 額外維護本次執行的累積 blocking 集合：本次執行的每個 blocking finding 在被發現時進入該集合，即使沒有 reviewer 再次回報它，仍計入其後每一輪的決策，且只能經由恰好兩種移除事件之一離開該集合：(a) resolved——已為其記錄解決性修正 AND 後續某輪的 reviewer 驗證了該解決（該 finding 未被再次回報，且該驗證在修正位置確認了修正）；Reviewer V、第四輪 checkpoint 的 reviewers 與已 seed 重跑第一輪的 reviewers MUST 各自對每位成員回傳明確的 resolved/unresolved 裁定，且當裁定分歧時，任何 `unresolved` 裁定都使該成員留在集合中；每次 exit-(a) 移除 MUST 記錄在進行移除那一輪的 `## Fix Actions` 中，指名該成員、解決性修正參照與進行驗證的 reviewer；或 (b) accepted——該 finding 在相同 artifact 或檔案以相同缺陷機制，符合依 `接受風險 ledger` requirement 經同意的 accepted-risks 項目；主 agent MUST 每輪根據 accepted-risks ledger 重新評估該集合，且 MUST 將每次此類移除記錄為該輪檔案 `## Fix Actions` 中的 downgrade trace。受 grader 保護而被保留的成員沒有迴圈內的自主移除路徑——修正是被禁止的，只有經同意的 accepted-risks 出口 (b) 適用於它們。當累積 blocking 集合的每位成員都受 grader 保護而被保留且無法取得經同意的出口時，主 agent MUST NOT 再產生 reviewer 輪，且 MUST 以 `decision: aborted` 與 abort triage 結束迴圈；當此條件在某輪的修正階段、機械決策已推導之後才首次成立時，當前尚未定稿的輪檔案記錄 `decision: aborted` 與 abort triage，覆蓋原推導出的 `next_round`。除了未 seed 執行的第一輪之外，當且僅當信心過濾後累積 blocking 集合不含任何 `Critical` 也不含任何 `Warning` finding 時，一輪才通過。本次執行的第一輪保留未分割的通過條件：第一輪中每個存活的 `Critical` 或 `Warning` finding 都是 blocking。在累積 blocking 集合依 `Abort 後的 triage` requirement 被 seed 的重跑中，該次執行的第一輪 MUST 改用累積 blocking 集合的通過條件，且其 reviewers MUST 對照前次執行的 round 檔案標記 dispositions（最終 round 檔案中的 bucket-1 triage 列舉被 seed 的成員）。
 
-#### Scenario: Micro round with an empty cumulative blocking set passes the loop
+micro 輪 MUST 恰好產生一位全新的驗證 reviewer sub-agent（`Reviewer V — Verification`），以取代兩位 full 輪 reviewers。Reviewer V MUST 收到以下情境：artifact 路徑（cash-apply 另加變更檔案清單）、本迴圈每個先前的 round 檔案（或上文定義的摘錄後備方案）、當前累積 blocking 集合成員清單、存在時的 accepted-risks ledger，以及與 full 輪 reviewers 相同的相關 `open` signals 情境。Reviewer V 的範圍 MUST 限於：累積 blocking 集合的每位成員是否已解決（無論是否曾為其記錄修正）——對每位成員回傳明確的 resolved/unresolved 裁定、修正傳播是否完整（每個被修正觸及的概念的每次出現，皆在所有 artifacts 之間——cash-apply 另含變更檔案——同步），以及修正是否引入了新缺陷。在 cash-apply 的 micro 輪中，Reviewer V MUST 額外執行 Implementation Notes Protocol 為 Reviewer A 定義的每輪 `implementation-notes.md` 閱讀義務，包括其檔案不存在與 `open-question` 嚴重度規則。Reviewer V 的 findings MUST 帶有與 full 輪 findings 相同的欄位（包括 `layer`、`confidence` 與 `disposition`），且 MUST 通過相同的信心過濾器。若 micro 輪過濾後累積 blocking 集合為空，決策為 `passed`；若仍有任何 blocking `Critical` 或 `Warning`，決策為 `next_round`，且下一輪的型別依本 requirement 從其在本次執行中的位置推導，並受既有 6 輪上限約束（未滿足通過條件的第六輪記錄 `decision: aborted`）。
 
-- **WHEN** a micro round completes and the cumulative blocking set contains no `Critical` and no `Warning` finding after the confidence filter
-- **THEN** the round file records `decision: passed` and `round_type: micro`
-- **AND** the loop stops
+#### Scenario: 第一輪之後的一輪預設為 micro 輪
 
-#### Scenario: cash-apply micro round reads implementation notes
+- **WHEN** 本次執行的第一輪以 `decision: next_round` 完成
+- **THEN** 第二輪被推導為 micro 輪
+- **AND** 第二輪恰好產生一位 `Reviewer V` sub-agent
 
-- **WHEN** an cash-apply micro round begins
-- **THEN** Reviewer V reads `openspec/changes/<change>/implementation-notes.md` per the Implementation Notes Protocol
-- **AND** a missing file yields a `Critical` finding
-- **AND** an unresolved `open-question` entry yields a `Warning` finding
+#### Scenario: 第四輪 checkpoint 是 full 輪
 
-#### Scenario: Divergent layer values merge conservatively
+- **WHEN** 本次執行的第三輪以 `decision: next_round` 完成
+- **THEN** 第四輪被推導為 full 輪
+- **AND** 第四輪平行產生 `Reviewer A` 與 `Reviewer B`
+- **AND** 兩位 reviewers 的情境中都收到本迴圈每個先前的 round 檔案（或既定的摘錄後備方案）與當前累積 blocking 集合成員清單
+- **AND** 兩位 reviewers 額外如同 Reviewer V 一樣，對累積 blocking 集合回傳同樣的每成員 resolved/unresolved 裁定，使 exit-(a) 移除在 checkpoint 仍然可用
+- **AND** 當兩位 reviewers 對某成員的裁定分歧時，任何 `unresolved` 裁定都使該成員留在集合中
 
-- **WHEN** both full-round reviewers independently raise the same finding (deduplicated by `location + summary`) and their `layer` classifications differ
-- **THEN** the merged finding takes `layer: design`
+#### Scenario: checkpoint 之後的輪回到 micro
 
-#### Scenario: Uncertain layer defaults to design
+- **WHEN** 本次執行的第四輪以 `decision: next_round` 完成
+- **THEN** 第五輪被推導為 micro 輪
+- **AND** 連續的 micro 輪（第五與第六輪）是有效的
 
-- **WHEN** a reviewer cannot decide whether fixing a finding changes a design decision or behavioral statement
-- **THEN** the reviewer classifies the finding with `layer: design`
+#### Scenario: 修改行為的修正不使輪型別升級
 
-#### Scenario: Main agent reclassification is upgrade-only
+- **WHEN** 某輪決策之後的修正動作修改了實作行為或設計敘述
+- **THEN** 下一輪的型別仍僅從其在本次執行中的位置推導
+- **AND** 不會重新推導為 full 輪
 
-- **WHEN** the main agent applies the confidence filter and judges that fixing a finding classified `text` could touch behavior or a design statement
-- **THEN** the main agent reclassifies that finding to `design`
-- **AND** the main agent never reclassifies a `design` finding to `text`
+#### Scenario: 新 finding 進入 triage 而非 blocking
 
-##### Example: next-round-type derivation by position within the run
+- **WHEN** 本次執行第一輪之後的一輪浮現一個經驗證 disposition 為 `new` 的存活 `Critical` finding
+- **THEN** 主 agent 將它記錄為該輪檔案 `## Fix Actions` 區段中的 triage 註記
+- **AND** 它進入 signals 寫入步驟目標集合與完成輸出，並附帶後續 change 提案的建議
+- **AND** 它不參與該輪決策
 
-| Current round position | Next round position | Next round type |
+#### Scenario: Fix-introduced 回歸阻擋通過
+
+- **WHEN** 本次執行第一輪之後的一輪浮現一個存活 `Critical` finding，其 `introduced_by` 參照本迴圈先前 `## Fix Actions` 區段記錄的修改
+- **THEN** 該 finding 的 disposition 為 `fix-introduced` 且為 blocking
+- **AND** 該輪檔案記錄 `decision: next_round`
+
+#### Scenario: 無效的修正使 finding 維持 blocking
+
+- **WHEN** 已為某 blocking finding 記錄解決性修正，而後續一輪在相同位置以相同缺陷機制再次回報同一 finding
+- **THEN** 該 finding 的 disposition 為 `unresolved-prior` 且維持 blocking
+- **AND** 它不因該已記錄修正而被劃入 `new` bucket
+
+#### Scenario: 累積集合成員僅經驗證的解決或接受而移除
+
+- **WHEN** 已為累積 blocking 集合成員記錄解決性修正，且後續輪的 reviewer 驗證該解決並未再次回報它
+- **THEN** 該成員自累積 blocking 集合移除
+
+- **WHEN** 累積 blocking 集合成員在相同檔案以相同缺陷機制符合經同意的 accepted-risks 項目
+- **THEN** 該成員自累積 blocking 集合移除
+- **AND** 該移除被記錄為該輪檔案 `## Fix Actions` 中的 downgrade trace
+
+#### Scenario: 已 triage 的非 blocking finding 不重新進入 blocking 集合
+
+- **WHEN** 後續一輪在相同位置以相同缺陷機制再次回報一個在本迴圈中最近一次先前狀態為非 blocking triage 註記的 finding，且沒有將其歸因於已記錄修正動作的新證據
+- **THEN** 該 finding 維持非 blocking
+- **AND** 它不導致 `next_round` 決策
+
+#### Scenario: 被 seed 的成員阻擋重跑的第一輪
+
+- **WHEN** 重跑的第一輪完成，某個被 seed 的 bucket-1 成員未被該輪 reviewers 再次回報，且其每成員裁定為 `unresolved`（或前次執行中未曾為其記錄解決性修正）
+- **THEN** 累積 blocking 集合仍包含該成員
+- **AND** 該輪的決策不是 `passed`
+
+#### Scenario: 未解決的 blocking finding 無法被靜默放行
+
+- **WHEN** 先前輪的 blocking finding 僅有 grader 保護註記而沒有解決性修正，且當前輪的 reviewer 未再次回報它
+- **THEN** 累積 blocking 集合仍包含該 finding
+- **AND** 當前輪的決策不是 `passed`
+
+#### Scenario: 完全受 grader 保護的 blocking 集合短路至 abort
+
+- **WHEN** 累積 blocking 集合的每位成員都受 grader 保護而被保留，且無法取得經同意的 accepted-risks 出口
+- **THEN** 主 agent 不再產生 reviewer 輪
+- **AND** 迴圈立即以 `decision: aborted` 與 abort triage 結束
+
+#### Scenario: 分歧的 dispositions 保守合併
+
+- **WHEN** 以 `location + summary` 去重的 findings 帶有分歧的 `disposition` 值
+- **THEN** 合併後的 finding 取 blocking 的 disposition，`unresolved-prior` 或 `fix-introduced` 勝過 `new`
+
+#### Scenario: Disposition 更正留下紀錄
+
+- **WHEN** 主 agent 將某位 reviewer 的 `disposition` 標記從 `fix-introduced` 更正為 `new`
+- **THEN** 該輪檔案的 `## Fix Actions` 記錄該 finding、原始標記、更正後標記與證據
+- **AND** 完成輸出列出該更正，因為它將 blocking disposition 改為非 blocking
+
+#### Scenario: 已完成的 round 檔案在迴圈期間不可變
+
+- **WHEN** 某個修正動作可藉由將修正紀錄或 triage 註記插入先前輪的檔案來縮小累積 blocking 集合
+- **THEN** 主 agent 不編輯先前輪的檔案
+- **AND** 修正紀錄與 triage 註記只寫在其發生的那一輪
+
+#### Scenario: 累積 blocking 集合為空的 micro 輪使迴圈通過
+
+- **WHEN** 一個 micro 輪完成，且信心過濾後累積 blocking 集合不含任何 `Critical` 也不含任何 `Warning` finding
+- **THEN** 該輪檔案記錄 `decision: passed` 與 `round_type: micro`
+- **AND** 迴圈停止
+
+#### Scenario: cash-apply micro 輪閱讀 implementation notes
+
+- **WHEN** 一個 cash-apply micro 輪開始
+- **THEN** Reviewer V 依 Implementation Notes Protocol 閱讀 `openspec/changes/<change>/implementation-notes.md`
+- **AND** 檔案缺失產生一個 `Critical` finding
+- **AND** 未解決的 `open-question` 項目產生一個 `Warning` finding
+
+#### Scenario: 分歧的 layer 值保守合併
+
+- **WHEN** 兩位 full 輪 reviewers 各自獨立提出同一 finding（以 `location + summary` 去重）且其 `layer` 分類不同
+- **THEN** 合併後的 finding 取 `layer: design`
+
+#### Scenario: 不確定的 layer 預設為 design
+
+- **WHEN** reviewer 無法判斷修正某 finding 是否會改變設計決策或行為敘述
+- **THEN** 該 reviewer 將該 finding 分類為 `layer: design`
+
+#### Scenario: 主 agent 的重新分類僅能升級
+
+- **WHEN** 主 agent 套用信心過濾器並判斷修正某個被分類為 `text` 的 finding 可能觸及行為或設計敘述
+- **THEN** 主 agent 將該 finding 重新分類為 `design`
+- **AND** 主 agent 從不將 `design` finding 重新分類為 `text`
+
+##### Example: 依本次執行中位置推導下一輪型別
+
+| 目前回合位置 | 下一輪位置 | 下一輪型別 |
 | ---------------------- | ------------------- | --------------- |
 | 1st (full)  | 2nd | micro |
 | 2nd (micro) | 3rd | micro |
@@ -2097,51 +2097,51 @@ tests:
 -->
 
 ---
-### Requirement: Review loop grader immutability
+### Requirement: 審查迴圈的 grader 不可變性
 
-The canonical Claude and Codex `cash-propose` and `cash-apply` skill files SHALL each contain a grader-immutability rule marked by the unique sentinel comment `<!-- GRADER-IMMUTABILITY -->`. During a cash review loop, the main agent MUST NOT modify — whether as a fix action or as a mechanical self-check fix — any file in the protected grader path set: `.claude/skills/cash-propose/SKILL.md`, `.claude/skills/cash-apply/SKILL.md`, `.agents/skills/cash-propose/SKILL.md`, `.agents/skills/cash-apply/SKILL.md`, `.spectra.yaml`, `scripts/cash-skills/tests/skill-checks.fish`, and master spec files under `openspec/specs/` — unless that file is explicitly named by the current change's structured scope declarations. Structured scope declarations are limited to project-root-relative paths in the proposal `## Impact` affected-code entries and project-root-relative paths in `tasks.md` that are explicitly identified as delivery targets. A path that appears only in a verification command, a rule description, an example, a review finding, reviewer context, or other incidental prose MUST NOT count as a structured scope declaration. Naming a directory path in a structured scope declaration names all files under it. A loop already in progress continues under the canonical instruction version it started with; a scoped edit to a cash skill takes effect from the next loop run. In addition, the main agent MUST NOT add, modify, or remove the `check` frontmatter field of any signal under `openspec/signals/`, regardless of declared scope — the `check` field is grader input for the pre-round mechanical self-check. When a surviving finding's resolution would require modifying a protected file outside that structured scope, or touching a signal's `check` field, the fix action MUST NOT perform the modification, MUST record an unfixed-due-to-grader-protection note naming the file and the finding in `## Fix Actions`, and the finding remains surviving for the round decision. The cash workflow's completion output MUST list every unfixed-due-to-grader-protection note recorded in any round of the loop, regardless of the final decision: for `cash-propose` with `decision: passed`, the notes MUST be listed in the final summary; for `cash-apply` with `decision: passed`, the notes MUST be listed in the gate-complete final response; for any `decision: aborted`, the notes MUST be listed in the unresolved-findings warning. A protected file modified under the structured-scope exception is treated like any other fix-action modification and does not change the next round's type, which is derived from its position within the run alone per the `Graded convergence and micro-verification round` requirement. This rule MUST apply to both cash workflows in both variants.
+canonical 的 Claude 與 Codex `cash-propose` 與 `cash-apply` skill 檔案 SHALL 各自包含一條以唯一的 sentinel 註解 `<!-- GRADER-IMMUTABILITY -->` 標記的 grader 不可變性規則。在 cash 審查迴圈期間，主 agent MUST NOT 修改——無論是作為修正動作或作為機械自我檢查的修正——受保護 grader 路徑集合中的任何檔案：`.claude/skills/cash-propose/SKILL.md`、`.claude/skills/cash-apply/SKILL.md`、`.agents/skills/cash-propose/SKILL.md`、`.agents/skills/cash-apply/SKILL.md`、`.spectra.yaml`、`scripts/cash-skills/tests/skill-checks.fish`，以及 `openspec/specs/` 之下的 master spec 檔案——除非該檔案被當前 change 的結構化範圍宣告明確指名。結構化範圍宣告僅限於 proposal `## Impact` affected-code 條目中的專案根相對路徑，以及 `tasks.md` 中被明確標識為交付目標的專案根相對路徑。僅出現在驗證指令、規則描述、範例、審查 finding、reviewer 情境或其他附帶性文字中的路徑 MUST NOT 計為結構化範圍宣告。在結構化範圍宣告中指名一個目錄路徑即指名其下的所有檔案。已在進行中的迴圈依其開始時的 canonical 指令版本繼續；對 cash skill 的範圍內編輯自下一次迴圈執行起生效。此外，無論宣告範圍為何，主 agent MUST NOT 新增、修改或移除 `openspec/signals/` 之下任何 signal 的 `check` frontmatter 欄位——`check` 欄位是每輪前機械自我檢查的 grader 輸入。當解決一個存活 finding 需要修改該結構化範圍之外的受保護檔案，或觸及 signal 的 `check` 欄位時，修正動作 MUST NOT 執行該修改、MUST 在 `## Fix Actions` 記錄一則 unfixed-due-to-grader-protection 註記並指名該檔案與該 finding，且該 finding 就該輪決策而言維持存活。無論最終決策為何，cash workflow 的完成輸出 MUST 列出迴圈任何一輪所記錄的每則 unfixed-due-to-grader-protection 註記：對 `decision: passed` 的 `cash-propose`，這些註記 MUST 列在最終摘要中；對 `decision: passed` 的 `cash-apply`，這些註記 MUST 列在 gate-complete 最終回應中；對任何 `decision: aborted`，這些註記 MUST 列在未解決 findings 警告中。在結構化範圍例外之下被修改的受保護檔案，視同其他任何修正動作的修改，且不改變下一輪的型別——依 `分級收斂與 micro 驗證輪` requirement，型別僅從其在本次執行中的位置推導。此規則 MUST 適用於兩個變體中的兩個 cash workflows。
 
-#### Scenario: Out-of-scope grader modification is refused
+#### Scenario: 範圍外的 grader 修改被拒絕
 
-- **WHEN** a review-loop finding's recommendation requires editing `.agents/skills/cash-propose/SKILL.md` and the current change's structured scope declarations do not name that file
-- **THEN** the fix action does not modify `.agents/skills/cash-propose/SKILL.md`
-- **AND** the round file's `## Fix Actions` records an unfixed-due-to-grader-protection note naming the file and the finding
-- **AND** the finding still counts toward the round decision
+- **WHEN** 某個審查迴圈 finding 的建議需要編輯 `.agents/skills/cash-propose/SKILL.md`，而當前 change 的結構化範圍宣告未指名該檔案
+- **THEN** 修正動作不修改 `.agents/skills/cash-propose/SKILL.md`
+- **AND** 該輪檔案的 `## Fix Actions` 記錄一則 unfixed-due-to-grader-protection 註記，指名該檔案與該 finding
+- **AND** 該 finding 仍計入該輪決策
 
-#### Scenario: Incidental protected path text does not unlock a grader file
+#### Scenario: 附帶性的受保護路徑文字不解鎖 grader 檔案
 
-- **WHEN** `tasks.md` mentions `openspec/specs/` only while describing the grader-protection rule or a verification step
-- **THEN** that mention does not count as a structured scope declaration
-- **AND** the main agent MUST NOT modify files under `openspec/specs/` through the grader-immutability exception
+- **WHEN** `tasks.md` 僅在描述 grader 保護規則或驗證步驟時提及 `openspec/specs/`
+- **THEN** 該提及不計為結構化範圍宣告
+- **AND** 主 agent MUST NOT 經由 grader 不可變性例外修改 `openspec/specs/` 之下的檔案
 
-#### Scenario: Signal check field is never modified by a fix action
+#### Scenario: Signal 的 check 欄位從不被修正動作修改
 
-- **WHEN** a pre-round self-check `check` command fails and a fix action could make it pass by weakening or removing that signal's `check` field
-- **THEN** the fix action does not add, modify, or remove any signal's `check` field
-- **AND** the underlying defect is fixed in the change's own artifacts or files instead
+- **WHEN** 某個每輪前自我檢查的 `check` 指令失敗，且修正動作可藉由弱化或移除該 signal 的 `check` 欄位使其通過
+- **THEN** 修正動作不新增、修改也不移除任何 signal 的 `check` 欄位
+- **AND** 底層缺陷改在該 change 自身的 artifacts 或檔案中修正
 
-#### Scenario: Declared-scope grader file stays modifiable
+#### Scenario: 已宣告範圍內的 grader 檔案維持可修改
 
-- **WHEN** the current change's structured scope declarations explicitly name `.agents/skills/cash-propose/SKILL.md` and a fix action modifies that file
-- **THEN** the canonical skill modification is permitted
-- **AND** the modification does not change the next round's type, which is derived from its position within the run alone
+- **WHEN** 當前 change 的結構化範圍宣告明確指名 `.agents/skills/cash-propose/SKILL.md`，且某個修正動作修改該檔案
+- **THEN** 該 canonical skill 修改是被允許的
+- **AND** 該修改不改變下一輪的型別，型別僅從其在本次執行中的位置推導
 
-#### Scenario: Completion output anchors grader-protection records
+#### Scenario: 完成輸出錨定 grader 保護紀錄
 
-- **WHEN** any round of a loop recorded an unfixed-due-to-grader-protection note and the loop later ends with `decision: passed` for `cash-propose`
-- **THEN** the final summary lists every such note from every round of the loop
+- **WHEN** 迴圈的任何一輪記錄了 unfixed-due-to-grader-protection 註記，且迴圈其後以 `cash-propose` 的 `decision: passed` 結束
+- **THEN** 最終摘要列出迴圈每一輪的每則此類註記
 
-- **WHEN** any round of a loop recorded an unfixed-due-to-grader-protection note and the loop later ends with `decision: passed` for `cash-apply`
-- **THEN** the gate-complete final response lists every such note from every round of the loop
+- **WHEN** 迴圈的任何一輪記錄了 unfixed-due-to-grader-protection 註記，且迴圈其後以 `cash-apply` 的 `decision: passed` 結束
+- **THEN** gate-complete 最終回應列出迴圈每一輪的每則此類註記
 
-- **WHEN** any round of a loop recorded an unfixed-due-to-grader-protection note and the loop ends with `decision: aborted`
-- **THEN** the unresolved-findings warning lists every such note from every round of the loop
+- **WHEN** 迴圈的任何一輪記錄了 unfixed-due-to-grader-protection 註記，且迴圈以 `decision: aborted` 結束
+- **THEN** 未解決 findings 警告列出迴圈每一輪的每則此類註記
 
-#### Scenario: Canonical skills carry the grader-immutability sentinel
+#### Scenario: Canonical skills 帶有 grader 不可變性 sentinel
 
-- **WHEN** the four canonical cash proposal and apply skill files are inspected
-- **THEN** each file contains the `<!-- GRADER-IMMUTABILITY -->` sentinel and the protected grader path set
-- **AND** `scripts/cash-skills/tests/skill-checks.fish` asserts the sentinel's presence
+- **WHEN** 檢視四個 canonical 的 cash proposal 與 apply skill 檔案
+- **THEN** 每個檔案皆含有 `<!-- GRADER-IMMUTABILITY -->` sentinel 與受保護 grader 路徑集合
+- **AND** `scripts/cash-skills/tests/skill-checks.fish` 斷言該 sentinel 的存在
 
 
 
@@ -2198,17 +2198,17 @@ tests:
 -->
 
 ---
-### Requirement: Review loop ledger output
+### Requirement: 審查迴圈的 ledger 輸出
 
-The canonical Claude and Codex `cash-propose` and `cash-apply` skill files SHALL each contain a ledger step marked by the unique sentinel comment `<!-- LOOP-LEDGER-STEP -->`. For each round, the main agent MUST append exactly one row to `openspec/changes/<change>/reviews/loop-ledger.tsv` at a deterministic point: for a `next_round` round, immediately before spawning the next round's reviewers — after every action that can write to the round file's `## Fix Actions` has completed, including fix actions, post-fix self-check records, and validation re-run fix records; for the final round (`passed` or `aborted`), at loop end before the signals write step. When the file does not exist, the main agent MUST create it with a single header row before appending; the header row MUST contain exactly the seven column names in order, tab-separated: `skill`, `round`, `round_type`, `criticals`, `warnings`, `decision`, `fixed_files`. Each row MUST contain, tab-separated and in this order: `skill` (`propose` or `apply`), `round` (1-based integer matching the round file number), `round_type` (`full` or `micro`), `criticals` (the post-filter cumulative blocking set's Critical count — in the run's first round every surviving Critical is blocking, and a seeded re-run's first round uses the cumulative blocking set; `0` when the cumulative blocking set is empty after filtering, including rounds aborted by sub-agent failure), `warnings` (the post-filter cumulative blocking set's Warning count, `0` likewise), `decision` (`passed`, `next_round`, or `aborted`), and `fixed_files` (the number of distinct files recorded as modified in that round's `## Fix Actions`, `0` when none are recorded; note lines such as fallback, triage, downgrade-trace, disposition-correction, or grader-protection notes do not count). The ledger is an append-only event log: rows from the propose loop, the apply loop, and any re-run loop after an abort accumulate chronologically in the same file, and `(skill, round)` is NOT a unique key — duplicate round numbers from historical re-runs are valid. Round files remain the authoritative record; on any inconsistency between a round file and the ledger, the round file governs. A ledger write failure MUST produce a printed warning and MUST NOT fail the cash workflow. This behavior MUST apply to both cash workflows in both variants.
+canonical 的 Claude 與 Codex `cash-propose` 與 `cash-apply` skill 檔案 SHALL 各自包含一個以唯一的 sentinel 註解 `<!-- LOOP-LEDGER-STEP -->` 標記的 ledger 步驟。對每一輪，主 agent MUST 在一個確定性的時間點向 `openspec/changes/<change>/reviews/loop-ledger.tsv` 追加恰好一列：對 `next_round` 輪，緊接在產生下一輪 reviewers 之前——於每個可能寫入該輪檔案 `## Fix Actions` 的動作（包括修正動作、修正後自我檢查紀錄與驗證重跑修正紀錄）都完成之後；對最終輪（`passed` 或 `aborted`），在迴圈結束時、signals 寫入步驟之前。當該檔案不存在時，主 agent MUST 在追加前以單一表頭列建立它；表頭列 MUST 恰好依序包含七個以 tab 分隔的欄名：`skill`、`round`、`round_type`、`criticals`、`warnings`、`decision`、`fixed_files`。每列 MUST 依此順序包含以 tab 分隔的：`skill`（`propose` 或 `apply`）、`round`（與 round 檔案編號相符的 1-based 整數）、`round_type`（`full` 或 `micro`）、`criticals`（過濾後累積 blocking 集合的 Critical 數——本次執行的第一輪中每個存活 Critical 都是 blocking，且已 seed 重跑的第一輪使用累積 blocking 集合；當過濾後累積 blocking 集合為空時為 `0`，包括因 sub-agent 失敗而 abort 的輪）、`warnings`（過濾後累積 blocking 集合的 Warning 數，同樣以 `0` 表示）、`decision`（`passed`、`next_round` 或 `aborted`）與 `fixed_files`（該輪 `## Fix Actions` 中記錄為已修改的相異檔案數，無記錄時為 `0`；fallback、triage、downgrade-trace、disposition 更正或 grader 保護等註記行不計入）。ledger 是 append-only 的事件日誌：propose 迴圈、apply 迴圈與 abort 後任何重跑迴圈的列依時序累積在同一檔案中，且 `(skill, round)` 不是唯一鍵——來自歷史重跑的重複輪編號是有效的。round 檔案仍是權威紀錄；當 round 檔案與 ledger 有任何不一致時，以 round 檔案為準。ledger 寫入失敗 MUST 產生一則印出的警告且 MUST NOT 使 cash workflow 失敗。此行為 MUST 同時適用於兩個變體中的兩個 cash workflows。
 
-#### Scenario: One ledger row per completed round of a loop run
+#### Scenario: 一次迴圈執行的每個完成輪恰好一列 ledger
 
-- **WHEN** a single cash review loop run completes N rounds for a change
-- **THEN** that run appends exactly N data rows to `openspec/changes/<change>/reviews/loop-ledger.tsv`
-- **AND** the header row exists exactly once at the top of the file
+- **WHEN** 單次 cash 審查迴圈執行為某個 change 完成了 N 輪
+- **THEN** 該次執行向 `openspec/changes/<change>/reviews/loop-ledger.tsv` 追加恰好 N 個資料列
+- **AND** 表頭列在檔案頂端恰好存在一次
 
-##### Example: three-round propose loop followed by a two-round apply loop
+##### Example: 三輪 propose 迴圈之後接著兩輪 apply 迴圈
 
 | skill | round | round_type | criticals | warnings | decision | fixed_files |
 | ----- | ----- | ---------- | --------- | -------- | -------- | ----------- |
@@ -2218,238 +2218,38 @@ The canonical Claude and Codex `cash-propose` and `cash-apply` skill files SHALL
 | apply | 1 | full | 0 | 1 | next_round | 2 |
 | apply | 2 | micro | 0 | 0 | passed | 0 |
 
-#### Scenario: Ledger is created with a header row
+#### Scenario: Ledger 以表頭列建立
 
-- **WHEN** round 1 of a loop completes and no `loop-ledger.tsv` exists for the change
-- **THEN** the main agent creates the file with one header row and one data row
+- **WHEN** 某迴圈的第 1 輪完成且該 change 不存在 `loop-ledger.tsv`
+- **THEN** 主 agent 以一個表頭列與一個資料列建立該檔案
 
-#### Scenario: Carryover findings keep the ledger self-explaining
+#### Scenario: 帶入的 findings 使 ledger 自我說明
 
-- **WHEN** a round's reviewers re-report nothing but the cumulative blocking set still contains one `Critical` finding
-- **THEN** that round's ledger row records `criticals` = 1 with `decision` = `next_round`
+- **WHEN** 某輪的 reviewers 未再回報任何內容，但累積 blocking 集合仍包含一個 `Critical` finding
+- **THEN** 該輪的 ledger 列記錄 `criticals` = 1 且 `decision` = `next_round`
 
-#### Scenario: Re-run after an aborted loop accumulates rows
+#### Scenario: Abort 後的迴圈重跑累積列
 
-- **WHEN** a loop ended with `decision: aborted` and a new loop run for the same skill later runs on the same change
-- **THEN** the new run's rows are appended after the existing rows
-- **AND** the earlier run's rows are not modified or deleted
+- **WHEN** 某迴圈以 `decision: aborted` 結束，且同一 skill 的新迴圈執行其後在同一 change 上執行
+- **THEN** 新執行的列被追加在既有列之後
+- **AND** 先前執行的列不被修改或刪除
 
-#### Scenario: Failure-aborted round records zero counts
+#### Scenario: 因失敗而 abort 的輪記錄零計數
 
-- **WHEN** a round is aborted because the same reviewer role failed twice, no post-filter findings exist, and the cumulative blocking set is empty
-- **THEN** that round's ledger row records `criticals` = 0 and `warnings` = 0 with `decision` = `aborted`
+- **WHEN** 某輪因同一 reviewer 角色失敗兩次而 abort、不存在過濾後 findings，且累積 blocking 集合為空
+- **THEN** 該輪的 ledger 列記錄 `criticals` = 0 與 `warnings` = 0，且 `decision` = `aborted`
 
-#### Scenario: Ledger write failure does not fail the workflow
+#### Scenario: Ledger 寫入失敗不使 workflow 失敗
 
-- **WHEN** appending to `loop-ledger.tsv` fails
-- **THEN** the main agent prints a warning
-- **AND** the cash workflow continues unchanged
+- **WHEN** 追加至 `loop-ledger.tsv` 失敗
+- **THEN** 主 agent 印出一則警告
+- **AND** cash workflow 不變地繼續
 
-#### Scenario: Canonical skills carry the ledger sentinel
+#### Scenario: Canonical skills 帶有 ledger sentinel
 
-- **WHEN** the four canonical cash proposal and apply skill files are inspected
-- **THEN** each file contains the `<!-- LOOP-LEDGER-STEP -->` sentinel
-- **AND** `scripts/cash-skills/tests/skill-checks.fish` asserts the sentinel's presence
-
-
-
-
-<!-- @trace
-source: fork-spectra-skills-to-cash
-updated: 2026-07-18
-code:
-  - scripts/spectra-plus/template/impact-granularity-block.md
-  - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/cash-archive/SKILL.md
-  - .agents/skills/cash-apply/SKILL.md
-  - .agents/skills/cash-verify/SKILL.md
-  - .agents/skills/cash-ingest/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-drift.diff
-  - scripts/spectra-plus/template/review-loop-block.md
-  - .agents/skills/cash-ask/SKILL.md
-  - .agents/skills/cash-debug/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
-  - scripts/spectra-plus/template/apply-response-language-block.md
-  - install-cash-skills.fish
-  - uninstall-spectra-plus-repair.fish
-  - scripts/cash-skills/variant-parity/cash-verify.diff
-  - scripts/spectra-plus/template/apply-notes-block.md
-  - .agents/skills/spectra-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-propose.diff
-  - .agents/skills/cash-propose/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ingest.diff
-  - scripts/spectra-plus/template/no-park-end-block.md
-  - .agents/skills/cash-discuss/SKILL.md
-  - AGENTS.md
-  - scripts/cash-skills/variant-parity/cash-audit.diff
-  - scripts/spectra-plus/template/artifact-language-block.md
-  - CASH-SKILLS.md
-  - scripts/spectra-plus/repair-all.fish
-  - scripts/spectra-plus/rules.yaml
-  - .agents/skills/cash-analyze/SKILL.md
-  - SPECTRA-PLUS.md
-  - .agents/skills/cash-audit/SKILL.md
-  - scripts/spectra-plus/template/signals-read-block.md
-  - scripts/spectra-plus/template/surgical-simplicity-block.md
-  - .agents/skills/cash-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ask.diff
-  - scripts/spectra-plus/generate.fish
-  - .agents/skills/cash-drift/SKILL.md
-  - install-spectra-plus.fish
-  - scripts/cash-skills/variant-parity/cash-analyze.diff
-tests:
-  - scripts/spectra-plus/tests/auto-restore-checks.fish
-  - scripts/spectra-plus/tests/repair-all-checks.fish
-  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
-  - scripts/spectra-plus/tests/generator-checks.fish
-  - scripts/cash-skills/tests/skill-checks.fish
--->
-
----
-### Requirement: Deterministic signal-derived self-checks
-
-The canonical Claude and Codex `cash-propose` and `cash-apply` skill files SHALL each define the "Signal-derived checks" item of the pre-round mechanical self-check to consume the optional signal `check` frontmatter field. For EVERY `open` signal whose frontmatter contains a `check` field — without applying best-effort relevance selection to these signals — the main agent MUST execute that command from the project root by passing the `check` value as the single command-string argument to `sh -c` (not by interpolating it into a quoted shell string). Exit code `0` means the check passed. Exit code `1` means the anti-pattern is present. The main agent MUST classify the failing check before deciding whether to fix it: it MUST inspect any project-root-relative paths printed by the check command and compare them with the current change's artifacts and, for cash-apply, modified source files. If at least one printed path is inside that artifact/source file set, the detected instance is in scope. If the command prints no usable project-root-relative path, or the output cannot be reliably mapped to a project-root-relative path, the main agent MUST fail closed and treat the detected instance as in scope unless the already-read repository state proves that the instance is pre-existing or that the required fix location is outside the change's structured scope. When the detected instance is in scope and the fix location is not blocked by an uncovered protected grader path, it is a self-check failure that MUST be fixed before spawning that round's reviewers, per the existing self-check rules. When the detected instance is pre-existing, or its fix lies outside the change's structured scope, or its fix lies inside a protected grader path that is not covered by the structured-scope exception, the main agent MUST NOT fix it, MUST record a one-line out-of-scope-check-failure note in that round's `## Fix Actions` when the round file is written, MUST include the failing check result in that round's reviewers' context, and MUST proceed to spawn the reviewers — a pre-existing anti-pattern never deadlocks the loop. Any other exit code (for example `2`, `126`, `127`) is an execution error: the main agent MUST fall back to the existing best-effort judgment for that signal and record a one-line fallback note in that round's `## Fix Actions` when the round file is written. Note lines (out-of-scope or fallback) coexist with the `None; pass condition met.` text on a passing round and do not count toward the ledger `fixed_files` value. For `open` signals without a `check` field, the existing best-effort behavior MUST remain unchanged. Executing a `check` command MUST NOT modify any file.
-
-#### Scenario: Signal with check field is executed deterministically
-
-- **WHEN** the pre-round mechanical self-check runs and an `open` signal's frontmatter contains `check`
-- **THEN** the main agent executes the `check` command from the project root by passing its value as the single argument to `sh -c`, regardless of relevance judgment
-- **AND** exit code `1` with the detected instance inside the change's own artifacts or modified files is treated as a self-check failure to fix before spawning the reviewers
-
-#### Scenario: Check output path inside the change is in scope
-
-- **WHEN** an `open` signal's `check` command exits `1`
-- **AND** the command output contains a project-root-relative path under `openspec/changes/<change>/`
-- **THEN** the main agent treats the failure as in scope for a cash-propose loop
-- **AND** fixes the failure before spawning reviewers unless the fix location is blocked by an uncovered protected grader path
-
-#### Scenario: Unlocatable check failure fails closed
-
-- **WHEN** an `open` signal's `check` command exits `1`
-- **AND** the command output contains no usable project-root-relative path
-- **AND** the already-read repository state does not prove that the instance is pre-existing or that the required fix location is outside the change's structured scope
-- **THEN** the main agent treats the failure as in scope
-- **AND** does not record it as an out-of-scope-check-failure note
-
-#### Scenario: Protected path branch applies only outside structured scope
-
-- **WHEN** an `open` signal's `check` command exits `1`
-- **AND** fixing the detected instance requires editing `.agents/skills/cash-propose/SKILL.md`
-- **AND** the current change's structured scope declarations explicitly name `.agents/skills/cash-propose/SKILL.md`
-- **THEN** the protected grader path does not trigger the out-of-scope-check-failure branch
-- **AND** the main agent fixes the failure before spawning reviewers
-
-#### Scenario: Out-of-scope check failure does not deadlock the loop
-
-- **WHEN** an `open` signal's `check` command exits `1` and the detected instance is pre-existing or its fix lies outside the change's structured scope or inside a protected grader path not covered by the structured-scope exception
-- **THEN** the main agent does not fix it, records a one-line out-of-scope-check-failure note in that round's `## Fix Actions` when the round file is written
-- **AND** includes the failing check result in that round's reviewers' context and proceeds to spawn the reviewers
-
-#### Scenario: Execution-error exit codes fall back to best-effort
-
-- **WHEN** an `open` signal's `check` command exits with a code other than `0` or `1`
-- **THEN** the main agent applies the existing best-effort judgment for that signal
-- **AND** records a one-line fallback note in that round's `## Fix Actions` when the round file is written
-- **AND** the note does not count toward the ledger `fixed_files` value
-
-#### Scenario: Signals without check keep best-effort behavior
-
-- **WHEN** an `open` signal has no `check` field
-- **THEN** the Signal-derived checks behavior for that signal is unchanged from the existing best-effort rule
-
-
-
-<!-- @trace
-source: fork-spectra-skills-to-cash
-updated: 2026-07-18
-code:
-  - scripts/spectra-plus/template/impact-granularity-block.md
-  - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/cash-archive/SKILL.md
-  - .agents/skills/cash-apply/SKILL.md
-  - .agents/skills/cash-verify/SKILL.md
-  - .agents/skills/cash-ingest/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-drift.diff
-  - scripts/spectra-plus/template/review-loop-block.md
-  - .agents/skills/cash-ask/SKILL.md
-  - .agents/skills/cash-debug/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
-  - scripts/spectra-plus/template/apply-response-language-block.md
-  - install-cash-skills.fish
-  - uninstall-spectra-plus-repair.fish
-  - scripts/cash-skills/variant-parity/cash-verify.diff
-  - scripts/spectra-plus/template/apply-notes-block.md
-  - .agents/skills/spectra-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-propose.diff
-  - .agents/skills/cash-propose/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ingest.diff
-  - scripts/spectra-plus/template/no-park-end-block.md
-  - .agents/skills/cash-discuss/SKILL.md
-  - AGENTS.md
-  - scripts/cash-skills/variant-parity/cash-audit.diff
-  - scripts/spectra-plus/template/artifact-language-block.md
-  - CASH-SKILLS.md
-  - scripts/spectra-plus/repair-all.fish
-  - scripts/spectra-plus/rules.yaml
-  - .agents/skills/cash-analyze/SKILL.md
-  - SPECTRA-PLUS.md
-  - .agents/skills/cash-audit/SKILL.md
-  - scripts/spectra-plus/template/signals-read-block.md
-  - scripts/spectra-plus/template/surgical-simplicity-block.md
-  - .agents/skills/cash-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ask.diff
-  - scripts/spectra-plus/generate.fish
-  - .agents/skills/cash-drift/SKILL.md
-  - install-spectra-plus.fish
-  - scripts/cash-skills/variant-parity/cash-analyze.diff
-tests:
-  - scripts/spectra-plus/tests/auto-restore-checks.fish
-  - scripts/spectra-plus/tests/repair-all-checks.fish
-  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
-  - scripts/spectra-plus/tests/generator-checks.fish
-  - scripts/cash-skills/tests/skill-checks.fish
--->
-
----
-### Requirement: Accepted-risks ledger
-
-The system SHALL support an accepted-risks ledger at `openspec/changes/<change>/reviews/accepted-risks.md`. An entry MUST be created, modified, or deleted only with explicit user consent obtained in the current session; the loop MUST NOT write, edit, or remove an entry autonomously, the main agent MUST NOT modify or delete an existing entry as a fix action during an active loop, and when user interaction is unavailable the candidate finding remains surviving and no entry is written. Each entry MUST record `severity`, `location`, a defect-mechanism description, an acceptance rationale, and the recording date. When the file exists, the main agent MUST include its content in every round's reviewer context. During the confidence filter, the main agent MUST score at most `25` any finding that matches an entry at the same `location` AND the same defect mechanism; recorded line ranges are advisory, and a match holds when the same artifact or file and the same defect mechanism match even though the recorded range has shifted. A finding that shares only a subsystem or issue class with an entry MUST NOT be downgraded on that basis. Every downgrade applied under this requirement MUST be recorded in that round file's `## Fix Actions` section naming the finding and the matched entry, and the completion output MUST list every accepted-risks downgrade applied in any round of the loop. If writing the file fails, the skill MUST print a warning and MUST NOT fail the cash workflow.
-
-#### Scenario: Matching finding is downgraded with a recorded trace
-
-- **WHEN** a reviewer reports a finding whose `location` and defect mechanism match an accepted-risks entry
-- **THEN** the main agent scores the finding at most `25` during the confidence filter
-- **AND** the finding does not survive as `Critical` or `Warning`
-- **AND** that round file's `## Fix Actions` records the downgrade naming the finding and the matched entry
-- **AND** the completion output lists the downgrade
-
-#### Scenario: Same subsystem with a different mechanism is not downgraded
-
-- **WHEN** a reviewer reports a finding in the same subsystem as an accepted-risks entry but with a different defect mechanism
-- **THEN** the finding passes through the confidence filter with its reviewer-assigned confidence
-- **AND** no accepted-risks downgrade applies
-
-#### Scenario: Shifted line range still matches
-
-- **WHEN** a finding matches an accepted-risks entry's file and defect mechanism but the entry's recorded line range no longer corresponds after later edits
-- **THEN** the match holds and the downgrade applies
-
-#### Scenario: No consent means no entry
-
-- **WHEN** the main agent identifies a candidate accepted risk and cannot obtain explicit user consent in the current session
-- **THEN** no entry is written to `accepted-risks.md`
-- **AND** the finding remains surviving for the round decision
-
-#### Scenario: Entries are not editable as fix actions
-
-- **WHEN** a fix action could resolve a surviving finding by broadening or deleting an existing accepted-risks entry
-- **THEN** the main agent does not modify or delete the entry
-- **AND** any entry change happens only through explicit user consent in the current session
-
-#### Scenario: Ledger enters reviewer context
-
-- **WHEN** a round's reviewers are spawned and `openspec/changes/<change>/reviews/accepted-risks.md` exists
-- **THEN** every reviewer of that round receives the file content in its context
+- **WHEN** 檢視四個 canonical 的 cash proposal 與 apply skill 檔案
+- **THEN** 每個檔案皆含有 `<!-- LOOP-LEDGER-STEP -->` sentinel
+- **AND** `scripts/cash-skills/tests/skill-checks.fish` 斷言該 sentinel 的存在
 
 
 
@@ -2506,29 +2306,150 @@ tests:
 -->
 
 ---
-### Requirement: Fix-loop design circuit breaker
+### Requirement: 確定性的 signal 衍生自我檢查
 
-In cash-apply review loops, when resolving a surviving finding requires introducing a synchronization primitive (such as a mutex, lock, or semaphore), an identity or generation type (such as a token, epoch, or generation id), or a state machine that `design.md` does not define, the main agent MUST NOT implement that mechanism as a fix action. The main agent MUST record a needs-design note in that round's `## Fix Actions` section naming the finding, the required mechanism, and a one-line reason; MUST write that round file with `decision: aborted`; MUST run the abort triage per the `Abort triage` requirement; and the completion output MUST direct the user to update `design.md` via the variant-appropriate `cash-ingest` invocation before re-entering an apply workflow. In cash-propose rounds, defining the needed mechanism in the change's own `design.md` is a normal fix action and this circuit breaker MUST NOT trigger. The `decision` value set MUST remain exactly `passed`, `next_round`, and `aborted`; no additional decision value is introduced for this rule.
+canonical 的 Claude 與 Codex `cash-propose` 與 `cash-apply` skill 檔案 SHALL 各自將每輪前機械自我檢查的「Signal-derived checks」項目定義為消費選用的 signal `check` frontmatter 欄位。對每個 frontmatter 含有 `check` 欄位的 `open` signal——不對這些 signals 套用 best-effort 相關性挑選——主 agent MUST 從專案根執行該指令，方式是將 `check` 值作為單一指令字串引數傳給 `sh -c`（而非將其插入引號括起的 shell 字串）。Exit code `0` 表示檢查通過。Exit code `1` 表示反模式存在。主 agent MUST 在決定是否修正之前分類該失敗的檢查：它 MUST 檢視檢查指令印出的任何專案根相對路徑，並與當前 change 的 artifacts——對 cash-apply 另含修改過的原始碼檔案——比對。若至少一個印出的路徑位於該 artifact／原始碼檔案集合之內，偵測到的實例即在範圍內。若指令未印出可用的專案根相對路徑，或輸出無法可靠地對應到專案根相對路徑，主 agent MUST fail closed 並將偵測到的實例視為在範圍內，除非已讀取的 repository 狀態證明該實例是既存的，或所需的修正位置在該 change 的結構化範圍之外。當偵測到的實例在範圍內，且修正位置未被未涵蓋的受保護 grader 路徑阻擋時，它是一個依既有自我檢查規則、MUST 在產生該輪 reviewers 之前修正的自我檢查失敗。當偵測到的實例是既存的、或其修正位於該 change 的結構化範圍之外、或其修正位於未被結構化範圍例外涵蓋的受保護 grader 路徑之內時，主 agent MUST NOT 修正它、MUST 在寫入該輪 round 檔案時於其 `## Fix Actions` 記錄一行 out-of-scope-check-failure 註記、MUST 將失敗的檢查結果納入該輪 reviewers 的情境，且 MUST 繼續產生 reviewers——既存的反模式從不使迴圈死鎖。任何其他 exit code（例如 `2`、`126`、`127`）屬執行錯誤：主 agent MUST 退回該 signal 既有的 best-effort 判斷，並在寫入該輪 round 檔案時於其 `## Fix Actions` 記錄一行 fallback 註記。（out-of-scope 或 fallback 的）註記行與通過輪的 `None; pass condition met.` 文字並存，且不計入 ledger 的 `fixed_files` 值。對沒有 `check` 欄位的 `open` signals，既有的 best-effort 行為 MUST 維持不變。執行 `check` 指令 MUST NOT 修改任何檔案。
 
-#### Scenario: Fix requiring a new state machine trips the breaker
+#### Scenario: 帶有 check 欄位的 signal 被確定性地執行
 
-- **WHEN** resolving a surviving `Critical` finding in an cash-apply loop requires introducing a lease state machine that `design.md` does not define
-- **THEN** the main agent does not implement the state machine as a fix action
-- **AND** records a needs-design note in `## Fix Actions`
-- **AND** writes the round file with `decision: aborted`
-- **AND** the completion output directs the user to the variant-appropriate `cash-ingest` invocation
+- **WHEN** 每輪前機械自我檢查執行，且某個 `open` signal 的 frontmatter 含有 `check`
+- **THEN** 主 agent 從專案根執行該 `check` 指令，方式是將其值作為單一引數傳給 `sh -c`，不受相關性判斷影響
+- **AND** exit code `1` 且偵測到的實例位於該 change 自身的 artifacts 或修改檔案之內時，視為須在產生 reviewers 之前修正的自我檢查失敗
 
-#### Scenario: Mechanism already defined in design is a normal fix
+#### Scenario: 檢查輸出路徑位於 change 之內即在範圍內
 
-- **WHEN** resolving a surviving finding in an cash-apply loop uses only mechanisms that `design.md` already defines
-- **THEN** the fix proceeds as a normal fix action
-- **AND** the circuit breaker does not trigger
+- **WHEN** 某個 `open` signal 的 `check` 指令以 `1` 結束
+- **AND** 指令輸出包含 `openspec/changes/<change>/` 之下的專案根相對路徑
+- **THEN** 主 agent 將該失敗視為 cash-propose 迴圈的範圍內失敗
+- **AND** 在產生 reviewers 之前修正該失敗，除非修正位置被未涵蓋的受保護 grader 路徑阻擋
 
-#### Scenario: cash-propose design edits do not trip the breaker
+#### Scenario: 無法定位的檢查失敗 fail closed
 
-- **WHEN** a cash-propose finding is resolved by defining a needed synchronization mechanism in the change's own `design.md`
-- **THEN** the edit proceeds as a normal fix action
-- **AND** the circuit breaker does not trigger
+- **WHEN** 某個 `open` signal 的 `check` 指令以 `1` 結束
+- **AND** 指令輸出不含可用的專案根相對路徑
+- **AND** 已讀取的 repository 狀態未證明該實例是既存的，或所需的修正位置在該 change 的結構化範圍之外
+- **THEN** 主 agent 將該失敗視為在範圍內
+- **AND** 不將其記錄為 out-of-scope-check-failure 註記
+
+#### Scenario: 受保護路徑分支僅在結構化範圍之外適用
+
+- **WHEN** 某個 `open` signal 的 `check` 指令以 `1` 結束
+- **AND** 修正偵測到的實例需要編輯 `.agents/skills/cash-propose/SKILL.md`
+- **AND** 當前 change 的結構化範圍宣告明確指名 `.agents/skills/cash-propose/SKILL.md`
+- **THEN** 該受保護 grader 路徑不觸發 out-of-scope-check-failure 分支
+- **AND** 主 agent 在產生 reviewers 之前修正該失敗
+
+#### Scenario: 範圍外的檢查失敗不使迴圈死鎖
+
+- **WHEN** 某個 `open` signal 的 `check` 指令以 `1` 結束，且偵測到的實例是既存的，或其修正位於該 change 的結構化範圍之外，或位於未被結構化範圍例外涵蓋的受保護 grader 路徑之內
+- **THEN** 主 agent 不修正它，並在寫入該輪 round 檔案時於其 `## Fix Actions` 記錄一行 out-of-scope-check-failure 註記
+- **AND** 將失敗的檢查結果納入該輪 reviewers 的情境並繼續產生 reviewers
+
+#### Scenario: 執行錯誤的 exit codes 退回 best-effort
+
+- **WHEN** 某個 `open` signal 的 `check` 指令以 `0` 或 `1` 以外的 code 結束
+- **THEN** 主 agent 對該 signal 套用既有的 best-effort 判斷
+- **AND** 在寫入該輪 round 檔案時於其 `## Fix Actions` 記錄一行 fallback 註記
+- **AND** 該註記不計入 ledger 的 `fixed_files` 值
+
+#### Scenario: 沒有 check 的 signals 保持 best-effort 行為
+
+- **WHEN** 某個 `open` signal 沒有 `check` 欄位
+- **THEN** 該 signal 的 Signal-derived checks 行為與既有的 best-effort 規則相比不變
+
+
+
+<!-- @trace
+source: fork-spectra-skills-to-cash
+updated: 2026-07-18
+code:
+  - scripts/spectra-plus/template/impact-granularity-block.md
+  - .agents/skills/spectra-propose-plus/SKILL.md
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-ingest/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-drift.diff
+  - scripts/spectra-plus/template/review-loop-block.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
+  - .agents/skills/spectra-apply-plus/SKILL.md
+  - scripts/spectra-plus/template/apply-response-language-block.md
+  - install-cash-skills.fish
+  - uninstall-spectra-plus-repair.fish
+  - scripts/cash-skills/variant-parity/cash-verify.diff
+  - scripts/spectra-plus/template/apply-notes-block.md
+  - .agents/skills/spectra-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - .agents/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - scripts/spectra-plus/template/no-park-end-block.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - AGENTS.md
+  - scripts/cash-skills/variant-parity/cash-audit.diff
+  - scripts/spectra-plus/template/artifact-language-block.md
+  - CASH-SKILLS.md
+  - scripts/spectra-plus/repair-all.fish
+  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-analyze/SKILL.md
+  - SPECTRA-PLUS.md
+  - .agents/skills/cash-audit/SKILL.md
+  - scripts/spectra-plus/template/signals-read-block.md
+  - scripts/spectra-plus/template/surgical-simplicity-block.md
+  - .agents/skills/cash-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ask.diff
+  - scripts/spectra-plus/generate.fish
+  - .agents/skills/cash-drift/SKILL.md
+  - install-spectra-plus.fish
+  - scripts/cash-skills/variant-parity/cash-analyze.diff
+tests:
+  - scripts/spectra-plus/tests/auto-restore-checks.fish
+  - scripts/spectra-plus/tests/repair-all-checks.fish
+  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
+  - scripts/spectra-plus/tests/generator-checks.fish
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
+
+---
+### Requirement: 接受風險 ledger
+
+系統 SHALL 支援位於 `openspec/changes/<change>/reviews/accepted-risks.md` 的 accepted-risks ledger。項目 MUST 僅在當前 session 取得明確使用者同意後才能建立、修改或刪除；迴圈 MUST NOT 自主寫入、編輯或移除項目，主 agent MUST NOT 在進行中的迴圈期間以修正動作修改或刪除既有項目，且當無法進行使用者互動時，候選 finding 維持存活且不寫入任何項目。每個項目 MUST 記錄 `severity`、`location`、缺陷機制描述、接受理由與記錄日期。當該檔案存在時，主 agent MUST 將其內容納入每一輪的 reviewer 情境。在信心過濾期間，對符合某項目相同 `location` AND 相同缺陷機制的任何 finding，主 agent MUST 至多給 `25` 分；記錄的行號範圍僅供參考，當相同 artifact 或檔案與相同缺陷機制相符時，即使記錄的範圍已位移，比對仍成立。僅與某項目共享子系統或問題類別的 finding MUST NOT 以此為由被降級。依本 requirement 套用的每次降級 MUST 記錄在該輪檔案的 `## Fix Actions` 區段，指名該 finding 與相符的項目，且完成輸出 MUST 列出迴圈任何一輪套用的每次 accepted-risks 降級。若寫入該檔案失敗，skill MUST 印出警告且 MUST NOT 使 cash workflow 失敗。
+
+#### Scenario: 相符的 finding 被降級並留有紀錄
+
+- **WHEN** reviewer 回報的 finding 其 `location` 與缺陷機制符合某個 accepted-risks 項目
+- **THEN** 主 agent 在信心過濾期間對該 finding 至多給 `25` 分
+- **AND** 該 finding 不以 `Critical` 或 `Warning` 存活
+- **AND** 該輪檔案的 `## Fix Actions` 記錄該降級，指名該 finding 與相符的項目
+- **AND** 完成輸出列出該降級
+
+#### Scenario: 相同子系統但不同機制不被降級
+
+- **WHEN** reviewer 回報的 finding 與某個 accepted-risks 項目位於相同子系統，但缺陷機制不同
+- **THEN** 該 finding 以 reviewer 給的信心分數通過信心過濾器
+- **AND** 不套用任何 accepted-risks 降級
+
+#### Scenario: 位移的行號範圍仍相符
+
+- **WHEN** finding 符合某個 accepted-risks 項目的檔案與缺陷機制，但該項目記錄的行號範圍在其後的編輯之後已不再對應
+- **THEN** 比對仍成立且降級適用
+
+#### Scenario: 沒有同意就沒有項目
+
+- **WHEN** 主 agent 識別出候選的接受風險，且無法在當前 session 取得明確使用者同意
+- **THEN** 不向 `accepted-risks.md` 寫入任何項目
+- **AND** 該 finding 就該輪決策而言維持存活
+
+#### Scenario: 項目不可作為修正動作編輯
+
+- **WHEN** 某個修正動作可藉由放寬或刪除既有的 accepted-risks 項目來解決存活 finding
+- **THEN** 主 agent 不修改也不刪除該項目
+- **AND** 任何項目變更僅經由當前 session 的明確使用者同意發生
+
+#### Scenario: Ledger 進入 reviewer 情境
+
+- **WHEN** 某輪的 reviewers 被產生且 `openspec/changes/<change>/reviews/accepted-risks.md` 存在
+- **THEN** 該輪每位 reviewer 都在其情境中收到該檔案內容
 
 
 
@@ -2585,35 +2506,29 @@ tests:
 -->
 
 ---
-### Requirement: Abort triage
+### Requirement: 修正迴圈設計斷路器
 
-When a review loop ends with `decision: aborted` due to the round cap, the fix-loop design circuit breaker, or the fully-grader-protected short-circuit, the main agent MUST triage every unresolved surviving finding into exactly one of three buckets and record the triage both in the final aborted round file's `## Fix Actions` section and in the completion output: (1) findings that remain the change's obligation — every cumulative-blocking-set member not accepted through consent, whatever its disposition or lack of one (fix-introduced regressions and unresolved-prior findings are the typical cases); (2) newly discovered or design-level issue that was never blocking in this loop — the finding is written to signals, and for a `Critical` finding the output MUST recommend creating a follow-up change proposal; (3) accepted trade-off — the finding is written to the accepted-risks ledger under the consent rules of the `Accepted-risks ledger` requirement; when consent cannot be obtained in the current session, the finding MUST be triaged to bucket 1 instead — it remains the change's obligation and seeds a re-run — with a note that accepted-risks recording was deferred pending user consent. Bucket 2 MUST NOT receive any finding that was blocking in this loop. The completion output MUST NOT recommend re-running the same loop without this triage. A loop re-run after an abort MUST NOT overwrite prior round files: its round files continue numbering from the last existing round file for that skill, while the 6-round cap and the round-type derivation operate on positions within the new run (its first round is a full round). The re-run's first-round reviewer context MUST include the prior run's round files (or their extracts per the extract fallback), and the re-run's cumulative blocking set MUST be seeded with the prior run's bucket-1 findings so they re-enter review as blocking; the re-run's first-round reviewers MUST return the same per-member resolved/unresolved verdicts as Reviewer V, so a seed whose resolving fix was recorded in the prior run can leave the set at the re-run's first round. When a seeded re-run's entire seeded set is withheld under grader protection and no consented exit is obtainable, the short-circuit is evaluated before spawning the re-run's first-round reviewers: the run writes exactly one round file (continued numbering, `round_type: full`, no reviewer findings, `decision: aborted`) carrying the triage, appends one ledger row with the same `round_type`, and its completion output MUST direct the user to either obtain consent for the protected members or expand the change's structured scope declarations via the variant-appropriate `cash-ingest` invocation before any further re-run. Aborts caused by consecutive sub-agent failures retain the existing failure-handling behavior and are exempt from this triage; proposal-level scope-error aborts are likewise exempt, because the change is expected to be re-proposed from scratch rather than re-run.
+在 cash-apply 審查迴圈中，當解決存活 finding 需要引入 `design.md` 未定義的同步原語（例如 mutex、lock 或 semaphore）、身分或世代型別（例如 token、epoch 或 generation id）或狀態機時，主 agent MUST NOT 以修正動作實作該機制。主 agent MUST 在該輪的 `## Fix Actions` 區段記錄一則 needs-design 註記，指名該 finding、所需機制與一行理由；MUST 以 `decision: aborted` 寫入該輪 round 檔案；MUST 依 `Abort 後的 triage` requirement 執行 abort triage；且完成輸出 MUST 指引使用者在重新進入 apply workflow 之前，經由與變體相稱的 `cash-ingest` 呼叫更新 `design.md`。在 cash-propose 輪中，於該 change 自身的 `design.md` 定義所需機制是正常的修正動作，此斷路器 MUST NOT 觸發。`decision` 值集合 MUST 恰好維持為 `passed`、`next_round` 與 `aborted`；本規則不引入額外的 decision 值。
 
-#### Scenario: Round-cap abort produces a three-bucket triage
+#### Scenario: 需要新狀態機的修正觸發斷路器
 
-- **WHEN** the loop writes its sixth round with `decision: aborted` and unresolved surviving findings remain
-- **THEN** the final round file's `## Fix Actions` and the completion output assign every unresolved finding to exactly one of the three triage buckets
-- **AND** the output does not recommend re-running the same loop without triage
+- **WHEN** 在 cash-apply 迴圈中解決存活的 `Critical` finding 需要引入 `design.md` 未定義的 lease 狀態機
+- **THEN** 主 agent 不以修正動作實作該狀態機
+- **AND** 在 `## Fix Actions` 記錄一則 needs-design 註記
+- **AND** 以 `decision: aborted` 寫入該輪 round 檔案
+- **AND** 完成輸出將使用者指引至與變體相稱的 `cash-ingest` 呼叫
 
-#### Scenario: Unavailable consent keeps the finding with the change
+#### Scenario: 設計已定義的機制是正常修正
 
-- **WHEN** an aborted loop triages a blocking trade-off finding and explicit user consent cannot be obtained in the current session
-- **THEN** the finding is triaged to bucket 1, remains the change's obligation, and seeds a re-run's cumulative blocking set
-- **AND** the triage records that accepted-risks recording was deferred pending user consent
+- **WHEN** 在 cash-apply 迴圈中解決存活 finding 僅使用 `design.md` 已定義的機制
+- **THEN** 該修正作為正常修正動作進行
+- **AND** 斷路器不觸發
 
-#### Scenario: Fully protected seeded re-run aborts before spawning reviewers
+#### Scenario: cash-propose 的設計編輯不觸發斷路器
 
-- **WHEN** a seeded re-run starts and its entire seeded cumulative blocking set is withheld under grader protection with no consented exit obtainable
-- **THEN** the run writes exactly one round file with continued numbering, `round_type: full`, and `decision: aborted` carrying the triage, and appends one ledger row, without spawning reviewers
-- **AND** the completion output directs the user to obtain consent for the protected members or expand the structured scope declarations via the variant-appropriate `cash-ingest` invocation before any further re-run
-
-#### Scenario: Re-run continues round numbering and consumes the triage
-
-- **WHEN** a loop for the same skill re-runs after an abort whose last round file is `apply-r6.md`
-- **THEN** the re-run's first round file is `apply-r7.md` and no prior round file is overwritten
-- **AND** the re-run's first round is a full round whose reviewer context includes `apply-r6.md`
-- **AND** the re-run's cumulative blocking set is seeded with the prior run's bucket-1 findings
-- **AND** the re-run's 6-round cap and round-type derivation count from its own first round
+- **WHEN** 某個 cash-propose finding 藉由在該 change 自身的 `design.md` 定義所需同步機制而解決
+- **THEN** 該編輯作為正常修正動作進行
+- **AND** 斷路器不觸發
 
 
 
@@ -2670,102 +2585,35 @@ tests:
 -->
 
 ---
-### Requirement: cash-apply introduced-by evidence
+### Requirement: Abort 後的 triage
 
-In cash-apply rounds, every `Critical` or `Warning` finding from `Reviewer B` MUST include an `introduced_by` field citing either a concrete location in this change's diff (file path plus the introduced behavior), one or more fix-action records from this loop, or — for a regression emerging from the interaction of several fixes — the set of fix actions of a named round. During the confidence filter, the main agent MUST score at most `25` any cash-apply `Reviewer B` `Critical` or `Warning` finding whose `introduced_by` is absent or cannot be verified against the change diff or the recorded fix actions; every downgrade applied under this rule MUST be recorded in that round file's `## Fix Actions` naming the finding and the reason the evidence was unverifiable, and the completion output MUST list every such downgrade. This requirement does not apply to cash-propose rounds.
+當審查迴圈因輪數上限、修正迴圈設計斷路器或完全受 grader 保護的短路而以 `decision: aborted` 結束時，主 agent MUST 將每個未解決的存活 finding 分流至三個 bucket 中恰好一個，並將該 triage 同時記錄在最終 aborted 輪檔案的 `## Fix Actions` 區段與完成輸出中：(1) 仍屬該 change 義務的 findings——每個未經由同意路徑被接受的累積 blocking 集合成員，無論其 disposition 為何或是否缺少 disposition（fix-introduced 回歸與 unresolved-prior findings 是典型情況）；(2) 在本迴圈中從未 blocking 的新發現或設計層級問題——該 finding 被寫入 signals，且對 `Critical` finding，輸出 MUST 建議建立後續的 change 提案；(3) 接受的取捨——該 finding 依 `接受風險 ledger` requirement 的同意規則寫入 accepted-risks ledger；當無法在當前 session 取得同意時，該 finding MUST 改分流至 bucket 1——它仍是該 change 的義務並 seed 重跑——並附註 accepted-risks 記錄已延後等待使用者同意。Bucket 2 MUST NOT 收納任何在本迴圈中曾為 blocking 的 finding。完成輸出 MUST NOT 在缺少此 triage 的情況下建議重跑同一迴圈。abort 後的迴圈重跑 MUST NOT 覆寫先前的 round 檔案：其 round 檔案自該 skill 最後一個既有 round 檔案接續編號，而 6 輪上限與輪型別推導以新執行中的位置運作（其第一輪是 full 輪）。重跑的第一輪 reviewer 情境 MUST 包含前次執行的 round 檔案（或依摘錄後備方案的摘錄），且重跑的累積 blocking 集合 MUST 以前次執行的 bucket-1 findings 進行 seed，使它們以 blocking 身分重新進入審查；重跑的第一輪 reviewers MUST 回傳與 Reviewer V 相同的每成員 resolved/unresolved 裁定，因此解決性修正已記錄於前次執行的 seed 成員可以在重跑的第一輪離開集合。當已 seed 重跑的整個被 seed 集合皆受 grader 保護而被保留且無法取得經同意的出口時，短路在產生重跑第一輪 reviewers 之前評估：該次執行恰好寫入一個承載該 triage 的 round 檔案（接續編號、`round_type: full`、無 reviewer findings、`decision: aborted`）、追加一列帶有相同 `round_type` 的 ledger 列，且其完成輸出 MUST 指引使用者在任何進一步重跑之前，為受保護成員取得同意，或經由與變體相稱的 `cash-ingest` 呼叫擴充該 change 的結構化範圍宣告。由連續 sub-agent 失敗造成的 aborts 保留既有的失敗處理行為並豁免於此 triage；proposal 層級的範圍錯誤 aborts 同樣豁免，因為該 change 預期從頭重新提案而非重跑。
 
-#### Scenario: Missing introduced_by is downgraded with a recorded trace
+#### Scenario: 輪數上限 abort 產生三個 bucket 的 triage
 
-- **WHEN** an cash-apply `Reviewer B` finding classified `Critical` carries no `introduced_by` field
-- **THEN** the main agent scores it at most `25` during the confidence filter
-- **AND** it does not survive as `Critical` or `Warning`
-- **AND** that round file's `## Fix Actions` records the downgrade and the reason
-- **AND** the completion output lists the downgrade
+- **WHEN** 迴圈以 `decision: aborted` 寫入其第六輪且仍有未解決的存活 findings
+- **THEN** 最終輪檔案的 `## Fix Actions` 與完成輸出將每個未解決 finding 指派至三個 triage bucket 中恰好一個
+- **AND** 輸出不在缺少 triage 的情況下建議重跑同一迴圈
 
-#### Scenario: Verified introduced_by survives the filter
+#### Scenario: 無法取得同意時 finding 留在該 change
 
-- **WHEN** an cash-apply `Reviewer B` finding cites an `introduced_by` location that the main agent verifies against the change diff
-- **THEN** the finding passes through the confidence filter with its reviewer-assigned confidence
+- **WHEN** aborted 迴圈分流一個 blocking 的取捨 finding，且無法在當前 session 取得明確使用者同意
+- **THEN** 該 finding 被分流至 bucket 1，仍是該 change 的義務，並 seed 重跑的累積 blocking 集合
+- **AND** 該 triage 記錄 accepted-risks 記錄已延後等待使用者同意
 
-#### Scenario: Interaction regression cites a fix-action set
+#### Scenario: 完全受保護的已 seed 重跑在產生 reviewers 之前 abort
 
-- **WHEN** an cash-apply `Reviewer B` finding attributes a regression to the interaction of several fixes and cites the set of fix actions of a named round as its `introduced_by`
-- **THEN** the citation is verifiable evidence and no introduced-by downgrade applies
+- **WHEN** 已 seed 重跑開始，且其整個被 seed 的累積 blocking 集合皆受 grader 保護而被保留、無法取得經同意的出口
+- **THEN** 該次執行不產生 reviewers，恰好寫入一個接續編號、`round_type: full`、`decision: aborted` 且承載該 triage 的 round 檔案，並追加一列 ledger 列
+- **AND** 完成輸出指引使用者在任何進一步重跑之前為受保護成員取得同意，或經由與變體相稱的 `cash-ingest` 呼叫擴充結構化範圍宣告
 
+#### Scenario: 重跑接續輪編號並消化該 triage
 
-
-
-<!-- @trace
-source: fork-spectra-skills-to-cash
-updated: 2026-07-18
-code:
-  - scripts/spectra-plus/template/impact-granularity-block.md
-  - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/cash-archive/SKILL.md
-  - .agents/skills/cash-apply/SKILL.md
-  - .agents/skills/cash-verify/SKILL.md
-  - .agents/skills/cash-ingest/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-drift.diff
-  - scripts/spectra-plus/template/review-loop-block.md
-  - .agents/skills/cash-ask/SKILL.md
-  - .agents/skills/cash-debug/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
-  - scripts/spectra-plus/template/apply-response-language-block.md
-  - install-cash-skills.fish
-  - uninstall-spectra-plus-repair.fish
-  - scripts/cash-skills/variant-parity/cash-verify.diff
-  - scripts/spectra-plus/template/apply-notes-block.md
-  - .agents/skills/spectra-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-propose.diff
-  - .agents/skills/cash-propose/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ingest.diff
-  - scripts/spectra-plus/template/no-park-end-block.md
-  - .agents/skills/cash-discuss/SKILL.md
-  - AGENTS.md
-  - scripts/cash-skills/variant-parity/cash-audit.diff
-  - scripts/spectra-plus/template/artifact-language-block.md
-  - CASH-SKILLS.md
-  - scripts/spectra-plus/repair-all.fish
-  - scripts/spectra-plus/rules.yaml
-  - .agents/skills/cash-analyze/SKILL.md
-  - SPECTRA-PLUS.md
-  - .agents/skills/cash-audit/SKILL.md
-  - scripts/spectra-plus/template/signals-read-block.md
-  - scripts/spectra-plus/template/surgical-simplicity-block.md
-  - .agents/skills/cash-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ask.diff
-  - scripts/spectra-plus/generate.fish
-  - .agents/skills/cash-drift/SKILL.md
-  - install-spectra-plus.fish
-  - scripts/cash-skills/variant-parity/cash-analyze.diff
-tests:
-  - scripts/spectra-plus/tests/auto-restore-checks.fish
-  - scripts/spectra-plus/tests/repair-all-checks.fish
-  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
-  - scripts/spectra-plus/tests/generator-checks.fish
-  - scripts/cash-skills/tests/skill-checks.fish
--->
-
----
-### Requirement: Review round action obligation
-
-When a round's decision is `next_round`, every surviving `Critical` or `Warning` finding AND every cumulative-blocking-set member counted in the round decision MUST have at least one recorded action in that round's `## Fix Actions` section before the next round's reviewers are spawned. For a blocking finding or cumulative-blocking-set member, the valid actions are exactly: a fix listing the modified files, a grader-protection note, or an accepted-risks entry recorded with explicit user consent per the `Accepted-risks ledger` requirement; a non-blocking triage note recorded for a blocking member is not a valid action and has no effect on its blocking status. For a non-blocking (`new`) finding, the valid action is its non-blocking triage note; for a re-report that matches a prior round's non-blocking triage note, the valid action is a one-line cross-reference note naming the original round's triage note (neither a duplicate triage note nor a new signal). Recording a needs-design note is not a `next_round` action: per the `Fix-loop design circuit breaker` requirement it forces `decision: aborted` and never coexists with a `next_round` decision. The main agent MUST NOT spawn the next round's reviewers while any surviving finding has no recorded action.
-
-#### Scenario: Zero-action round cannot advance
-
-- **WHEN** a round's decision is `next_round` and at least one surviving finding has no recorded action in `## Fix Actions`
-- **THEN** the main agent does not spawn the next round's reviewers until every surviving finding has a recorded action
-
-#### Scenario: Every surviving finding carries an action record
-
-- **WHEN** a round with `decision: next_round` finishes its fix phase
-- **THEN** each surviving `Critical` or `Warning` finding maps to a fix record, a grader-protection note, a non-blocking triage note, or a consented accepted-risks entry in `## Fix Actions`
-
-#### Scenario: Needs-design forces abort instead of another round
-
-- **WHEN** a round records a needs-design note for a surviving finding
-- **THEN** that round's decision is `aborted` per the `Fix-loop design circuit breaker` requirement
-- **AND** the round does not proceed to `next_round`
+- **WHEN** 同一 skill 的迴圈在 abort 後重跑，且前次最後的 round 檔案是 `apply-r6.md`
+- **THEN** 重跑的第一個 round 檔案是 `apply-r7.md`，且沒有任何先前 round 檔案被覆寫
+- **AND** 重跑的第一輪是 full 輪，其 reviewer 情境包含 `apply-r6.md`
+- **AND** 重跑的累積 blocking 集合以前次執行的 bucket-1 findings 進行 seed
+- **AND** 重跑的 6 輪上限與輪型別推導從其自身的第一輪起算
 
 
 
@@ -2822,34 +2670,186 @@ tests:
 -->
 
 ---
-### Requirement: cash-propose impact granularity advisory
+### Requirement: cash-apply 的 introduced-by 證據
 
-After the proposal artifact is written, `cash-propose` SHALL count the affected-code entries in the proposal `## Impact` section: the count is the number of listed path entries across Modified, New, and Removed, excluding `(none)` placeholder lines; a directory entry counts as one entry, so the count is a lower bound. When the count exceeds 15, the skill MUST print an informational warning that states the count and recommends splitting the change by capability. The warning MUST NOT block the workflow and MUST NOT require user confirmation. When the count is 15 or fewer, the skill MUST print nothing for this check.
+在 cash-apply 輪中，來自 `Reviewer B` 的每個 `Critical` 或 `Warning` finding MUST 包含 `introduced_by` 欄位，引用下列之一：本 change diff 中的具體位置（檔案路徑加上引入的行為）、本迴圈的一項或多項 fix-action 紀錄，或——對由多個修正交互作用而浮現的回歸——某個指名輪次的修正動作集合。在信心過濾期間，對 `introduced_by` 缺失或無法對照 change diff 或已記錄修正動作驗證的任何 cash-apply `Reviewer B` `Critical` 或 `Warning` finding，主 agent MUST 至多給 `25` 分；依本規則套用的每次降級 MUST 記錄在該輪檔案的 `## Fix Actions`，指名該 finding 與證據無法驗證的原因，且完成輸出 MUST 列出每次此類降級。本 requirement 不適用於 cash-propose 輪。
 
-#### Scenario: Oversized impact prints an advisory
+#### Scenario: 缺失的 introduced_by 被降級並留有紀錄
 
-- **WHEN** the proposal `## Impact` section lists 20 affected-code path entries
-- **THEN** the skill prints an informational warning stating the count and recommending a split by capability
-- **AND** the workflow continues without requiring confirmation
+- **WHEN** 某個被分類為 `Critical` 的 cash-apply `Reviewer B` finding 未帶 `introduced_by` 欄位
+- **THEN** 主 agent 在信心過濾期間對它至多給 `25` 分
+- **AND** 它不以 `Critical` 或 `Warning` 存活
+- **AND** 該輪檔案的 `## Fix Actions` 記錄該降級與原因
+- **AND** 完成輸出列出該降級
 
-#### Scenario: Small impact stays silent
+#### Scenario: 通過驗證的 introduced_by 通過過濾器
 
-- **WHEN** the proposal `## Impact` section lists 10 affected-code path entries
-- **THEN** the skill prints nothing for this check
+- **WHEN** 某個 cash-apply `Reviewer B` finding 引用的 `introduced_by` 位置經主 agent 對照 change diff 驗證
+- **THEN** 該 finding 以 reviewer 給的信心分數通過信心過濾器
 
-#### Scenario: Placeholder lines are not counted
+#### Scenario: 交互作用回歸引用修正動作集合
 
-- **WHEN** the proposal `## Impact` section lists 16 path entries and a `- Removed: (none)` placeholder line
-- **THEN** the count is 16 and the advisory is printed
+- **WHEN** 某個 cash-apply `Reviewer B` finding 將回歸歸因於多個修正的交互作用，並引用某個指名輪次的修正動作集合作為其 `introduced_by`
+- **THEN** 該引用是可驗證的證據，且不套用 introduced-by 降級
 
-##### Example: advisory threshold
 
-| Affected-code path entries | Advisory printed |
+
+
+<!-- @trace
+source: fork-spectra-skills-to-cash
+updated: 2026-07-18
+code:
+  - scripts/spectra-plus/template/impact-granularity-block.md
+  - .agents/skills/spectra-propose-plus/SKILL.md
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-ingest/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-drift.diff
+  - scripts/spectra-plus/template/review-loop-block.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
+  - .agents/skills/spectra-apply-plus/SKILL.md
+  - scripts/spectra-plus/template/apply-response-language-block.md
+  - install-cash-skills.fish
+  - uninstall-spectra-plus-repair.fish
+  - scripts/cash-skills/variant-parity/cash-verify.diff
+  - scripts/spectra-plus/template/apply-notes-block.md
+  - .agents/skills/spectra-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - .agents/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - scripts/spectra-plus/template/no-park-end-block.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - AGENTS.md
+  - scripts/cash-skills/variant-parity/cash-audit.diff
+  - scripts/spectra-plus/template/artifact-language-block.md
+  - CASH-SKILLS.md
+  - scripts/spectra-plus/repair-all.fish
+  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-analyze/SKILL.md
+  - SPECTRA-PLUS.md
+  - .agents/skills/cash-audit/SKILL.md
+  - scripts/spectra-plus/template/signals-read-block.md
+  - scripts/spectra-plus/template/surgical-simplicity-block.md
+  - .agents/skills/cash-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ask.diff
+  - scripts/spectra-plus/generate.fish
+  - .agents/skills/cash-drift/SKILL.md
+  - install-spectra-plus.fish
+  - scripts/cash-skills/variant-parity/cash-analyze.diff
+tests:
+  - scripts/spectra-plus/tests/auto-restore-checks.fish
+  - scripts/spectra-plus/tests/repair-all-checks.fish
+  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
+  - scripts/spectra-plus/tests/generator-checks.fish
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
+
+---
+### Requirement: 審查輪的行動義務
+
+當某一輪的決策為 `next_round` 時，每個存活的 `Critical` 或 `Warning` finding AND 每個計入該輪決策的累積 blocking 集合成員，MUST 在產生下一輪 reviewers 之前，於該輪的 `## Fix Actions` 區段擁有至少一項已記錄的動作。對 blocking finding 或累積 blocking 集合成員，有效動作恰為：列出修改檔案的修正、grader 保護註記，或依 `接受風險 ledger` requirement 經明確使用者同意記錄的 accepted-risks 項目；為 blocking 成員記錄的非 blocking triage 註記不是有效動作，且對其 blocking 狀態沒有影響。對非 blocking（`new`）finding，有效動作是其非 blocking triage 註記；對符合先前輪非 blocking triage 註記的再回報，有效動作是一行指名原輪 triage 註記的交叉參照註記（既非重複的 triage 註記也非新的 signal）。記錄 needs-design 註記不是 `next_round` 動作：依 `修正迴圈設計斷路器` requirement，它強制 `decision: aborted` 且從不與 `next_round` 決策並存。當任何存活 finding 沒有已記錄的動作時，主 agent MUST NOT 產生下一輪的 reviewers。
+
+#### Scenario: 零動作的輪無法前進
+
+- **WHEN** 某輪的決策為 `next_round`，且至少一個存活 finding 在 `## Fix Actions` 中沒有已記錄的動作
+- **THEN** 主 agent 在每個存活 finding 都有已記錄動作之前，不產生下一輪的 reviewers
+
+#### Scenario: 每個存活 finding 都帶有動作紀錄
+
+- **WHEN** 一個 `decision: next_round` 的輪完成其修正階段
+- **THEN** 每個存活的 `Critical` 或 `Warning` finding 都對應到 `## Fix Actions` 中的一項修正紀錄、grader 保護註記、非 blocking triage 註記或經同意的 accepted-risks 項目
+
+#### Scenario: needs-design 強制 abort 而非再一輪
+
+- **WHEN** 某輪為存活 finding 記錄了 needs-design 註記
+- **THEN** 依 `修正迴圈設計斷路器` requirement，該輪的決策為 `aborted`
+- **AND** 該輪不進入 `next_round`
+
+
+
+
+<!-- @trace
+source: fork-spectra-skills-to-cash
+updated: 2026-07-18
+code:
+  - scripts/spectra-plus/template/impact-granularity-block.md
+  - .agents/skills/spectra-propose-plus/SKILL.md
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-ingest/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-drift.diff
+  - scripts/spectra-plus/template/review-loop-block.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
+  - .agents/skills/spectra-apply-plus/SKILL.md
+  - scripts/spectra-plus/template/apply-response-language-block.md
+  - install-cash-skills.fish
+  - uninstall-spectra-plus-repair.fish
+  - scripts/cash-skills/variant-parity/cash-verify.diff
+  - scripts/spectra-plus/template/apply-notes-block.md
+  - .agents/skills/spectra-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - .agents/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - scripts/spectra-plus/template/no-park-end-block.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - AGENTS.md
+  - scripts/cash-skills/variant-parity/cash-audit.diff
+  - scripts/spectra-plus/template/artifact-language-block.md
+  - CASH-SKILLS.md
+  - scripts/spectra-plus/repair-all.fish
+  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-analyze/SKILL.md
+  - SPECTRA-PLUS.md
+  - .agents/skills/cash-audit/SKILL.md
+  - scripts/spectra-plus/template/signals-read-block.md
+  - scripts/spectra-plus/template/surgical-simplicity-block.md
+  - .agents/skills/cash-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ask.diff
+  - scripts/spectra-plus/generate.fish
+  - .agents/skills/cash-drift/SKILL.md
+  - install-spectra-plus.fish
+  - scripts/cash-skills/variant-parity/cash-analyze.diff
+tests:
+  - scripts/spectra-plus/tests/auto-restore-checks.fish
+  - scripts/spectra-plus/tests/repair-all-checks.fish
+  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
+  - scripts/spectra-plus/tests/generator-checks.fish
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
+
+---
+### Requirement: cash-propose 的 impact 粒度提示
+
+在 proposal artifact 寫入之後，`cash-propose` SHALL 計數 proposal `## Impact` 區段中的 affected-code 條目：計數為 Modified、New 與 Removed 之下列出的路徑條目數，排除 `(none)` 佔位行；目錄條目計為一個條目，因此該計數是下限。當計數超過 15 時，skill MUST 印出一則資訊性警告，述明計數並建議依 capability 拆分該 change。該警告 MUST NOT 阻擋 workflow 且 MUST NOT 要求使用者確認。當計數為 15 或更少時，skill MUST 不為此檢查印出任何內容。
+
+#### Scenario: 過大的 impact 印出提示
+
+- **WHEN** proposal `## Impact` 區段列出 20 個 affected-code 路徑條目
+- **THEN** skill 印出一則資訊性警告，述明計數並建議依 capability 拆分
+- **AND** workflow 繼續進行而無需確認
+
+#### Scenario: 小的 impact 保持沉默
+
+- **WHEN** proposal `## Impact` 區段列出 10 個 affected-code 路徑條目
+- **THEN** skill 不為此檢查印出任何內容
+
+#### Scenario: 佔位行不列入計數
+
+- **WHEN** proposal `## Impact` 區段列出 16 個路徑條目與一行 `- Removed: (none)` 佔位行
+- **THEN** 計數為 16 且提示被印出
+
+##### Example: 提示門檻
+
+| Affected-code 路徑條目數 | 是否印出提示 |
 | -------------------------- | ---------------- |
-| 8  | no  |
-| 15 | no  |
-| 16 | yes |
-| 29 | yes |
+| 8  | 否  |
+| 15 | 否  |
+| 16 | 是 |
+| 29 | 是 |
 
 
 <!-- @trace
@@ -2904,36 +2904,36 @@ tests:
 -->
 
 ---
-### Requirement: Installer and cleanup enforce filesystem boundaries
+### Requirement: 安裝器與清理落實檔案系統邊界
 
-The installer SHALL canonicalize an existing target and MUST reject an empty target, an unresolved target, `/`, the source repository itself, or a symlink target. Before any target write it MUST reject a managed skill destination, receipt, temporary receipt sibling, recognized retired plus candidate, or existing managed parent that is a symlink and MUST prove that every resolved destination and removal candidate remains below the canonical target. It MUST validate each existing retired plus candidate as an exact one-file legacy shape. Before destructive cleanup it MUST atomic-rename the candidate to a unique same-filesystem quarantine below the same target parent using destination-symlink no-follow semantics, revalidate the quarantined object without following the original candidate path, and remove only a still-recognized `SKILL.md` plus its empty quarantine directory. If revalidation fails it MUST preserve unknown content and MUST NOT use recursive deletion. In registry-backed modes, the installer SHALL validate that `HOME` is non-empty, absolute, existing, and not `/`; SHALL keep registry paths and temporary siblings below canonical `HOME`; and MUST reject symlinked configuration boundaries before registry reads or writes. The cleanup SHALL retain its existing exact-known-path HOME boundary contract. Every boundary failure MUST fail closed with zero writes.
+安裝器 SHALL 正規化既有的 target，且 MUST 拒絕空的 target、無法解析的 target、`/`、來源 repository 本身或 symlink target。在任何 target 寫入之前，它 MUST 拒絕身為 symlink 的受管 skill 目的地、receipt、暫存 receipt 同層檔案、可辨識的已除役 plus 候選項或既有受管父目錄，且 MUST 證明每個解析後的目的地與移除候選項皆維持在正規化 target 之下。它 MUST 將每個既有的已除役 plus 候選項驗證為精確的單檔 legacy 形態。在破壞性清理之前，它 MUST 以目的地 symlink no-follow 語意，將候選項 atomic-rename 至同一 target 父目錄之下唯一的同檔案系統隔離區，在不追隨原候選項路徑的情況下重新驗證被隔離的物件，且僅移除仍可辨識的 `SKILL.md` 及其清空的隔離目錄。若重新驗證失敗，它 MUST 保留未知內容且 MUST NOT 使用遞迴刪除。在 registry 支援的模式中，安裝器 SHALL 驗證 `HOME` 非空、為絕對路徑、存在且不是 `/`；SHALL 使 registry 路徑與暫存同層檔案維持在正規化 `HOME` 之下；且 MUST 在 registry 讀寫之前拒絕 symlink 的組態邊界。清理 SHALL 保留其既有的精確已知路徑 HOME 邊界合約。每次邊界失敗 MUST 以零寫入 fail closed。
 
-#### Scenario: Installer rejects a symlink escape before writes
+#### Scenario: 安裝器在寫入前拒絕 symlink 逃逸
 
-- **GIVEN** a managed target parent, skill destination, receipt, or receipt parent is a symlink
-- **WHEN** `install-cash-skills.fish` performs preflight
-- **THEN** it exits non-zero before creating or replacing any target file
-- **AND** it identifies the unsafe project-relative destination
+- **GIVEN** 受管的 target 父目錄、skill 目的地、receipt 或 receipt 父目錄是 symlink
+- **WHEN** `install-cash-skills.fish` 執行 preflight
+- **THEN** 它在建立或取代任何 target 檔案之前以非零結束
+- **AND** 它指出不安全的專案相對目的地
 
-#### Scenario: Installer rejects its source repository
+#### Scenario: 安裝器拒絕其來源 repository
 
-- **WHEN** the installer target resolves to the repository that contains the installer
-- **THEN** it exits non-zero before writing a receipt or skill file
+- **WHEN** 安裝器的 target 解析為包含該安裝器的 repository
+- **THEN** 它在寫入 receipt 或 skill 檔案之前以非零結束
 
-#### Scenario: Installer rejects unsafe HOME or registry boundary
+#### Scenario: 安裝器拒絕不安全的 HOME 或 registry 邊界
 
-- **GIVEN** `HOME` is empty, relative, missing, `/`, or an existing registry boundary is a symlink
-- **WHEN** `install-cash-skills.fish` performs any registry-backed operation
-- **THEN** it exits non-zero
-- **AND** it does not read targets through the unsafe boundary
-- **AND** it creates or modifies no registry, temporary file, receipt, or skill file
+- **GIVEN** `HOME` 為空、相對、不存在、`/`，或某個既有的 registry 邊界是 symlink
+- **WHEN** `install-cash-skills.fish` 執行任何 registry 支援的操作
+- **THEN** 它以非零結束
+- **AND** 它不透過不安全的邊界讀取 targets
+- **AND** 它不建立也不修改任何 registry、暫存檔、receipt 或 skill 檔案
 
-#### Scenario: Cleanup rejects unsafe HOME or symlink boundary
+#### Scenario: 清理拒絕不安全的 HOME 或 symlink 邊界
 
-- **GIVEN** `HOME` is empty, relative, `/`, or an exact cleanup path has a symlinked existing boundary
-- **WHEN** `uninstall-spectra-plus-repair.fish` performs preflight
-- **THEN** it exits non-zero
-- **AND** it does not invoke `launchctl` or remove any file
+- **GIVEN** `HOME` 為空、相對、`/`，或某個精確清理路徑有 symlink 的既有邊界
+- **WHEN** `uninstall-spectra-plus-repair.fish` 執行 preflight
+- **THEN** 它以非零結束
+- **AND** 它不呼叫 `launchctl` 也不移除任何檔案
 
 
 <!-- @trace
@@ -2952,22 +2952,22 @@ tests:
 -->
 
 ---
-### Requirement: Cleanup unloads known labels independently of plist presence
+### Requirement: 清理不依賴 plist 存在即卸載已知 labels
 
-The cleanup SHALL query both `gui/<uid>/com.spectra.plus.repair` and `gui/<uid>/com.agentflow.spectra-plus.repair` by label. A loaded label MUST be booted out even when its plist is absent. Registry and cache removal MUST occur only after both labels are confirmed absent or successfully unloaded. Any unexpected print or bootout error MUST fail closed and preserve all remaining legacy state.
+清理 SHALL 以 label 查詢 `gui/<uid>/com.spectra.plus.repair` 與 `gui/<uid>/com.agentflow.spectra-plus.repair` 兩者。已載入的 label 即使其 plist 不存在也 MUST 被 boot out。registry 與 cache 的移除 MUST 僅在兩個 labels 皆確認不存在或成功卸載之後進行。任何非預期的 print 或 bootout 錯誤 MUST fail closed 並保留所有剩餘的 legacy 狀態。
 
-#### Scenario: Loaded service without plist is removed
+#### Scenario: 無 plist 的已載入服務被移除
 
-- **GIVEN** a known label is loaded and its plist is absent
-- **WHEN** cleanup runs
-- **THEN** it discovers the service by label and boots it out
-- **AND** removes registry and cache only after both known labels are absent or unloaded
+- **GIVEN** 某個已知 label 已載入且其 plist 不存在
+- **WHEN** 清理執行
+- **THEN** 它以 label 發現該服務並將其 boot out
+- **AND** 僅在兩個已知 labels 皆不存在或已卸載之後移除 registry 與 cache
 
-#### Scenario: Dry run never queries launchctl
+#### Scenario: Dry run 從不查詢 launchctl
 
-- **WHEN** cleanup runs with `--dry-run`
-- **THEN** it lists planned label and filesystem actions
-- **AND** does not invoke `launchctl print` or `launchctl bootout`
+- **WHEN** 清理以 `--dry-run` 執行
+- **THEN** 它列出計畫中的 label 與檔案系統行動
+- **AND** 不呼叫 `launchctl print` 也不呼叫 `launchctl bootout`
 
 
 <!-- @trace
@@ -3022,85 +3022,15 @@ tests:
 -->
 
 ---
-### Requirement: Project-owned cash guidance survives Spectra updates
+### Requirement: 專案擁有的 cash 指引在 Spectra 更新後存續
 
-The repository SHALL place its cash workflow override after `<!-- SPECTRA:END -->` in `AGENTS.md`, outside the Spectra-managed block. The override MUST state that, for this repository, cash workflow invocation takes precedence over managed `spectra-*` workflow guidance while Spectra CLI and artifact schema remain authoritative.
+本 repository SHALL 將其 cash workflow 覆寫置於 `AGENTS.md` 中 `<!-- SPECTRA:END -->` 之後、Spectra 管理區塊之外。該覆寫 MUST 述明：對本 repository，cash workflow 呼叫優先於受管理的 `spectra-*` workflow 指引，而 Spectra CLI 與 artifact schema 仍具權威。
 
-#### Scenario: Forced update preserves effective cash guidance
+#### Scenario: 強制更新保留有效的 cash 指引
 
-- **WHEN** `spectra update --force` rewrites the Spectra-managed block in an isolated fixture
-- **THEN** the project-owned override remains after `<!-- SPECTRA:END -->`
-- **AND** the effective discuss-to-commit workflow still routes through `cash-*`
-
-
-<!-- @trace
-source: fork-spectra-skills-to-cash
-updated: 2026-07-18
-code:
-  - scripts/spectra-plus/template/impact-granularity-block.md
-  - .agents/skills/spectra-propose-plus/SKILL.md
-  - .agents/skills/cash-archive/SKILL.md
-  - .agents/skills/cash-apply/SKILL.md
-  - .agents/skills/cash-verify/SKILL.md
-  - .agents/skills/cash-ingest/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-drift.diff
-  - scripts/spectra-plus/template/review-loop-block.md
-  - .agents/skills/cash-ask/SKILL.md
-  - .agents/skills/cash-debug/SKILL.md
-  - .agents/skills/spectra-apply-plus/SKILL.md
-  - scripts/spectra-plus/template/apply-response-language-block.md
-  - install-cash-skills.fish
-  - uninstall-spectra-plus-repair.fish
-  - scripts/cash-skills/variant-parity/cash-verify.diff
-  - scripts/spectra-plus/template/apply-notes-block.md
-  - .agents/skills/spectra-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-propose.diff
-  - .agents/skills/cash-propose/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ingest.diff
-  - scripts/spectra-plus/template/no-park-end-block.md
-  - .agents/skills/cash-discuss/SKILL.md
-  - AGENTS.md
-  - scripts/cash-skills/variant-parity/cash-audit.diff
-  - scripts/spectra-plus/template/artifact-language-block.md
-  - CASH-SKILLS.md
-  - scripts/spectra-plus/repair-all.fish
-  - scripts/spectra-plus/rules.yaml
-  - .agents/skills/cash-analyze/SKILL.md
-  - SPECTRA-PLUS.md
-  - .agents/skills/cash-audit/SKILL.md
-  - scripts/spectra-plus/template/signals-read-block.md
-  - scripts/spectra-plus/template/surgical-simplicity-block.md
-  - .agents/skills/cash-commit/SKILL.md
-  - scripts/cash-skills/variant-parity/cash-ask.diff
-  - scripts/spectra-plus/generate.fish
-  - .agents/skills/cash-drift/SKILL.md
-  - install-spectra-plus.fish
-  - scripts/cash-skills/variant-parity/cash-analyze.diff
-tests:
-  - scripts/spectra-plus/tests/auto-restore-checks.fish
-  - scripts/spectra-plus/tests/repair-all-checks.fish
-  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
-  - scripts/spectra-plus/tests/generator-checks.fish
-  - scripts/cash-skills/tests/skill-checks.fish
--->
-
----
-### Requirement: Variant parity compares complete governed bodies
-
-The regression suite SHALL normalize only `/cash-*` versus `$cash-*` invocation syntax and SHALL compare the complete file of every paired skill. A skill without a declared tool difference MUST be identical after that normalization. Every declared difference MUST match its readable exact unified-diff manifest under `scripts/cash-skills/variant-parity/` line-for-line. The per-skill manifests MAY enumerate tool-specific frontmatter, fork-context wording, plan-directory and agent-selection behavior, and the tool-capability-specific `cash-audit` workflows (Codex standalone/discipline versus Claude report-only). Any difference not present in those manifests MUST fail the suite. The suite MUST NOT replace the readable manifests with opaque digests or broad ignored regions.
-
-#### Scenario: Unlisted body drift fails parity
-
-- **GIVEN** one variant omits or changes a workflow paragraph without an explicit allowlist entry
-- **WHEN** variant parity runs
-- **THEN** the suite exits non-zero and identifies the skill pair
-
-#### Scenario: Tool-capability difference remains reviewable
-
-- **GIVEN** a paired skill requires different frontmatter, fork behavior, plan integration, agent selection, or audit execution because the tools have different capabilities
-- **WHEN** variant parity runs
-- **THEN** every differing line is visible in that skill's exact manifest
-- **AND** changing either variant without updating the reviewed manifest fails the suite
+- **WHEN** `spectra update --force` 在隔離的 fixture 中重寫 Spectra 管理區塊
+- **THEN** 專案擁有的覆寫仍在 `<!-- SPECTRA:END -->` 之後
+- **AND** 有效的 discuss 到 commit workflow 仍路由經過 `cash-*`
 
 
 <!-- @trace
@@ -3155,24 +3085,94 @@ tests:
 -->
 
 ---
-### Requirement: Live documentation reflects cash ownership and cleanup
+### Requirement: 變體對等比較完整的受治理本文
 
-The repository SHALL provide `CASH-SKILLS.md` as the current cash workflow guide. The guide MUST list the dual-variant inventory; explain direct installation, bundle version, target receipt, registry commands, batch update, dry-run, force, statuses, exit behavior, migration from receipt-less installs, recognized retired plus skill removal, safe rejection of unknown legacy content, and bundle version bump responsibility; preserve the one-time legacy repair-automation cleanup order; and state that cash skills have no periodic repair. `openspec/signals/README.md` MUST continue to describe current writers as cash review loops while preserving historical `## Occurrences` provenance text.
+回歸套件 SHALL 僅正規化 `/cash-*` 相對於 `$cash-*` 的呼叫語法，且 SHALL 比較每對配對 skill 的完整檔案。沒有宣告工具差異的 skill 在該正規化之後 MUST 完全相同。每個宣告的差異 MUST 逐行符合其位於 `scripts/cash-skills/variant-parity/` 之下、可讀的精確 unified-diff manifest。每 skill 的 manifests MAY 列舉工具特定的 frontmatter、fork 情境措辭、plan 目錄與 agent 選擇行為，以及工具能力特定的 `cash-audit` workflows（Codex standalone/discipline 相對於 Claude report-only）。不存在於那些 manifests 中的任何差異 MUST 使套件失敗。套件 MUST NOT 以不透明的 digests 或大範圍忽略區域取代可讀的 manifests。
 
-#### Scenario: Current installation and update instructions are complete
+#### Scenario: 未列入的本文漂移使對等失敗
 
-- **WHEN** a user reads `CASH-SKILLS.md`
-- **THEN** the document provides the single installer entry point and all direct, registry, and batch commands
-- **AND** it explains when a target is updated, skipped as current or newer, blocked as conflict, or classified as failed
-- **AND** it identifies `cash-skills.version`, `.cash-skills/receipt.tsv`, and `$HOME/.config/cash-skills/projects.txt`
-- **AND** it explains that successful target installation removes only recognized `spectra-propose-plus` and `spectra-apply-plus` directories and rejects unknown content
+- **GIVEN** 一個變體在沒有明確允許清單條目的情況下省略或更改某個 workflow 段落
+- **WHEN** 變體對等執行
+- **THEN** 套件以非零結束並指出該 skill 配對
 
-#### Scenario: Migration documentation has no active repair instruction
+#### Scenario: 工具能力差異維持可審閱
 
-- **WHEN** a user reads `CASH-SKILLS.md` and `openspec/signals/README.md`
-- **THEN** current instructions use `cash-propose`, `cash-apply`, the installer, and the one-time cleanup
-- **AND** no current instruction tells the user to generate or periodically repair plus or cash skills
-- **AND** historical occurrence entries remain unchanged
+- **GIVEN** 某對配對 skill 因工具能力不同而需要不同的 frontmatter、fork 行為、plan 整合、agent 選擇或 audit 執行
+- **WHEN** 變體對等執行
+- **THEN** 每個有差異的行都在該 skill 的精確 manifest 中可見
+- **AND** 更改任一變體而未更新已審閱的 manifest 會使套件失敗
+
+
+<!-- @trace
+source: fork-spectra-skills-to-cash
+updated: 2026-07-18
+code:
+  - scripts/spectra-plus/template/impact-granularity-block.md
+  - .agents/skills/spectra-propose-plus/SKILL.md
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-ingest/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-drift.diff
+  - scripts/spectra-plus/template/review-loop-block.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
+  - .agents/skills/spectra-apply-plus/SKILL.md
+  - scripts/spectra-plus/template/apply-response-language-block.md
+  - install-cash-skills.fish
+  - uninstall-spectra-plus-repair.fish
+  - scripts/cash-skills/variant-parity/cash-verify.diff
+  - scripts/spectra-plus/template/apply-notes-block.md
+  - .agents/skills/spectra-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - .agents/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - scripts/spectra-plus/template/no-park-end-block.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - AGENTS.md
+  - scripts/cash-skills/variant-parity/cash-audit.diff
+  - scripts/spectra-plus/template/artifact-language-block.md
+  - CASH-SKILLS.md
+  - scripts/spectra-plus/repair-all.fish
+  - scripts/spectra-plus/rules.yaml
+  - .agents/skills/cash-analyze/SKILL.md
+  - SPECTRA-PLUS.md
+  - .agents/skills/cash-audit/SKILL.md
+  - scripts/spectra-plus/template/signals-read-block.md
+  - scripts/spectra-plus/template/surgical-simplicity-block.md
+  - .agents/skills/cash-commit/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-ask.diff
+  - scripts/spectra-plus/generate.fish
+  - .agents/skills/cash-drift/SKILL.md
+  - install-spectra-plus.fish
+  - scripts/cash-skills/variant-parity/cash-analyze.diff
+tests:
+  - scripts/spectra-plus/tests/auto-restore-checks.fish
+  - scripts/spectra-plus/tests/repair-all-checks.fish
+  - scripts/spectra-plus/tests/installer-commit-guard-checks.fish
+  - scripts/spectra-plus/tests/generator-checks.fish
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
+
+---
+### Requirement: 現行文件反映 cash 所有權與清理
+
+本 repository SHALL 提供 `CASH-SKILLS.md` 作為當前的 cash workflow 指南。該指南 MUST 列出雙變體清單；說明直接安裝、bundle 版本、target receipt、registry 指令、批次更新、dry-run、force、各狀態、結束行為、自無 receipt 安裝的遷移、可辨識已除役 plus skill 的移除、對未知 legacy 內容的安全拒絕，以及 bundle 版本調升責任；保留一次性 legacy 修復自動化清理的順序；並述明 cash skills 沒有週期性修復。`openspec/signals/README.md` MUST 繼續將當前寫入者描述為 cash 審查迴圈，同時保留歷史性的 `## Occurrences` 出處文字。
+
+#### Scenario: 當前的安裝與更新說明是完整的
+
+- **WHEN** 使用者閱讀 `CASH-SKILLS.md`
+- **THEN** 文件提供單一安裝器進入點與所有直接、registry 與批次指令
+- **AND** 它說明 target 何時被更新、何時因 current 或 newer 被略過、何時被阻擋為 conflict、何時被歸類為 failed
+- **AND** 它指明 `cash-skills.version`、`.cash-skills/receipt.tsv` 與 `$HOME/.config/cash-skills/projects.txt`
+- **AND** 它說明成功的 target 安裝僅移除可辨識的 `spectra-propose-plus` 與 `spectra-apply-plus` 目錄並拒絕未知內容
+
+#### Scenario: 遷移文件沒有現行的修復指示
+
+- **WHEN** 使用者閱讀 `CASH-SKILLS.md` 與 `openspec/signals/README.md`
+- **THEN** 現行指示使用 `cash-propose`、`cash-apply`、安裝器與一次性清理
+- **AND** 沒有任何現行指示要使用者產生或週期性修復 plus 或 cash skills
+- **AND** 歷史性的 occurrence 項目維持不變
 
 
 <!-- @trace
@@ -3191,144 +3191,74 @@ tests:
 -->
 
 ---
-### Requirement: Cash skill bundle version and target receipt
+### Requirement: Cash skill bundle 版本與 target receipt
 
-The repository SHALL define the complete 24-file cash skill inventory as one bundle. `cash-skills.version` MUST contain exactly one `MAJOR.MINOR.PATCH` value with three non-negative integer components that each match `0|[1-9][0-9]*`, with no leading zero, prerelease, or build suffix. Version ordering MUST compare arbitrary-length components by digit-string length and then lexicographically without fixed-width or floating-point conversion. Every repository change that alters installed bytes in the canonical 24-file inventory MUST increase this bundle version. A successful installation or adoption MUST publish `.cash-skills/receipt.tsv` in the target with the bundle version followed by exactly one SHA-256 record for each canonical project-relative path in inventory order.
+本 repository SHALL 將完整的 24 檔 cash skill 清單定義為一個 bundle。`cash-skills.version` MUST 恰好包含一個 `MAJOR.MINOR.PATCH` 值，其三個非負整數分量各自符合 `0|[1-9][0-9]*`，不含前導零、prerelease 或 build 後綴。版本排序 MUST 先以數字字串長度、再以字典序比較任意長度的分量，不使用固定寬度或浮點轉換。每個更動 canonical 24 檔清單中已安裝位元組的 repository 變更 MUST 調升此 bundle 版本。成功的安裝或認養 MUST 在 target 發佈 `.cash-skills/receipt.tsv`，內含 bundle 版本，其後依清單順序為每個 canonical 專案相對路徑各有恰好一筆 SHA-256 紀錄。
 
-#### Scenario: Successful install publishes a complete receipt
+#### Scenario: 成功的安裝發佈完整的 receipt
 
-- **WHEN** the installer completes an install, upgrade, repair, or adoption
-- **THEN** the target receipt records the current source bundle version
-- **AND** it records the lowercase SHA-256 digest and project-relative path of all 24 installed files in canonical order
-- **AND** every recorded digest matches the installed target file
+- **WHEN** 安裝器完成安裝、升級、修復或認養
+- **THEN** target receipt 記錄當前的來源 bundle 版本
+- **AND** 它依 canonical 順序記錄全部 24 個已安裝檔案的小寫 SHA-256 digest 與專案相對路徑
+- **AND** 每筆記錄的 digest 皆符合已安裝的 target 檔案
 
-#### Scenario: Invalid source version fails before target writes
+#### Scenario: 無效的來源版本在 target 寫入之前失敗
 
-- **WHEN** `cash-skills.version` is missing, unreadable, has extra lines, contains a leading-zero component, or is not a strict three-component version
-- **THEN** the installer exits with an execution failure
-- **AND** it performs no target write
-- **AND** dry-run reports the same failure
+- **WHEN** `cash-skills.version` 缺失、不可讀、有多餘行、含前導零分量，或不是嚴格的三分量版本
+- **THEN** 安裝器以執行失敗結束
+- **AND** 它不進行任何 target 寫入
+- **AND** dry-run 回報相同的失敗
 
-#### Scenario: Changed working version is compared with HEAD
+#### Scenario: 變更後的工作版本與 HEAD 比較
 
-- **GIVEN** repository history contains `cash-skills.version`
-- **WHEN** the current version differs from `HEAD`
-- **THEN** the cash contract suite requires it to be non-decreasing and strictly greater when the canonical installed bytes differ from `HEAD`
+- **GIVEN** repository 歷史包含 `cash-skills.version`
+- **WHEN** 當前版本與 `HEAD` 不同
+- **THEN** cash 合約套件要求它不遞減，且當 canonical 已安裝位元組與 `HEAD` 不同時嚴格遞增
 
-#### Scenario: Same version is bound to its introduction commit
+#### Scenario: 相同版本被綁定至其引入 commit
 
-- **GIVEN** the current version equals `HEAD`
-- **WHEN** the cash contract suite evaluates version governance
-- **THEN** the suite finds that version's first commit in its contiguous first-parent history segment
-- **AND** it requires the current canonical installed bytes to equal that introduction commit
-- **AND** a same-version content change fails even after later unrelated commits
+- **GIVEN** 當前版本等於 `HEAD`
+- **WHEN** cash 合約套件評估版本治理
+- **THEN** 套件在其連續的 first-parent 歷史區段中找到該版本的第一個 commit
+- **AND** 它要求當前的 canonical 已安裝位元組等於該引入 commit
+- **AND** 相同版本的內容變更即使在其後不相關的 commits 之後仍會失敗
 
-#### Scenario: Arbitrary-length components retain numeric order
+#### Scenario: 任意長度分量保持數值順序
 
-- **WHEN** two valid versions contain a component longer than the platform integer or floating-point safe range
-- **THEN** comparison orders the longer digit string as greater
-- **AND** equal-length components are ordered lexicographically
+- **WHEN** 兩個有效版本包含超過平台整數或浮點安全範圍的分量
+- **THEN** 比較將較長的數字字串排序為較大
+- **AND** 等長分量以字典序排序
 
-#### Scenario: Invalid receipt is not treated as an uninstalled target
+#### Scenario: 無效的 receipt 不被視為未安裝的 target
 
-- **GIVEN** the target receipt has an invalid version, field count, digest, path, path order, duplicate, missing record, or unknown record
-- **WHEN** the installer evaluates the target
-- **THEN** it exits with an execution failure
-- **AND** it does not classify the target as missing, current, newer, or conflict
-- **AND** it performs no target write
+- **GIVEN** target receipt 有無效的版本、欄位數、digest、路徑、路徑順序、重複、缺漏紀錄或未知紀錄
+- **WHEN** 安裝器評估該 target
+- **THEN** 它以執行失敗結束
+- **AND** 它不將該 target 歸類為 missing、current、newer 或 conflict
+- **AND** 它不進行任何 target 寫入
 
-#### Scenario: Upgrade failure retains the prior receipt
+#### Scenario: 升級失敗保留先前的 receipt
 
-- **GIVEN** the target has a valid prior receipt
-- **WHEN** a runtime write fails after preflight while copying a managed skill file
-- **THEN** the installer exits non-zero
-- **AND** it does not publish the new receipt
-- **AND** the next invocation detects any partial write as drift against the prior receipt
+- **GIVEN** target 有有效的先前 receipt
+- **WHEN** preflight 之後複製受管 skill 檔案時發生執行期寫入失敗
+- **THEN** 安裝器以非零結束
+- **AND** 它不發佈新的 receipt
+- **AND** 下一次呼叫將任何部分寫入偵測為相對於先前 receipt 的漂移
 
-#### Scenario: First-install failure remains receipt-less
+#### Scenario: 首次安裝失敗維持無 receipt
 
-- **GIVEN** the target has no prior receipt
-- **AND** at least one managed destination write persists before the error
-- **WHEN** a runtime write fails after preflight while copying a managed skill file
-- **THEN** the installer exits non-zero without publishing a receipt
-- **AND** the next invocation classifies the mixed or incomplete receipt-less target as conflict
+- **GIVEN** target 沒有先前的 receipt
+- **AND** 在錯誤之前至少一個受管目的地寫入已持久化
+- **WHEN** preflight 之後複製受管 skill 檔案時發生執行期寫入失敗
+- **THEN** 安裝器以非零結束且不發佈 receipt
+- **AND** 下一次呼叫將混雜或不完整的無 receipt target 歸類為 conflict
 
-#### Scenario: First-install failure before the first write remains clean
+#### Scenario: 首次寫入前的首次安裝失敗維持乾淨
 
-- **GIVEN** the target has no prior receipt
-- **WHEN** a runtime error occurs before any managed destination write persists
-- **THEN** the installer exits non-zero without publishing a receipt
-- **AND** the next invocation follows the clean first-install path
-
-
-<!-- @trace
-source: add-versioned-cash-skill-batch-update
-updated: 2026-07-18
-code:
-  - .agents/skills/spectra-apply/SKILL.md
-  - CASH-SKILLS.md
-  - cash-skills.version
-  - .agents/skills/spectra-analyze/SKILL.md
-  - .agents/skills/spectra-verify/SKILL.md
-  - install-cash-skills.fish
-  - .agents/skills/spectra-propose/SKILL.md
-tests:
-  - scripts/cash-skills/tests/skill-checks.fish
--->
-
----
-### Requirement: Manual cash project registry
-
-The repository SHALL provide the registry operations through `install-cash-skills.fish`, with exactly one of `--target <project>`, `--register <project>`, `--unregister <project>`, `--list`, or `--all` per invocation. The registry SHALL be `$HOME/.config/cash-skills/projects.txt` with one canonical absolute project path per non-empty line, and paths MUST NOT contain ASCII control characters. Every registry-backed mode MUST fully validate an existing registry before using it. Registry mutations MUST use a same-directory temporary file and atomic rename. The installer MUST NOT schedule or launch a future invocation.
-
-#### Scenario: First register creates safe state
-
-- **GIVEN** the cash-skills config directory and registry do not exist below a safe HOME
-- **WHEN** `--register <project>` receives a valid target
-- **THEN** the installer creates only the required config directory and atomically published registry
-
-#### Scenario: Missing registry is empty for read and removal modes
-
-- **GIVEN** the cash-skills config directory and registry do not exist below a safe HOME
-- **WHEN** `--unregister <project>`, `--list`, or `--all` runs
-- **THEN** the installer succeeds against an empty list without creating state
-- **AND** `--all` prints a zero-count summary
-
-#### Scenario: Register canonicalizes and deduplicates a target
-
-- **WHEN** `--register <project>` receives an existing non-symlink project directory
-- **THEN** the installer stores its canonical absolute path exactly once
-- **AND** it leaves every other valid entry unchanged
-
-#### Scenario: Register rejects line-oriented path injection
-
-- **WHEN** a register or unregister input contains tab, CR, LF, or another ASCII control character
-- **THEN** the installer exits non-zero
-- **AND** it does not create or modify the registry
-
-#### Scenario: Existing registry records reject retained control characters
-
-- **WHEN** an LF-delimited existing registry record contains tab, CR, or another retained ASCII control character
-- **THEN** every registry-backed installer mode exits non-zero
-- **AND** it does not create or modify the registry or any target
-
-#### Scenario: Unregister removes an existing or stale target
-
-- **WHEN** `--unregister <project>` identifies a canonical existing target or an exact stored absolute stale target without dot segments
-- **THEN** the installer removes that entry atomically
-- **AND** a missing entry is a successful no-op
-
-#### Scenario: List is read-only
-
-- **WHEN** `--list` receives a valid registry
-- **THEN** it prints the deduplicated canonical entries
-- **AND** it creates or modifies no registry, target, receipt, skill file, temporary file, or background process
-
-#### Scenario: Invalid registry fails closed
-
-- **WHEN** the registry is unreadable or contains a relative path, root path, dot segment, malformed line, or unsafe boundary
-- **THEN** `--register`, `--unregister`, `--list`, and `--all` exit non-zero before processing any target or rewriting the registry
-- **AND** no registry or target state is modified
+- **GIVEN** target 沒有先前的 receipt
+- **WHEN** 在任何受管目的地寫入持久化之前發生執行期錯誤
+- **THEN** 安裝器以非零結束且不發佈 receipt
+- **AND** 下一次呼叫依循乾淨的首次安裝路徑
 
 
 <!-- @trace
@@ -3347,69 +3277,139 @@ tests:
 -->
 
 ---
-### Requirement: Version-aware cash skill batch installation
+### Requirement: 手動的 cash 專案 registry
 
-`install-cash-skills.fish --all [--dry-run] [--force]` SHALL process every deduplicated registry target by reusing the same installer target workflow as `--target`. It MUST report each target as `updated`, `would-update`, `current`, `newer`, `conflict`, or `failed`, then print counts for every status. A target conflict or failure MUST NOT stop later targets, and the aggregate command MUST exit non-zero when any target is `conflict` or `failed`.
+本 repository SHALL 經由 `install-cash-skills.fish` 提供 registry 操作，每次呼叫恰好使用 `--target <project>`、`--register <project>`、`--unregister <project>`、`--list` 或 `--all` 其中之一。registry SHALL 是 `$HOME/.config/cash-skills/projects.txt`，每個非空行一個正規化的絕對專案路徑，且路徑 MUST NOT 包含 ASCII 控制字元。每個 registry 支援的模式 MUST 在使用既有 registry 之前完整驗證它。registry 的變動 MUST 使用同目錄暫存檔與 atomic rename。安裝器 MUST NOT 排程或啟動未來的呼叫。
 
-#### Scenario: Only older bundles are updated
+#### Scenario: 首次 register 建立安全狀態
 
-- **GIVEN** the registry contains valid clean targets whose receipt versions are older than, equal to, and newer than the source version
-- **AND** the equal-version target's current source and target digests all match its receipt
-- **WHEN** the installer runs with `--all`
-- **THEN** it reports the older target as `updated`
-- **AND** it reports the equal target as `current`
-- **AND** it reports the newer target as `newer`
-- **AND** it does not rewrite the equal or newer target
+- **GIVEN** cash-skills 組態目錄與 registry 在安全的 HOME 之下不存在
+- **WHEN** `--register <project>` 收到有效的 target
+- **THEN** 安裝器僅建立所需的組態目錄與以 atomic 方式發佈的 registry
 
-##### Example: Numeric version ordering
+#### Scenario: 缺失的 registry 對讀取與移除模式視為空
 
-| Source | Target | Expected status |
+- **GIVEN** cash-skills 組態目錄與 registry 在安全的 HOME 之下不存在
+- **WHEN** `--unregister <project>`、`--list` 或 `--all` 執行
+- **THEN** 安裝器對空清單成功執行且不建立狀態
+- **AND** `--all` 印出零計數摘要
+
+#### Scenario: Register 正規化並去重 target
+
+- **WHEN** `--register <project>` 收到既存的非 symlink 專案目錄
+- **THEN** 安裝器恰好儲存一次其正規化絕對路徑
+- **AND** 它保持其他每個有效項目不變
+
+#### Scenario: Register 拒絕行導向的路徑注入
+
+- **WHEN** register 或 unregister 的輸入包含 tab、CR、LF 或其他 ASCII 控制字元
+- **THEN** 安裝器以非零結束
+- **AND** 它不建立也不修改 registry
+
+#### Scenario: 既有 registry 紀錄拒絕殘留的控制字元
+
+- **WHEN** 以 LF 分隔的既有 registry 紀錄包含 tab、CR 或其他殘留的 ASCII 控制字元
+- **THEN** 每個 registry 支援的安裝器模式以非零結束
+- **AND** 它不建立也不修改 registry 或任何 target
+
+#### Scenario: Unregister 移除既存或過時的 target
+
+- **WHEN** `--unregister <project>` 識別出正規化的既存 target，或不含 dot 區段、與儲存值完全一致的絕對過時 target
+- **THEN** 安裝器以 atomic 方式移除該項目
+- **AND** 缺失的項目是成功的 no-op
+
+#### Scenario: List 是唯讀的
+
+- **WHEN** `--list` 收到有效的 registry
+- **THEN** 它印出去重後的正規化項目
+- **AND** 它不建立也不修改任何 registry、target、receipt、skill 檔案、暫存檔或背景行程
+
+#### Scenario: 無效的 registry fail closed
+
+- **WHEN** registry 不可讀，或包含相對路徑、根路徑、dot 區段、格式錯誤的行或不安全的邊界
+- **THEN** `--register`、`--unregister`、`--list` 與 `--all` 在處理任何 target 或重寫 registry 之前以非零結束
+- **AND** 沒有任何 registry 或 target 狀態被修改
+
+
+<!-- @trace
+source: add-versioned-cash-skill-batch-update
+updated: 2026-07-18
+code:
+  - .agents/skills/spectra-apply/SKILL.md
+  - CASH-SKILLS.md
+  - cash-skills.version
+  - .agents/skills/spectra-analyze/SKILL.md
+  - .agents/skills/spectra-verify/SKILL.md
+  - install-cash-skills.fish
+  - .agents/skills/spectra-propose/SKILL.md
+tests:
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
+
+---
+### Requirement: 版本感知的 cash skill 批次安裝
+
+`install-cash-skills.fish --all [--dry-run] [--force]` SHALL 重用與 `--target` 相同的安裝器 target workflow，處理每個去重後的 registry target。它 MUST 將每個 target 回報為 `updated`、`would-update`、`current`、`newer`、`conflict` 或 `failed`，然後印出每種狀態的計數。單一 target 的 conflict 或失敗 MUST NOT 停止後續 targets，且當任何 target 為 `conflict` 或 `failed` 時，彙總指令 MUST 以非零結束。
+
+#### Scenario: 只有較舊的 bundles 被更新
+
+- **GIVEN** registry 包含有效且乾淨的 targets，其 receipt 版本分別舊於、等於與新於來源版本
+- **AND** 等版本 target 的當前來源與 target digests 皆符合其 receipt
+- **WHEN** 安裝器以 `--all` 執行
+- **THEN** 它將較舊的 target 回報為 `updated`
+- **AND** 它將等版本的 target 回報為 `current`
+- **AND** 它將較新的 target 回報為 `newer`
+- **AND** 它不重寫等版本或較新的 target
+
+##### Example: 數值版本排序
+
+| Source | Target | 預期狀態 |
 | ----- | ----- | ----- |
 | `1.10.0` | `1.9.9` | `updated` |
 | `2.0.0` | `2.0.0` | `current` |
 | `2.9.0` | `3.0.0` | `newer` |
 
-#### Scenario: Batch surfaces equal-version source integrity failure
+#### Scenario: 批次揭露等版本的來源完整性失敗
 
-- **GIVEN** a registered target has a valid receipt equal to the source version
-- **AND** at least one current source digest differs from that receipt
-- **WHEN** the installer runs with `--all` or `--all --force`
-- **THEN** it reports the target as `failed`
-- **AND** it performs no target write
-- **AND** the aggregate command exits non-zero
+- **GIVEN** 某個已註冊 target 有等於來源版本的有效 receipt
+- **AND** 至少一個當前來源 digest 與該 receipt 不同
+- **WHEN** 安裝器以 `--all` 或 `--all --force` 執行
+- **THEN** 它將該 target 回報為 `failed`
+- **AND** 它不進行任何 target 寫入
+- **AND** 彙總指令以非零結束
 
-#### Scenario: Drift is preserved unless force is explicit
+#### Scenario: 除非明確 force 否則漂移被保留
 
-- **GIVEN** an older or equal-version target has a managed file whose digest differs from its valid receipt
-- **AND** when versions are equal every current source digest matches the receipt
-- **WHEN** the installer runs without `--force`
-- **THEN** it reports that target as `conflict`
-- **AND** it does not modify any managed target state
-- **WHEN** the installer runs again with `--force`
-- **THEN** it replaces only the explicit managed inventory and receipt
-- **AND** it reports the target as `updated`
+- **GIVEN** 某個較舊或等版本的 target 有受管檔案，其 digest 與其有效 receipt 不同
+- **AND** 當版本相等時，每個當前來源 digest 皆符合該 receipt
+- **WHEN** 安裝器在未帶 `--force` 下執行
+- **THEN** 它將該 target 回報為 `conflict`
+- **AND** 它不修改任何受管 target 狀態
+- **WHEN** 安裝器再次帶 `--force` 執行
+- **THEN** 它僅取代明確的受管清單與 receipt
+- **AND** 它將該 target 回報為 `updated`
 
-#### Scenario: Force never downgrades a newer target
+#### Scenario: Force 從不降級較新的 target
 
-- **GIVEN** a valid target receipt version is greater than the source version
-- **WHEN** the installer runs with `--all --force`
-- **THEN** it reports the target as `newer`
-- **AND** it does not modify the target
+- **GIVEN** 有效的 target receipt 版本高於來源版本
+- **WHEN** 安裝器以 `--all --force` 執行
+- **THEN** 它將該 target 回報為 `newer`
+- **AND** 它不修改該 target
 
-#### Scenario: Target failure does not stop the batch
+#### Scenario: Target 失敗不停止批次
 
-- **GIVEN** one registered target fails execution and a later registered target can update
-- **WHEN** the installer runs with `--all`
-- **THEN** it reports the first target as `failed`
-- **AND** it processes and updates the later target
-- **AND** the aggregate command exits non-zero
+- **GIVEN** 一個已註冊 target 執行失敗，且較後的已註冊 target 可以更新
+- **WHEN** 安裝器以 `--all` 執行
+- **THEN** 它將第一個 target 回報為 `failed`
+- **AND** 它處理並更新較後的 target
+- **AND** 彙總指令以非零結束
 
-#### Scenario: Batch dry run uses full validation without writes
+#### Scenario: 批次 dry run 使用完整驗證且不寫入
 
-- **WHEN** the installer runs with `--all --dry-run`
-- **THEN** every target receives the same source, receipt, version, hash, registry, and filesystem-boundary validation as a real run
-- **AND** planned updates are reported as `would-update`
-- **AND** no target, receipt, registry, temporary file, or background state is created or modified
+- **WHEN** 安裝器以 `--all --dry-run` 執行
+- **THEN** 每個 target 都接受與真實執行相同的來源、receipt、版本、hash、registry 與檔案系統邊界驗證
+- **AND** 計畫中的更新被回報為 `would-update`
+- **AND** 沒有任何 target、receipt、registry、暫存檔或背景狀態被建立或修改
 
 <!-- @trace
 source: add-versioned-cash-skill-batch-update
@@ -3422,6 +3422,101 @@ code:
   - .agents/skills/spectra-verify/SKILL.md
   - install-cash-skills.fish
   - .agents/skills/spectra-propose/SKILL.md
+tests:
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
+
+---
+### Requirement: Spec 檔案語言政策
+
+所有 spec 檔（openspec/changes/<change>/specs/<capability>/spec.md 的 delta spec 與 openspec/specs/<capability>/spec.md 的 master spec）的內文 SHALL 以繁體中文撰寫，包含 Requirement 敘述、Scenario 步驟、Example 說明與 Purpose 段落。下列結構關鍵字 MUST 逐字保留英文：`## ADDED Requirements`、`## MODIFIED Requirements`、`## REMOVED Requirements`、`## RENAMED Requirements`、`### Requirement:`、`#### Scenario:`、`##### Example:`，以及 Scenario 步驟中的 **GIVEN** / **WHEN** / **THEN** / **AND** 標記。規範動詞 SHALL / MUST / SHOULD / MAY MUST 以英文嵌入中文句子使用。程式識別字、檔案路徑、CLI 指令、schema 欄位名，以及自其他文件引用的原文 MUST 逐字保留，不得翻譯。openspec/changes/archive/ 下的歷史 spec 檔為歷史紀錄，不受本政策約束，SHALL NOT 回溯翻譯。
+
+#### Scenario: 新撰寫的 delta spec 使用中文內文與英文結構關鍵字
+
+- **WHEN** cash-propose 為某 capability 產生 delta spec
+- **THEN** Requirement 敘述與 Scenario 步驟以繁體中文撰寫
+- **AND** 結構關鍵字（如 `### Requirement:`、`#### Scenario:`、**WHEN** / **THEN**）維持英文
+- **AND** 規範動詞（SHALL / MUST）以英文嵌入中文句子
+
+##### Example: 符合政策的 requirement 條文
+
+- **GIVEN** 一條關於匯出功能的需求
+- **WHEN** 依本政策撰寫其 spec 條文
+- **THEN** 條文形如：「系統 SHALL 在使用者觸發匯出時，將結果寫入 `exports/` 目錄，且檔名 MUST 使用 `YYYY-MM-DD` 前綴。」
+
+#### Scenario: 引用原文與識別字不翻譯
+
+- **WHEN** spec 條文需要引用 SKILL.md 或其他英文文件中的字面內容（例如 `None; pass condition met.`）
+- **THEN** 該引用逐字保留英文原文
+- **AND** 檔案路徑與 CLI 指令（例如 `spectra validate --strict`）逐字保留
+
+
+<!-- @trace
+source: chinese-spec-content
+updated: 2026-07-19
+code:
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-drift/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-audit/SKILL.md
+  - .agents/skills/cash-analyze/SKILL.md
+  - .agents/skills/cash-commit/SKILL.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - cash-skills.version
+  - .agents/skills/cash-ingest/SKILL.md
+  - .agents/skills/cash-propose/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
+tests:
+  - scripts/cash-skills/tests/skill-checks.fish
+-->
+
+---
+### Requirement: Requirement 標題是合併身分鍵
+
+delta spec 中 `## MODIFIED Requirements` 與 `## REMOVED Requirements` 區段下的每個 `### Requirement:` 標題、以及 `## RENAMED Requirements` 區段中的 FROM 標題，MUST 從對應 master spec 現行內容逐字（byte-for-byte）複製，不得重打、改寫或翻譯。cash-propose 與 cash-apply 的 pre-round mechanical self-check MUST 對上述每個標題執行存在性檢查（**Spec delta title-identity check**）：標題必須逐字存在於對應 master spec `openspec/specs/<capability>/spec.md` 的 `### Requirement:` 標題集合中；master spec 尚不存在的 capability SHALL 跳過此檢查。任何不吻合 MUST 視為 self-check 失敗，並且 MUST 在 spawn reviewers 之前以「從 master spec 逐字複製標題」的方式修復。
+
+#### Scenario: 標題逐字存在時檢查通過
+
+- **GIVEN** master spec 含標題 `### Requirement: 匯出檔案處理`
+- **WHEN** delta spec 在 `## MODIFIED Requirements` 下使用逐字相同的標題
+- **THEN** self-check 的標題身分鍵檢查通過
+
+#### Scenario: 標題不吻合時必須在 review 前修復
+
+- **GIVEN** delta spec 的 MODIFIED 標題在對應 master spec 中不存在（例如被重打或翻譯過）
+- **WHEN** pre-round mechanical self-check 執行
+- **THEN** 該標題被判定為 self-check 失敗
+- **AND** 失敗 MUST 在 spawn reviewers 之前修復，因為 spectra archive 對不吻合的標題會靜默輸出 modified: 0 並丟棄修改內容
+
+#### Scenario: 尚無 master spec 的新 capability 跳過檢查
+
+- **WHEN** delta spec 的 capability 在 openspec/specs/ 下尚無 master spec
+- **THEN** 標題身分鍵檢查對該 capability 跳過
+- **AND** 該 delta 的 `## ADDED Requirements` 不受標題比對約束
+
+<!-- @trace
+source: chinese-spec-content
+updated: 2026-07-19
+code:
+  - .agents/skills/cash-archive/SKILL.md
+  - .agents/skills/cash-drift/SKILL.md
+  - scripts/cash-skills/variant-parity/cash-propose.diff
+  - scripts/cash-skills/variant-parity/cash-ingest.diff
+  - .agents/skills/cash-verify/SKILL.md
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-ask/SKILL.md
+  - .agents/skills/cash-audit/SKILL.md
+  - .agents/skills/cash-analyze/SKILL.md
+  - .agents/skills/cash-commit/SKILL.md
+  - .agents/skills/cash-discuss/SKILL.md
+  - cash-skills.version
+  - .agents/skills/cash-ingest/SKILL.md
+  - .agents/skills/cash-propose/SKILL.md
+  - .agents/skills/cash-debug/SKILL.md
 tests:
   - scripts/cash-skills/tests/skill-checks.fish
 -->
