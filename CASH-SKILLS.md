@@ -41,13 +41,23 @@ Codex files 位於 `.agents/skills/`，Claude files 位於 `.claude/skills/`。C
 - `Result: conflict`：target 有 drift 或無 receipt 的內容不完整／不同；exit `2`。
 - argument、schema、I/O、hash 或 integrity error 不輸出 domain result；exit `1`。
 
+## Cash project guidance migration
+
+Repository root 的 `AGENTS.md` 與 `CLAUDE.md` 是兩個 canonical guidance sources：前者使用 `$cash-*`，後者使用 `/cash-*`。每份 source 都恰好包含一個 `<!-- CASH:START -->`／`<!-- CASH:END -->` managed block；installer 從這兩份 live files 擷取對應 block，不另外維護 template。
+
+每次非 `newer`、非 `conflict` 的 target 安裝都會檢查同名 guidance files。Installer 會更新既有 Cash block、以 Cash block取代一個合法的 `<!-- SPECTRA:START ... -->`／`<!-- SPECTRA:END -->` block，或在沒有 managed block 時附加 Cash block。它只改動已辨識的 block spans與必要邊界換行，逐位元組保留 managed spans 以外的 project-owned內容與既有 mode。Symlink、duplicate、orphan、reversed、nested、非獨立行或未知版本 marker都會在首次 target write前 fail closed，`--force` 也不會繞過。
+
+標準 `spectra-*` skills 會保留；skill availability 與 Cash-only workflow routing 是不同邊界。guidance 不會加入 `.cash-skills/receipt.tsv`，因此只遷移 guidance 不需要調升 `cash-skills.version`；同版本 target 可先因 guidance drift 回報 `Result: update`，下一次則穩定回報 `Result: current`。
+
+若 Spectra app 日後在 target project重新加入合法 Spectra block，Cash block仍有效；再次明確執行 installer即可移除該 Spectra block並保留其他內容。若外部工具改動 source repository 的 committed guidance，先用版本控制還原 Cash-only `AGENTS.md`／`CLAUDE.md`；只要 canonical Cash block仍完整唯一，額外且不巢狀的合法 Spectra block不會阻斷其他 targets安裝。
+
 每次成功的 target 安裝也會清除四個 retired plus skill 目錄：`.agents/skills/spectra-propose-plus`、`.agents/skills/spectra-apply-plus`、`.claude/skills/spectra-propose-plus`、`.claude/skills/spectra-apply-plus`。只有目錄只含一個 regular `SKILL.md`、frontmatter name 與目錄相符，且所有邊界可安全讀寫時才會移除；symlink、額外檔案、名稱不符或其他未知內容會在任何 target write 前以 exit `1` 拒絕。installer 逐一刪除已辨識的 `SKILL.md` 再移除空目錄，不使用 recursive deletion，也不會修改任何 non-plus Spectra skill。
 
 如果 cash bundle 原本已是 `current` 但仍有可辨識的 retired plus skill，本次執行會列出 `remove:` plan、完成清除並回報 `Result: update`。`--dry-run` 只預覽、不移除；`newer` 與未使用 `--force` 的 `conflict` 分支保持零寫入，也不會先清除 plus skills。
 
-`--dry-run` 執行相同的完整 preflight，但不建立、修改或移除 skill files、receipt 或 temporary files；預計更新仍輸出 `Result: update`。`--force` 只可在 source 版本不低於 target 且所有 validation 通過時修復 24 個 managed `SKILL.md` 與 receipt，並清除上述四個可辨識的 retired plus 目錄；不會碰其他 inventory 外檔案，也不能繞過同版本 source integrity failure。
+`--dry-run` 執行相同的完整 preflight，但不建立 target temporary files或持久狀態，也不修改或移除 skill files、guidance、receipt或registry；只供驗證與render使用的system temporary validation/render snapshots會在 exit 時清除。預計更新仍輸出 `Result: update`。`--force` 只可在 source 版本不低於 target 且所有 validation 通過時修復 24 個 managed `SKILL.md` 與 receipt，並清除上述四個可辨識的 retired plus 目錄；不會碰其他 inventory 外檔案，也不能繞過同版本 source integrity failure。
 
-舊 target 沒有 receipt 時，24 個 files 全不存在會首次安裝；24 個 files 全部與 source 相同會只建立 receipt 完成接管；mixed、缺檔或內容不同則先回報 conflict，必須確認後才使用 `--force`。
+舊 target 沒有 receipt 時，24 個 files 全不存在會首次安裝；24 個 files 全部與 source 相同時，adoption會保留既有 24 個 skill bytes、收斂 `AGENTS.md` 與 `CLAUDE.md` guidance，並建立 receipt；mixed、缺檔或內容不同則先回報 conflict，必須確認後才使用 `--force`。
 
 ## 手動專案清單與批次更新
 

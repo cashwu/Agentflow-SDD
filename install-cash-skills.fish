@@ -185,6 +185,379 @@ function validate_managed_boundary --argument-names target relative_path
     end
 end
 
+function path_identity --argument-names path
+    command stat -f '%d:%i' "$path" 2>/dev/null
+end
+
+function snapshot_canonical_cash_block --argument-names source output
+    command perl -MDigest::SHA=sha256_hex -MFcntl=:DEFAULT,:mode -e '
+        use strict;
+        use warnings;
+        my ($source, $output) = @ARGV;
+
+        sub read_handle {
+            my ($handle) = @_;
+            my $data = "";
+            while (1) {
+                my $count = sysread($handle, my $chunk, 65536);
+                die "cannot read source guidance snapshot: $!\n" unless defined $count;
+                last if $count == 0;
+                $data .= $chunk;
+            }
+            return $data;
+        }
+
+        sub run_test_hook {
+            my ($stage) = @_;
+            my $hook = $ENV{CASH_GUIDANCE_TEST_HOOK};
+            return unless defined $hook && length $hook;
+            system {$hook} $hook, $stage, $source;
+            die "guidance snapshot test hook failed at $stage\n" unless $? == 0;
+        }
+
+        sysopen(my $input, $source, O_RDONLY | O_NOFOLLOW) or exit 1;
+        my @before = stat($input);
+        exit 1 unless @before && S_ISREG($before[2]);
+        my $data = read_handle($input);
+        my @after = stat($input);
+        exit 1 unless @after && S_ISREG($after[2])
+            && $after[0] == $before[0] && $after[1] == $before[1];
+        close $input or exit 1;
+        my $source_digest = sha256_hex($data);
+        run_test_hook("after-source-snapshot");
+
+        my $cash_start_raw = () = $data =~ /<!-- CASH:START -->/g;
+        my $cash_end_raw = () = $data =~ /<!-- CASH:END -->/g;
+        my @cash_starts = ($data =~ /(?m)^<!-- CASH:START -->$/g);
+        my @cash_ends = ($data =~ /(?m)^<!-- CASH:END -->$/g);
+        exit 2 unless $cash_start_raw == 1 && $cash_end_raw == 1;
+        exit 2 unless @cash_starts == 1 && @cash_ends == 1;
+
+        my $spectra_start_raw = () = $data =~ /<!-- SPECTRA:START/g;
+        my $spectra_end_raw = () = $data =~ /<!-- SPECTRA:END -->/g;
+        my @spectra_starts = ($data =~ /(?m)^<!-- SPECTRA:START(?: v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))? -->$/g);
+        my @spectra_ends = ($data =~ /(?m)^<!-- SPECTRA:END -->$/g);
+        exit 2 unless $spectra_start_raw == @spectra_starts && $spectra_end_raw == @spectra_ends;
+        exit 2 unless @spectra_starts == @spectra_ends && @spectra_starts <= 1;
+
+        $data =~ /(?ms)^<!-- CASH:START -->\n.*?^<!-- CASH:END -->(?:\n|\z)/ or exit 2;
+        my ($cash_from, $cash_to, $block) = ($-[0], $+[0], $&);
+        if (@spectra_starts == 1) {
+            $data =~ /(?ms)^<!-- SPECTRA:START(?: v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))? -->\n.*?^<!-- SPECTRA:END -->(?:\n|\z)/ or exit 2;
+            my ($spectra_from, $spectra_to) = ($-[0], $+[0]);
+            exit 2 unless $cash_to <= $spectra_from || $spectra_to <= $cash_from;
+        }
+
+        open my $result, ">", $output or exit 1;
+        binmode $result;
+        print {$result} $block or exit 1;
+        close $result or exit 1;
+        run_test_hook("after-source-render");
+        print join("\t", $source_digest, "$before[0]:$before[1]", sha256_hex($block)), "\n";
+    ' "$source" "$output"
+end
+
+function snapshot_render_guidance --argument-names target canonical canonical_digest output
+    command perl -MDigest::SHA=sha256_hex -MFcntl=:DEFAULT,:mode -MErrno=ENOENT -e '
+        use strict;
+        use warnings;
+        my ($target, $canonical_path, $canonical_digest, $output) = @ARGV;
+
+        sub read_handle {
+            my ($handle) = @_;
+            my $data = "";
+            while (1) {
+                my $count = sysread($handle, my $chunk, 65536);
+                die "cannot read guidance snapshot: $!\n" unless defined $count;
+                last if $count == 0;
+                $data .= $chunk;
+            }
+            return $data;
+        }
+
+        sub run_test_hook {
+            my ($stage) = @_;
+            my $hook = $ENV{CASH_GUIDANCE_TEST_HOOK};
+            return unless defined $hook && length $hook;
+            system {$hook} $hook, $stage, $target;
+            die "guidance snapshot test hook failed at $stage\n" unless $? == 0;
+        }
+
+        my $data = "";
+        my ($existed, $digest, $identity, $mode) = (0, "missing", "missing", "0644");
+        my @path_stat = lstat($target);
+        if (@path_stat) {
+            sysopen(my $input, $target, O_RDONLY | O_NOFOLLOW) or exit 1;
+            my @before = stat($input);
+            exit 1 unless @before && S_ISREG($before[2]);
+            $data = read_handle($input);
+            my @after = stat($input);
+            exit 1 unless @after && S_ISREG($after[2])
+                && $after[0] == $before[0] && $after[1] == $before[1];
+            close $input or exit 1;
+            ($existed, $digest, $identity, $mode) = (
+                1,
+                sha256_hex($data),
+                "$before[0]:$before[1]",
+                sprintf("%04o", S_IMODE($before[2])),
+            );
+        } else {
+            exit 1 unless $! == ENOENT;
+        }
+        run_test_hook("after-target-snapshot");
+
+        sysopen(my $canonical_input, $canonical_path, O_RDONLY | O_NOFOLLOW) or exit 1;
+        my $canonical = read_handle($canonical_input);
+        close $canonical_input or exit 1;
+        exit 1 unless sha256_hex($canonical) eq $canonical_digest;
+
+        my $cash_start_raw = () = $data =~ /<!-- CASH:START -->/g;
+        my $cash_end_raw = () = $data =~ /<!-- CASH:END -->/g;
+        my @cash_starts = ($data =~ /(?m)^<!-- CASH:START -->$/g);
+        my @cash_ends = ($data =~ /(?m)^<!-- CASH:END -->$/g);
+        exit 2 unless $cash_start_raw == @cash_starts && $cash_end_raw == @cash_ends;
+        exit 2 unless @cash_starts == @cash_ends && @cash_starts <= 1;
+
+        my $spectra_start_raw = () = $data =~ /<!-- SPECTRA:START/g;
+        my $spectra_end_raw = () = $data =~ /<!-- SPECTRA:END -->/g;
+        my @spectra_starts = ($data =~ /(?m)^<!-- SPECTRA:START(?: v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))? -->$/g);
+        my @spectra_ends = ($data =~ /(?m)^<!-- SPECTRA:END -->$/g);
+        exit 2 unless $spectra_start_raw == @spectra_starts && $spectra_end_raw == @spectra_ends;
+        exit 2 unless @spectra_starts == @spectra_ends && @spectra_starts <= 1;
+
+        my @spans;
+        if (@cash_starts == 1) {
+            $data =~ /(?ms)^<!-- CASH:START -->\n.*?^<!-- CASH:END -->(?:\n|\z)/ or exit 2;
+            push @spans, [$-[0], $+[0], $canonical];
+        }
+        if (@spectra_starts == 1) {
+            $data =~ /(?ms)^<!-- SPECTRA:START(?: v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))? -->\n.*?^<!-- SPECTRA:END -->(?:\n|\z)/ or exit 2;
+            my $replacement = @cash_starts == 1 ? "" : $canonical;
+            push @spans, [$-[0], $+[0], $replacement];
+        }
+        @spans = sort { $a->[0] <=> $b->[0] } @spans;
+        if (@spans == 2) {
+            exit 2 unless $spans[0]->[1] <= $spans[1]->[0];
+        }
+
+        my $rendered;
+        if (!@spans) {
+            my $separator = length($data) && $data !~ /\n\z/ ? "\n" : "";
+            $rendered = $data . $separator . $canonical;
+        } else {
+            my $cursor = 0;
+            $rendered = "";
+            for my $span (@spans) {
+                $rendered .= substr($data, $cursor, $span->[0] - $cursor);
+                $rendered .= $span->[2];
+                $cursor = $span->[1];
+            }
+            $rendered .= substr($data, $cursor);
+        }
+
+        open my $result, ">", $output or exit 1;
+        binmode $result;
+        print {$result} $rendered or exit 1;
+        close $result or exit 1;
+        run_test_hook("after-target-render");
+        my $changed = $existed && $data eq $rendered ? 0 : 1;
+        print join("\t", $existed, $digest, $identity, $mode, $changed, sha256_hex($rendered)), "\n";
+    ' "$target" "$canonical" "$canonical_digest" "$output"
+end
+
+function guidance_snapshot_matches --argument-names path existed digest identity parent parent_identity
+    test -d "$parent"; and not test -L "$parent"; or return 1
+    test (path_identity "$parent") = "$parent_identity"; or return 1
+    if test "$existed" = 1
+        test -f "$path"; and not test -L "$path"; or return 1
+        test (path_identity "$path") = "$identity"; or return 1
+        set -l current_digest (hash_file "$path"); or return 1
+        test "$current_digest" = "$digest"; or return 1
+    else
+        not test -e "$path"; and not test -L "$path"; or return 1
+    end
+end
+
+function source_guidance_snapshot_matches --argument-names path digest identity parent_identity
+    test -f "$path"; and test -r "$path"; and not test -L "$path"; or return 1
+    test (path_identity "$path") = "$identity"; or return 1
+    test (path_identity (command dirname "$path")) = "$parent_identity"; or return 1
+    set -l current_digest (hash_file "$path"); or return 1
+    test "$current_digest" = "$digest"
+end
+
+function guidance_publisher_capability_matches --argument-names parent basename parent_identity
+    command perl -MFcntl=:DEFAULT,:mode -MErrno=ENOENT -e '
+        use strict;
+        use warnings;
+
+        my ($parent, $basename, $parent_identity) = @ARGV;
+        die "invalid guidance basename\n" unless $basename =~ /\A(?:AGENTS|CLAUDE)\.md\z/;
+        die "invalid parent identity\n" unless $parent_identity =~ /\A([0-9]+):([0-9]+)\z/;
+        my ($expected_device, $expected_inode) = ($1, $2);
+
+        sysopen(my $directory_fh, $parent, O_RDONLY | O_DIRECTORY | O_NOFOLLOW)
+            or die "cannot open guidance parent: $!\n";
+        my @held_stat = stat($directory_fh);
+        die "guidance parent identity mismatch\n"
+            unless @held_stat && S_ISDIR($held_stat[2])
+                && $held_stat[0] == $expected_device && $held_stat[1] == $expected_inode;
+        chdir($directory_fh) or die "cannot bind guidance parent: $!\n";
+        my @working_stat = stat(".");
+        die "bound guidance parent identity mismatch\n"
+            unless @working_stat && S_ISDIR($working_stat[2])
+                && $working_stat[0] == $expected_device && $working_stat[1] == $expected_inode;
+
+        my @child_stat = lstat($basename);
+        die "cannot inspect guidance child: $!\n" unless @child_stat || $! == ENOENT;
+
+        my $hook = $ENV{CASH_GUIDANCE_TEST_HOOK};
+        if (defined $hook && length $hook) {
+            system {$hook} $hook, "capability-preflight", $parent, $basename, "";
+            die "guidance capability test hook failed\n" unless $? == 0;
+        }
+    ' "$parent" "$basename" "$parent_identity"
+end
+
+function publish_guidance_anchored --argument-names parent basename rendered rendered_digest existed digest identity parent_identity mode source source_digest source_identity source_parent_identity
+    command perl -MDigest::SHA=sha256_hex -MFcntl=:DEFAULT,:mode -MErrno=ENOENT -e '
+        use strict;
+        use warnings;
+
+        my ($parent, $basename, $rendered, $rendered_digest, $existed, $digest, $identity,
+            $parent_identity, $mode_text, $source, $source_digest,
+            $source_identity, $source_parent_identity) = @ARGV;
+        die "invalid guidance basename\n" unless $basename =~ /\A(?:AGENTS|CLAUDE)\.md\z/;
+        die "invalid guidance mode\n" unless $mode_text =~ /\A[0-7]{3,4}\z/;
+        my $mode = oct($mode_text);
+        my $source_parent = $source;
+        $source_parent =~ s{/[^/]+\z}{} or die "invalid source guidance path\n";
+
+        sub expected_identity {
+            my ($value) = @_;
+            die "invalid expected identity\n" unless $value =~ /\A([0-9]+):([0-9]+)\z/;
+            return ($1, $2);
+        }
+
+        sub same_identity {
+            my ($stat, $expected) = @_;
+            my ($device, $inode) = expected_identity($expected);
+            return @$stat && $stat->[0] == $device && $stat->[1] == $inode;
+        }
+
+        sub read_handle {
+            my ($handle) = @_;
+            my $data = "";
+            while (1) {
+                my $count = sysread($handle, my $chunk, 65536);
+                die "cannot read snapshot: $!\n" unless defined $count;
+                last if $count == 0;
+                $data .= $chunk;
+            }
+            return $data;
+        }
+
+        sub verify_source {
+            my @parent_stat = lstat($source_parent);
+            die "source parent changed\n" unless same_identity(\@parent_stat, $source_parent_identity);
+            sysopen(my $input, $source, O_RDONLY | O_NOFOLLOW) or die "cannot open source guidance: $!\n";
+            my @source_stat = stat($input);
+            die "source guidance changed\n" unless same_identity(\@source_stat, $source_identity) && S_ISREG($source_stat[2]);
+            my $data = read_handle($input);
+            close($input) or die "cannot close source guidance: $!\n";
+            die "source guidance bytes changed\n" unless sha256_hex($data) eq $source_digest;
+        }
+
+        sub verify_parent_path {
+            my @path_stat = lstat($parent);
+            die "guidance parent changed\n" unless same_identity(\@path_stat, $parent_identity) && S_ISDIR($path_stat[2]);
+        }
+
+        sub verify_destination {
+            if ($existed) {
+                my @path_stat = lstat($basename);
+                die "target guidance changed\n" unless same_identity(\@path_stat, $identity) && S_ISREG($path_stat[2]);
+                sysopen(my $input, $basename, O_RDONLY | O_NOFOLLOW) or die "cannot open target guidance: $!\n";
+                my @file_stat = stat($input);
+                die "target guidance changed\n" unless same_identity(\@file_stat, $identity) && S_ISREG($file_stat[2]);
+                my $data = read_handle($input);
+                close($input) or die "cannot close target guidance: $!\n";
+                die "target guidance bytes changed\n" unless sha256_hex($data) eq $digest;
+                return;
+            }
+
+            my @path_stat = lstat($basename);
+            die "target guidance appeared\n" if @path_stat;
+            die "cannot inspect target guidance: $!\n" unless $! == ENOENT;
+        }
+
+        sub run_test_hook {
+            my ($stage, $temporary) = @_;
+            my $hook = $ENV{CASH_GUIDANCE_TEST_HOOK};
+            return unless defined $hook && length $hook;
+            $temporary = "" unless defined $temporary;
+            system {$hook} $hook, $stage, $parent, $basename, $temporary;
+            die "guidance test hook failed at $stage\n" unless $? == 0;
+        }
+
+        sysopen(my $rendered_input, $rendered, O_RDONLY | O_NOFOLLOW)
+            or die "cannot open rendered guidance: $!\n";
+        my $rendered_data = read_handle($rendered_input);
+        close($rendered_input) or die "cannot close rendered guidance: $!\n";
+        die "rendered guidance bytes changed\n" unless sha256_hex($rendered_data) eq $rendered_digest;
+
+        sysopen(my $directory_fh, $parent, O_RDONLY | O_DIRECTORY | O_NOFOLLOW)
+            or die "cannot open guidance parent: $!\n";
+        my @held_stat = stat($directory_fh);
+        die "guidance parent identity mismatch\n"
+            unless same_identity(\@held_stat, $parent_identity) && S_ISDIR($held_stat[2]);
+        chdir($directory_fh) or die "cannot bind guidance parent: $!\n";
+        my @working_stat = stat(".");
+        die "bound guidance parent identity mismatch\n"
+            unless same_identity(\@working_stat, $parent_identity) && S_ISDIR($working_stat[2]);
+
+        verify_source();
+        run_test_hook("before-temp");
+        verify_parent_path();
+        verify_destination();
+
+        open my $random_input, "<", "/dev/urandom" or die "cannot open random source: $!\n";
+        binmode $random_input;
+        my $random = "";
+        read($random_input, $random, 16) == 16 or die "cannot read random source: $!\n";
+        close($random_input) or die "cannot close random source: $!\n";
+        my $temporary = ".cash-guidance." . unpack("H*", $random);
+        die "invalid temporary basename\n" unless $temporary =~ /\A\.cash-guidance\.[0-9a-f]{32}\z/;
+        my $cleanup;
+        END {
+            if (defined $cleanup && not unlink($cleanup)) {
+                warn "cannot clean temporary guidance $cleanup: $!\n";
+            }
+        }
+
+        run_test_hook("before-temp-create", $temporary);
+        sysopen(my $temporary_fh, $temporary, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600)
+            or die "cannot create temporary guidance: $!\n";
+        $cleanup = $temporary;
+        my $offset = 0;
+        while ($offset < length($rendered_data)) {
+            my $written = syswrite($temporary_fh, $rendered_data, length($rendered_data) - $offset, $offset);
+            die "cannot write temporary guidance: $!\n" unless defined $written && $written > 0;
+            $offset += $written;
+        }
+        chmod($mode, $temporary_fh) == 1 or die "cannot set guidance mode: $!\n";
+        close($temporary_fh) or die "cannot close temporary guidance: $!\n";
+
+        verify_source();
+        run_test_hook("before-rename");
+        verify_parent_path();
+        verify_destination();
+        run_test_hook("after-verify-before-rename");
+        rename($temporary, $basename) or die "cannot publish guidance: $!\n";
+        undef $cleanup;
+    ' "$parent" "$basename" "$rendered" "$rendered_digest" "$existed" "$digest" "$identity" "$parent_identity" "$mode" "$source" "$source_digest" "$source_identity" "$source_parent_identity"
+end
+
 function valid_retired_plus_skill --argument-names skill_dir expected_name
     if test -L "$skill_dir"; or not test -d "$skill_dir"; or not test -r "$skill_dir"; or not test -w "$skill_dir"; or not test -x "$skill_dir"
         return 1
@@ -451,6 +824,47 @@ for variant in .agents .claude
     end
 end
 
+set guidance_relative_paths AGENTS.md CLAUDE.md
+set guidance_source_paths
+set guidance_source_hashes
+set guidance_source_identities
+set guidance_source_parent_identities
+set guidance_canonical_paths
+set guidance_canonical_hashes
+set -g guidance_temporary_paths
+function cleanup_guidance_temporary_paths --on-event fish_exit
+    test (count $guidance_temporary_paths) -eq 0; or command rm -f -- $guidance_temporary_paths
+end
+
+for relative_path in $guidance_relative_paths
+    set -l source_path "$script_dir/$relative_path"
+    if test -L "$source_path"; or not test -f "$source_path"; or not test -r "$source_path"
+        fail "invalid or missing source guidance: $source_path"
+    end
+    set -l source_parent_identity (path_identity "$script_dir")
+    test $status -eq 0; and test -n "$source_parent_identity"; or fail "cannot identify source guidance parent: $script_dir"
+    set -l canonical_path (command mktemp /tmp/.cash-guidance-source.XXXXXX 2>/dev/null)
+    test $status -eq 0; and test -n "$canonical_path"; or fail "cannot create source guidance snapshot"
+    set -a guidance_temporary_paths "$canonical_path"
+    set -l source_metadata (snapshot_canonical_cash_block "$source_path" "$canonical_path")
+    test $status -eq 0; or fail "invalid canonical Cash guidance markers: $source_path"
+    set -l source_fields (string split \t -- "$source_metadata")
+    test (count $source_fields) -eq 3; or fail "invalid source guidance snapshot metadata: $source_path"
+    set -l source_digest "$source_fields[1]"
+    set -l source_identity "$source_fields[2]"
+    set -l canonical_digest "$source_fields[3]"
+    string match -rq '^[0-9a-f]{64}$' -- "$source_digest"; or fail "invalid source guidance snapshot digest: $source_path"
+    string match -rq '^[0-9]+:[0-9]+$' -- "$source_identity"; or fail "invalid source guidance snapshot identity: $source_path"
+    string match -rq '^[0-9a-f]{64}$' -- "$canonical_digest"; or fail "invalid canonical guidance snapshot digest: $source_path"
+
+    set -a guidance_source_paths "$source_path"
+    set -a guidance_source_hashes "$source_digest"
+    set -a guidance_source_identities "$source_identity"
+    set -a guidance_source_parent_identities "$source_parent_identity"
+    set -a guidance_canonical_paths "$canonical_path"
+    set -a guidance_canonical_hashes "$canonical_digest"
+end
+
 set retired_plus_paths \
     .agents/skills/spectra-propose-plus \
     .agents/skills/spectra-apply-plus \
@@ -473,9 +887,66 @@ end
 test "$target_path" != /; or fail "target must not resolve to /: $target_input"
 test "$target_path" != "$script_dir"; or fail "target must not be the source repository: $target_path"
 
-for relative_path in $relative_paths .cash-skills/receipt.tsv
+for relative_path in $relative_paths $guidance_relative_paths .cash-skills/receipt.tsv
     is_below "$target_path" "$target_path/$relative_path"; or fail "managed path escapes target: $relative_path"
     validate_managed_boundary "$target_path" "$relative_path"; or exit 1
+end
+
+set guidance_exists
+set guidance_hashes
+set guidance_identities
+set guidance_parent_identities
+set guidance_modes
+set guidance_rendered_paths
+set guidance_rendered_hashes
+set guidance_changed
+for index in 1 2
+    set -l relative_path "$guidance_relative_paths[$index]"
+    set -l destination "$target_path/$relative_path"
+    set -l parent (command dirname "$destination")
+    if not test -d "$parent"; or test -L "$parent"; or not test -w "$parent"; or not test -x "$parent"
+        fail "guidance parent is not a writable regular directory: $parent"
+    end
+    set -l parent_identity (path_identity "$parent")
+    test $status -eq 0; and test -n "$parent_identity"; or fail "cannot identify guidance parent: $parent"
+
+    if test -e "$destination"; or test -L "$destination"
+        if test -L "$destination"; or not test -f "$destination"; or not test -r "$destination"; or not test -w "$destination"
+            fail "invalid target guidance: $destination"
+        end
+    end
+
+    set -l rendered_path (command mktemp /tmp/.cash-guidance-rendered.XXXXXX 2>/dev/null)
+    test $status -eq 0; and test -n "$rendered_path"; or fail "cannot create rendered guidance snapshot"
+    set -a guidance_temporary_paths "$rendered_path"
+    set -l target_metadata (snapshot_render_guidance "$destination" "$guidance_canonical_paths[$index]" "$guidance_canonical_hashes[$index]" "$rendered_path")
+    test $status -eq 0; or fail "invalid Cash or Spectra guidance markers: $destination"
+    set -l target_fields (string split \t -- "$target_metadata")
+    test (count $target_fields) -eq 6; or fail "invalid target guidance snapshot metadata: $destination"
+    set -l existed "$target_fields[1]"
+    set -l digest "$target_fields[2]"
+    set -l identity "$target_fields[3]"
+    set -l mode "$target_fields[4]"
+    set -l changed "$target_fields[5]"
+    set -l rendered_digest "$target_fields[6]"
+    string match -rq '^[01]$' -- "$existed"; or fail "invalid target guidance snapshot existence: $destination"
+    string match -rq '^[01]$' -- "$changed"; or fail "invalid target guidance snapshot change state: $destination"
+    string match -rq '^[0-7]{3,4}$' -- "$mode"; or fail "invalid target guidance snapshot mode: $destination"
+    string match -rq '^[0-9a-f]{64}$' -- "$rendered_digest"; or fail "invalid rendered guidance snapshot digest: $destination"
+    if test "$existed" = 1
+        string match -rq '^[0-9a-f]{64}$' -- "$digest"; or fail "invalid target guidance snapshot digest: $destination"
+        string match -rq '^[0-9]+:[0-9]+$' -- "$identity"; or fail "invalid target guidance snapshot identity: $destination"
+    else
+        test "$digest" = missing; and test "$identity" = missing; or fail "invalid missing guidance snapshot metadata: $destination"
+    end
+    set -a guidance_exists "$existed"
+    set -a guidance_hashes "$digest"
+    set -a guidance_identities "$identity"
+    set -a guidance_parent_identities "$parent_identity"
+    set -a guidance_modes "$mode"
+    set -a guidance_rendered_paths "$rendered_path"
+    set -a guidance_rendered_hashes "$rendered_digest"
+    set -a guidance_changed "$changed"
 end
 
 set retired_plus_present
@@ -582,7 +1053,7 @@ if test $has_receipt -eq 1
         end
     end
 
-    if test (count $conflicts) -eq 0; and test $version_comparison -eq 0; and test (count $retired_plus_present) -eq 0
+    if test (count $conflicts) -eq 0; and test $version_comparison -eq 0; and test (count $retired_plus_present) -eq 0; and not contains -- 1 $guidance_changed
         emit_result current
         exit 0
     end
@@ -674,6 +1145,15 @@ else if not test -w "$receipt_existing"; or not test -x "$receipt_existing"
 end
 test $preflight_failed -eq 0; or exit 1
 
+for index in 1 2
+    test "$guidance_changed[$index]" = 1; or continue
+    guidance_publisher_capability_matches \
+        "$target_path" \
+        "$guidance_relative_paths[$index]" \
+        "$guidance_parent_identities[$index]"
+    or fail "guidance publisher capability validation failed: $target_path/$guidance_relative_paths[$index]"
+end
+
 for index in $inventory_indexes
     if test "$target_hashes[$index]" = "$source_hashes[$index]"
         echo "unchanged: $relative_paths[$index]"
@@ -681,6 +1161,15 @@ for index in $inventory_indexes
         echo "replace: $relative_paths[$index]"
     else
         echo "install: $relative_paths[$index]"
+    end
+end
+for index in 1 2
+    if test "$guidance_changed[$index]" = 0
+        echo "guidance unchanged: $guidance_relative_paths[$index]"
+    else if test "$guidance_exists[$index]" = 1
+        echo "guidance replace: $guidance_relative_paths[$index]"
+    else
+        echo "guidance install: $guidance_relative_paths[$index]"
     end
 end
 for relative_path in $retired_plus_present
@@ -718,36 +1207,47 @@ if test "$action" != adopt
     end
 end
 
+for index in 1 2
+    test "$guidance_changed[$index]" = 1; or continue
+    set -l destination "$target_path/$guidance_relative_paths[$index]"
+    set -l parent (command dirname "$destination")
+    source_guidance_snapshot_matches \
+        "$guidance_source_paths[$index]" \
+        "$guidance_source_hashes[$index]" \
+        "$guidance_source_identities[$index]" \
+        "$guidance_source_parent_identities[$index]"
+    or fail "source guidance changed after preflight: $guidance_source_paths[$index]"
+    guidance_snapshot_matches \
+        "$destination" \
+        "$guidance_exists[$index]" \
+        "$guidance_hashes[$index]" \
+        "$guidance_identities[$index]" \
+        "$parent" \
+        "$guidance_parent_identities[$index]"
+    or fail "target guidance changed after preflight: $destination"
+
+    publish_guidance_anchored \
+        "$parent" \
+        "$guidance_relative_paths[$index]" \
+        "$guidance_rendered_paths[$index]" \
+        "$guidance_rendered_hashes[$index]" \
+        "$guidance_exists[$index]" \
+        "$guidance_hashes[$index]" \
+        "$guidance_identities[$index]" \
+        "$guidance_parent_identities[$index]" \
+        "$guidance_modes[$index]" \
+        "$guidance_source_paths[$index]" \
+        "$guidance_source_hashes[$index]" \
+        "$guidance_source_identities[$index]" \
+        "$guidance_source_parent_identities[$index]"
+    or fail "cannot publish guidance file: $destination"
+end
+
 for index in $inventory_indexes
     set -l current_source_hash (hash_file "$source_paths[$index]")
     test $status -eq 0; and test "$current_source_hash" = "$source_hashes[$index]"; or fail "source changed during installation: $source_paths[$index]"
     set -l installed_hash (hash_file "$target_path/$relative_paths[$index]")
     test $status -eq 0; and test "$installed_hash" = "$source_hashes[$index]"; or fail "installed bytes do not match receipt content: $target_path/$relative_paths[$index]"
-end
-
-command mkdir -p "$receipt_dir"; or fail "cannot create receipt directory: $receipt_dir"
-set receipt_temp (command mktemp "$receipt_dir/.receipt.tsv.XXXXXX" 2>/dev/null)
-if test $status -ne 0; or test -z "$receipt_temp"
-    fail "cannot create temporary receipt below target: $receipt_dir"
-end
-if test -L "$receipt_temp"; or not is_below "$receipt_dir" "$receipt_temp"
-    command rm -f -- "$receipt_temp"
-    fail "unsafe temporary receipt path: $receipt_temp"
-end
-
-begin
-    printf 'version\t%s\n' "$source_version"
-    for index in $inventory_indexes
-        printf 'sha256\t%s\t%s\n' "$source_hashes[$index]" "$relative_paths[$index]"
-    end
-end >"$receipt_temp"
-if test $status -ne 0
-    command rm -f -- "$receipt_temp"
-    fail "cannot write temporary receipt: $receipt_temp"
-end
-command mv -f "$receipt_temp" "$receipt_path"; or begin
-    command rm -f -- "$receipt_temp"
-    fail "cannot publish receipt: $receipt_path"
 end
 
 for relative_path in $retired_plus_present
@@ -776,6 +1276,31 @@ for relative_path in $retired_plus_present
 
     command rm -f -- "$quarantine/SKILL.md"; or fail "cannot remove quarantined retired plus skill file: $quarantine/SKILL.md"
     command rmdir "$quarantine"; or fail "cannot remove retired plus quarantine directory: $quarantine"
+end
+
+command mkdir -p "$receipt_dir"; or fail "cannot create receipt directory: $receipt_dir"
+set receipt_temp (command mktemp "$receipt_dir/.receipt.tsv.XXXXXX" 2>/dev/null)
+if test $status -ne 0; or test -z "$receipt_temp"
+    fail "cannot create temporary receipt below target: $receipt_dir"
+end
+if test -L "$receipt_temp"; or not is_below "$receipt_dir" "$receipt_temp"
+    command rm -f -- "$receipt_temp"
+    fail "unsafe temporary receipt path: $receipt_temp"
+end
+
+begin
+    printf 'version\t%s\n' "$source_version"
+    for index in $inventory_indexes
+        printf 'sha256\t%s\t%s\n' "$source_hashes[$index]" "$relative_paths[$index]"
+    end
+end >"$receipt_temp"
+if test $status -ne 0
+    command rm -f -- "$receipt_temp"
+    fail "cannot write temporary receipt: $receipt_temp"
+end
+command mv -f "$receipt_temp" "$receipt_path"; or begin
+    command rm -f -- "$receipt_temp"
+    fail "cannot publish receipt: $receipt_path"
 end
 
 emit_result update

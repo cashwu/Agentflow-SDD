@@ -2,11 +2,12 @@
 id: retained-contract-subset-loss
 type: recurring-finding
 status: open
-occurrences: 1
+occurrences: 2
 first_seen: 2026-07-18
-last_seen: 2026-07-18
+last_seen: 2026-07-22
 links:
   - openspec/changes/fork-spectra-skills-to-cash/reviews/propose-r1.md
+  - openspec/changes/migrate-cash-project-guidance/reviews/propose-r1.md
 ---
 
 # Retained contract subset loss
@@ -16,3 +17,4 @@ A migration replaces an owned workflow or capability but carries forward only a 
 ## Occurrences
 
 - 2026-07-18 — fork-spectra-skills-to-cash — spectra-propose-plus round 1 — 初稿移除 36 條 plus requirements，卻只摘要保留 quality gate 與 cash-commit allowlist；修正後完整搬移 19 條 retained gate requirements，以及 tracked sources、customizations、archive output 與 explicit spec-sync branches。
+- 2026-07-22 — migrate-cash-project-guidance — cash-propose round 1 — 初稿只保留向量模型fallback的標題與摘要語意，未鎖定使用者指定的完整Markdown；修正後兩個canonical blocks逐byte包含全文並有完整block comparison task。

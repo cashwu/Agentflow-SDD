@@ -2,9 +2,9 @@
 id: cross-artifact-definition-drift
 type: recurring-finding
 status: open
-occurrences: 6
+occurrences: 7
 first_seen: 2026-07-07
-last_seen: 2026-07-18
+last_seen: 2026-07-22
 links:
   - openspec/changes/add-micro-verification-round/reviews/propose-r1.md
   - openspec/changes/add-review-loop-discipline/reviews/propose-r1.md
@@ -13,6 +13,7 @@ links:
   - openspec/changes/converge-plus-review-loop/reviews/propose-r1.md
   - openspec/changes/converge-plus-review-loop/reviews/apply-r3.md
   - openspec/changes/add-versioned-cash-skill-batch-update/reviews/propose-r4.md
+  - openspec/changes/migrate-cash-project-guidance/reviews/propose-r1.md
 ---
 
 # Cross-artifact definition drift
@@ -27,3 +28,4 @@ The same concept (a role's scope, an enumerated list, a rule's condition set) is
 - 2026-07-16 — converge-plus-review-loop — spectra-propose-plus round 1 — blocking finding 定義、動作清單、introduced_by 證據通道在 proposal/design/delta spec 初稿間表述分歧（clause (b) 依賴僅 apply-plus 才有義務提供的欄位）。
 - 2026-07-16 — converge-plus-review-loop — spectra-apply-plus round 3 — delta spec 的 round file outline 要求所有 `fix-introduced` finding 都含 `introduced_by`，模板卻只對 apply-plus Reviewer B 明定該欄位。
 - 2026-07-18 — add-versioned-cash-skill-batch-update — cash-propose round 4 — design 將 `Result:` 限定於 completed domain decisions，但 delta spec opening 無條件要求每次 invocation emit result，與 execution-failure scenario 的 no-domain-result 契約矛盾。
+- 2026-07-22 — migrate-cash-project-guidance — cash-propose round 1 — Preflight/runtime publication的零寫入與部分完成語意，以及source/target的Spectra contamination recovery，在proposal、design與delta spec間定義不一致；修正後明確拆分failure phase與recovery scope。

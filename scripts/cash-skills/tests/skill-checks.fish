@@ -254,16 +254,41 @@ function assert_legacy_repair_runtime_absent
     end
 end
 
-function assert_cash_guidance_override
-    set -l relative_path AGENTS.md
-    set -l path "$root_dir/$relative_path"
-    set -l override (awk '/<!-- SPECTRA:END -->/ { after = 1; next } after { print }' "$path" | string collect)
+function assert_cash_guidance_contract
+    for variant in 'AGENTS.md:$' 'CLAUDE.md:/'
+        set -l fields (string split : -- "$variant")
+        set -l relative_path "$fields[1]"
+        set -l invocation_prefix "$fields[2]"
+        set -l path "$root_dir/$relative_path"
 
-    string match -q '*cash workflow invocation takes precedence*' "$override"; or fail "$relative_path lacks cash precedence after the Spectra-managed block"
-    string match -q '*Spectra CLI and artifact schema remain authoritative*' "$override"; or fail "$relative_path loses Spectra artifact-engine authority"
-    for invocation in '$cash-discuss' '$cash-propose' '$cash-apply' '$cash-ingest' '$cash-archive' '$cash-commit'
-        string match -q "*$invocation*" "$override"; or fail "$relative_path override omits $invocation"
+        test (rg -Fx '<!-- CASH:START -->' "$path" | wc -l | string trim) = 1; or fail "$relative_path must contain exactly one Cash start marker"
+        test (rg -Fx '<!-- CASH:END -->' "$path" | wc -l | string trim) = 1; or fail "$relative_path must contain exactly one Cash end marker"
+        if rg -q '^<!-- SPECTRA:(?:START|END)' "$path"
+            fail "$relative_path retains a Spectra managed marker"
+        end
+
+        for skill in discuss propose apply ingest archive commit
+            assert_contains "$path" "$invocation_prefix""cash-$skill" 'Cash-only project guidance routing'
+        end
+        assert_contains "$path" 'Spectra CLI 與 `openspec/` artifact schema 仍具權威' 'Spectra artifact-engine authority'
+        assert_contains "$path" '標準 `spectra-*` skills 是否存在不改變 Cash-only routing' 'routing and skill availability separation'
     end
+
+    set -l agents_fallback (mktemp /tmp/cash-agents-fallback.XXXXXX)
+    set -l claude_fallback (mktemp /tmp/cash-claude-fallback.XXXXXX)
+    set -l expected_fallback (mktemp /tmp/cash-expected-fallback.XXXXXX)
+    awk '/^## 向量模型未下載時的替代方式$/ { copy = 1 } copy { print } /^- 問程式碼或需求相關的問題/ { exit }' "$root_dir/AGENTS.md" >"$agents_fallback"
+    awk '/^## 向量模型未下載時的替代方式$/ { copy = 1 } copy { print } /^- 問程式碼或需求相關的問題/ { exit }' "$root_dir/CLAUDE.md" >"$claude_fallback"
+    printf '%s\n' \
+        '## 向量模型未下載時的替代方式' \
+        '' \
+        'Spectra 的語意搜尋依賴本機向量模型。若模型尚未下載，不需要中斷或要求先下載，直接改用路徑與檔案讀取：' \
+        '' \
+        '- 使用者直接給 change 名稱 → 直接讀 `openspec/changes/<name>/` 底下的 artifacts（找不到時用 `spectra list --parked` 確認是否被 parked）' \
+        '- 問程式碼或需求相關的問題 → 直接用 Grep／Read 搜尋 `openspec/specs/` 與程式碼來回答' >"$expected_fallback"
+    command cmp -s "$agents_fallback" "$claude_fallback"; or fail 'AGENTS.md and CLAUDE.md fallback blocks differ'
+    command cmp -s "$agents_fallback" "$expected_fallback"; or fail 'canonical Cash guidance does not preserve the required fallback block byte-for-byte'
+    command rm -f -- "$agents_fallback" "$claude_fallback" "$expected_fallback"
 end
 
 function assert_cash_live_documentation
@@ -280,11 +305,27 @@ function assert_cash_live_documentation
     assert_contains "$path" '先對 legacy registry 中每個專案安裝 cash skills' 'safe migration order'
     assert_contains "$path" '24 個 canonical `SKILL.md` 內容異動' 'bundle version bump ownership'
     assert_contains "$path" '舊 target 沒有 receipt' 'receipt-less migration'
+    assert_contains "$path" '保留既有 24 個 skill bytes、收斂 `AGENTS.md` 與 `CLAUDE.md` guidance，並建立 receipt' 'receipt-less adoption behavior'
+    assert_contains "$path" '不建立 target temporary files或持久狀態' 'dry-run target state boundary'
+    assert_contains "$path" 'system temporary validation/render snapshots會在 exit 時清除' 'dry-run ephemeral snapshot boundary'
     assert_contains "$path" 'spectra-propose-plus' 'retired propose-plus cleanup documentation'
     assert_contains "$path" 'spectra-apply-plus' 'retired apply-plus cleanup documentation'
     assert_contains "$path" '只含一個 regular `SKILL.md`' 'retired plus safe-shape documentation'
     assert_contains "$path" '不使用 recursive deletion' 'retired plus non-recursive cleanup documentation'
     assert_contains "$path" '只清除 target 內的 retired plus skill' 'installer and scheduler cleanup responsibility split'
+    for literal in \
+        'AGENTS.md' \
+        'CLAUDE.md' \
+        '<!-- CASH:START -->' \
+        '<!-- SPECTRA:START' \
+        'managed spans 以外' \
+        '標準 `spectra-*` skills' \
+        'guidance 不會加入 `.cash-skills/receipt.tsv`' \
+        '不需要調升 `cash-skills.version`' \
+        '再次明確執行 installer' \
+        '版本控制還原'
+        assert_contains "$path" "$literal" 'Cash guidance ownership and migration documentation'
+    end
     assert_absent "$path" '(?i)--repair-all|--register-target|--install-launch-agent|scripts/spectra-plus' 'retired repair instructions'
 end
 
@@ -331,7 +372,7 @@ function assert_contract_mutation_fixture
     command mkdir -p "$fixture/.agents" "$fixture/.claude" "$fixture/scripts/cash-skills/tests" "$fixture/openspec/signals"; or fail 'could not create contract fixture directories'
     command cp -R "$root_dir/.agents/skills" "$fixture/.agents/"; or fail 'could not copy Codex cash fixture skills'
     command cp -R "$root_dir/.claude/skills" "$fixture/.claude/"; or fail 'could not copy Claude cash fixture skills'
-    command cp "$root_dir/install-cash-skills.fish" "$root_dir/cash-skills.version" "$root_dir/uninstall-spectra-plus-repair.fish" "$root_dir/AGENTS.md" "$root_dir/CASH-SKILLS.md" "$fixture/"; or fail 'could not copy fixture root contracts'
+    command cp "$root_dir/install-cash-skills.fish" "$root_dir/cash-skills.version" "$root_dir/uninstall-spectra-plus-repair.fish" "$root_dir/AGENTS.md" "$root_dir/CLAUDE.md" "$root_dir/CASH-SKILLS.md" "$fixture/"; or fail 'could not copy fixture root contracts'
     command cp "$test_script" "$fixture/scripts/cash-skills/tests/skill-checks.fish"; or fail 'could not copy fixture cash contract suite'
     command cp -R "$root_dir/scripts/cash-skills/variant-parity" "$fixture/scripts/cash-skills/"; or fail 'could not copy readable parity allowlists'
     command cp "$root_dir/openspec/signals/README.md" "$fixture/openspec/signals/README.md"; or fail 'could not copy signals fixture contract'
@@ -440,6 +481,26 @@ function tree_digest --argument-names directory
     echo "$digest"
 end
 
+function standard_spectra_inventory_digest --argument-names project_root
+    set -l records
+    for variant_root in .agents .claude
+        set -l skills_root "$project_root/$variant_root/skills"
+        test -d "$skills_root"; or continue
+        set -l skill_dirs (command find "$skills_root" -mindepth 1 -maxdepth 1 -type d -name 'spectra-*' ! -name 'spectra-propose-plus' ! -name 'spectra-apply-plus' -print | command sort)
+        set -l find_pipeline $pipestatus
+        test $find_pipeline[1] -eq 0; and test $find_pipeline[2] -eq 0; or return 1
+        for skill_dir in $skill_dirs
+            set -l relative_path (string replace -- "$project_root/" '' "$skill_dir")
+            set -l digest (tree_digest "$skill_dir"); or return 1
+            set -a records (string join \t "$relative_path" "$digest")
+        end
+    end
+    test (count $records) -gt 0; or return 1
+    printf '%s\n' $records | command shasum -a 256 | command awk '{ print $1 }'
+    set -l digest_pipeline $pipestatus
+    test $digest_pipeline[1] -eq 0; and test $digest_pipeline[2] -eq 0; and test $digest_pipeline[3] -eq 0
+end
+
 function assert_tree_digest_mutation_oracle
     set -l fixture (mktemp -d /tmp/cash-tree-digest-suite.XXXXXX)
     string match -q '/tmp/cash-tree-digest-suite.*' "$fixture"; or fail 'mktemp returned an unexpected tree digest fixture path'
@@ -459,8 +520,622 @@ function copy_cash_source_fixture --argument-names destination
     command mkdir -p "$destination/.agents" "$destination/.claude"; or fail 'could not create versioned installer source fixture'
     command cp -R "$root_dir/.agents/skills" "$destination/.agents/"; or fail 'could not copy Codex cash source fixture'
     command cp -R "$root_dir/.claude/skills" "$destination/.claude/"; or fail 'could not copy Claude cash source fixture'
-    command cp "$root_dir/install-cash-skills.fish" "$destination/install-cash-skills.fish"; or fail 'could not copy installer source fixture'
+    command cp "$root_dir/install-cash-skills.fish" "$root_dir/AGENTS.md" "$root_dir/CLAUDE.md" "$destination/"; or fail 'could not copy installer source fixture'
     printf '1.0.0\n' >"$destination/cash-skills.version"; or fail 'could not write bundle version fixture'
+end
+
+function write_guidance_outside_snapshot --argument-names source output
+    if not test -e "$source"
+        printf '' >"$output"
+        return
+    end
+
+    command perl -0e '
+        use strict;
+        use warnings;
+        local $/;
+        my $data = <>;
+        $data =~ s/(?ms)^<!-- CASH:START -->\n.*?^<!-- CASH:END -->(?:\n|\z)//g;
+        $data =~ s/(?ms)^<!-- SPECTRA:START(?: v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))? -->\n.*?^<!-- SPECTRA:END -->(?:\n|\z)//g;
+        print $data;
+    ' "$source" >"$output"; or fail "could not snapshot managed-span outside bytes: $source"
+end
+
+function assert_guidance_marker_state_matrix
+    set -l fixture (mktemp -d /tmp/cash-guidance-suite.XXXXXX)
+    string match -q '/tmp/cash-guidance-suite.*' "$fixture"; or fail 'mktemp returned an unexpected guidance fixture path'
+    set -l source "$fixture/source"
+    copy_cash_source_fixture "$source"
+    set -l installer "$source/install-cash-skills.fish"
+
+    for state in missing plain spectra cash both
+        set -l target "$fixture/$state"
+        command mkdir -p "$target"; or fail "could not create guidance $state target"
+        switch "$state"
+            case plain
+                printf 'custom-before\ncustom-after' >"$target/AGENTS.md"
+                printf 'claude-custom' >"$target/CLAUDE.md"
+            case spectra
+                printf '%s\n' 'custom-before' '<!-- SPECTRA:START v1.0.2 -->' 'legacy spectra' '<!-- SPECTRA:END -->' 'custom-after' >"$target/AGENTS.md"
+                printf '%s\n' '<!-- SPECTRA:START -->' 'legacy spectra' '<!-- SPECTRA:END -->' >"$target/CLAUDE.md"
+            case cash
+                printf '%s\n' 'custom-before' '<!-- CASH:START -->' 'stale cash' '<!-- CASH:END -->' 'custom-after' >"$target/AGENTS.md"
+                printf '%s\n' '<!-- CASH:START -->' 'stale cash' '<!-- CASH:END -->' >"$target/CLAUDE.md"
+            case both
+                printf '%s\n' 'custom-before' '<!-- SPECTRA:START -->' 'legacy spectra' '<!-- SPECTRA:END -->' 'between' '<!-- CASH:START -->' 'stale cash' '<!-- CASH:END -->' 'custom-after' >"$target/AGENTS.md"
+                printf '%s\n' '<!-- CASH:START -->' 'stale cash' '<!-- CASH:END -->' '<!-- SPECTRA:START v2.3.4 -->' 'legacy spectra' '<!-- SPECTRA:END -->' >"$target/CLAUDE.md"
+        end
+
+        set -l agents_outside "$fixture/$state-agents-outside"
+        set -l claude_outside "$fixture/$state-claude-outside"
+        write_guidance_outside_snapshot "$target/AGENTS.md" "$agents_outside"
+        write_guidance_outside_snapshot "$target/CLAUDE.md" "$claude_outside"
+        if test "$state" = plain
+            printf '\n' >>"$agents_outside"
+            printf '\n' >>"$claude_outside"
+        end
+
+        fish "$installer" --target "$target" >"$fixture/$state.out" 2>"$fixture/$state.err"; or fail "installer rejected legal guidance state: $state"
+        rg -Fq 'Result: update' "$fixture/$state.out"; or fail "guidance $state state did not report update"
+        for guidance in AGENTS.md CLAUDE.md
+            test (rg -Fx '<!-- CASH:START -->' "$target/$guidance" | wc -l | string trim) = 1; or fail "$state $guidance does not contain exactly one Cash block"
+            if rg -q '^<!-- SPECTRA:(?:START|END)' "$target/$guidance"
+                fail "$state $guidance retained a Spectra marker"
+            end
+        end
+        assert_contains "$target/CLAUDE.md" '/cash-propose' 'installed Claude guidance invocation variant'
+        assert_absent "$target/CLAUDE.md" '(?<![[:alnum:]_.-])\$cash-' 'installed Claude guidance invocation variant'
+        write_guidance_outside_snapshot "$target/AGENTS.md" "$fixture/$state-agents-after"
+        write_guidance_outside_snapshot "$target/CLAUDE.md" "$fixture/$state-claude-after"
+        command cmp -s "$agents_outside" "$fixture/$state-agents-after"; or fail "$state AGENTS.md changed bytes outside managed spans"
+        command cmp -s "$claude_outside" "$fixture/$state-claude-after"; or fail "$state CLAUDE.md changed bytes outside managed spans"
+        if test "$state" != missing
+            assert_contains "$target/AGENTS.md" custom 'guidance migration lost project-owned AGENTS.md bytes'
+        end
+    end
+
+    set -l malformed "$fixture/malformed"
+    command mkdir -p "$malformed"
+    printf '%s\n' 'sentinel' '<!-- CASH:START -->' 'broken' >"$malformed/AGENTS.md"
+    set -l malformed_before (tree_digest "$malformed")
+    if fish "$installer" --target "$malformed" --force >"$fixture/malformed.out" 2>"$fixture/malformed.err"
+        fail 'installer accepted malformed guidance markers with --force'
+    end
+    test (tree_digest "$malformed") = "$malformed_before"; or fail 'malformed guidance preflight changed target bytes'
+    if rg -q '^Result:' "$fixture/malformed.out"
+        fail 'malformed guidance failure emitted a domain result'
+    end
+
+    command cp "$source/AGENTS.md" "$fixture/source-agents-canonical"; or fail 'could not snapshot canonical source guidance'
+    printf '%s\n' '<!-- CASH:START -->' 'orphan source marker' >>"$source/AGENTS.md"
+    set -l source_malformed_target "$fixture/source-malformed-target"
+    command mkdir -p "$source_malformed_target"
+    set -l source_malformed_before (tree_digest "$source_malformed_target")
+    fish "$installer" --target "$source_malformed_target" --force >"$fixture/source-malformed.out" 2>"$fixture/source-malformed.err"
+    set -l source_malformed_status $status
+    test $source_malformed_status -eq 1; or fail "malformed source guidance returned code $source_malformed_status instead of 1"
+    test (tree_digest "$source_malformed_target") = "$source_malformed_before"; or fail 'malformed source guidance changed target bytes'
+    if rg -q '^Result:' "$fixture/source-malformed.out"
+        fail 'malformed source guidance failure emitted a domain result'
+    end
+    command cp "$fixture/source-agents-canonical" "$source/AGENTS.md"; or fail 'could not restore canonical source guidance'
+
+    printf '%s\n' '<!-- SPECTRA:START v1.0.2 -->' 'external source guidance' '<!-- SPECTRA:END -->' >>"$source/AGENTS.md"
+    set -l source_spectra_target "$fixture/source-spectra-target"
+    command mkdir -p "$source_spectra_target"
+    fish "$installer" --target "$source_spectra_target" >"$fixture/source-spectra.out" 2>"$fixture/source-spectra.err"; or fail 'legal source Spectra block prevented target installation'
+    test (rg -Fx '<!-- CASH:START -->' "$source_spectra_target/AGENTS.md" | wc -l | string trim) = 1; or fail 'source Spectra fixture did not install canonical Cash guidance'
+    if rg -q '^<!-- SPECTRA:(?:START|END)' "$source_spectra_target/AGENTS.md"
+        fail 'source Spectra fixture leaked Spectra guidance into target'
+    end
+
+    command rm -rf -- "$fixture"
+end
+
+function assert_guidance_boundary_matrix
+    set -l fixture (mktemp -d /tmp/cash-guidance-boundary-suite.XXXXXX)
+    string match -q '/tmp/cash-guidance-boundary-suite.*' "$fixture"; or fail 'mktemp returned an unexpected guidance boundary fixture path'
+    set -l source "$fixture/source"
+    copy_cash_source_fixture "$source"
+    set -l installer "$source/install-cash-skills.fish"
+
+    set -l dry_target "$fixture/dry-target"
+    command mkdir -p "$dry_target"
+    set -l dry_before (tree_digest "$dry_target")
+    set -l mktemp_bin (command -s mktemp)
+    test -x "$mktemp_bin"; or fail 'could not locate the real mktemp executable'
+    set -l mktemp_shim_dir "$fixture/mktemp-bin"
+    set -l guidance_snapshot_record "$fixture/dry-guidance-snapshots"
+    command mkdir -p "$mktemp_shim_dir"
+    printf '%s\n' \
+        '#!/bin/sh' \
+        'path=$("$CASH_GUIDANCE_REAL_MKTEMP" "$@") || exit $?' \
+        'case "$path" in' \
+        '  /tmp/.cash-guidance-source.*|/tmp/.cash-guidance-rendered.*|/private/tmp/.cash-guidance-source.*|/private/tmp/.cash-guidance-rendered.*)' \
+        '    printf "%s\n" "$path" >>"$CASH_GUIDANCE_MKTEMP_RECORD" || { rm -f -- "$path"; exit 1; }' \
+        '    ;;' \
+        'esac' \
+        'printf "%s\n" "$path"' >"$mktemp_shim_dir/mktemp"
+    command chmod +x "$mktemp_shim_dir/mktemp"
+    env \
+        PATH="$mktemp_shim_dir:$PATH" \
+        CASH_GUIDANCE_REAL_MKTEMP="$mktemp_bin" \
+        CASH_GUIDANCE_MKTEMP_RECORD="$guidance_snapshot_record" \
+        fish --no-config "$installer" --target "$dry_target" --dry-run >"$fixture/dry.out" 2>"$fixture/dry.err"
+    or fail 'guidance dry-run failed'
+    test (tree_digest "$dry_target") = "$dry_before"; or fail 'guidance dry-run created target state'
+    test -f "$guidance_snapshot_record"; or fail 'guidance dry-run did not record system temporary snapshots'
+    set -l guidance_snapshot_paths (string split \n -- (string collect <"$guidance_snapshot_record"))
+    test (count $guidance_snapshot_paths) -eq 4; or fail 'guidance dry-run did not create exactly four system temporary snapshots'
+    for snapshot_path in $guidance_snapshot_paths
+        string match -rq '^/(?:private/)?tmp/\.cash-guidance-(?:source|rendered)\.[A-Za-z0-9]+$' -- "$snapshot_path"; or fail "guidance dry-run created an unexpected snapshot path: $snapshot_path"
+        test ! -e "$snapshot_path"; or fail "guidance dry-run left a system temporary snapshot after process exit: $snapshot_path"
+    end
+    rg -Fq 'guidance install: AGENTS.md' "$fixture/dry.out"; or fail 'guidance dry-run omitted AGENTS.md plan'
+
+    set -l symlink_target "$fixture/symlink-target"
+    command mkdir -p "$symlink_target"
+    printf 'outside-guidance\n' >"$fixture/outside-guidance"
+    command ln -s "$fixture/outside-guidance" "$symlink_target/AGENTS.md"
+    set -l outside_before (shasum -a 256 "$fixture/outside-guidance" | awk '{ print $1 }')
+    if fish "$installer" --target "$symlink_target" --force >"$fixture/symlink.out" 2>"$fixture/symlink.err"
+        fail 'installer accepted a symlinked guidance target with --force'
+    end
+    test (shasum -a 256 "$fixture/outside-guidance" | awk '{ print $1 }') = "$outside_before"; or fail 'installer wrote through a guidance symlink'
+
+    set -l source_link_target "$fixture/source-link-target"
+    command mkdir -p "$source_link_target"
+    command mv "$source/AGENTS.md" "$source/AGENTS.real"
+    command ln -s AGENTS.real "$source/AGENTS.md"
+    set -l source_link_before (tree_digest "$source_link_target")
+    if fish "$installer" --target "$source_link_target" >"$fixture/source-link.out" 2>"$fixture/source-link.err"
+        fail 'installer accepted a symlinked source guidance file'
+    end
+    test (tree_digest "$source_link_target") = "$source_link_before"; or fail 'source guidance failure changed target bytes'
+    command rm "$source/AGENTS.md"
+    command mv "$source/AGENTS.real" "$source/AGENTS.md"
+
+    set -l malformed_cases duplicate cash-one-spectra-two nested inline reversed orphan-end unknown-version
+    for malformed_case in $malformed_cases
+        set -l target "$fixture/malformed-$malformed_case"
+        command mkdir -p "$target"
+        switch "$malformed_case"
+            case duplicate
+                printf '%s\n' '<!-- CASH:START -->' one '<!-- CASH:END -->' '<!-- CASH:START -->' two '<!-- CASH:END -->' >"$target/AGENTS.md"
+            case cash-one-spectra-two
+                printf '%s\n' '<!-- CASH:START -->' cash '<!-- CASH:END -->' '<!-- SPECTRA:START -->' spectra-one '<!-- SPECTRA:END -->' '<!-- SPECTRA:START v1.2.3 -->' spectra-two '<!-- SPECTRA:END -->' >"$target/AGENTS.md"
+            case nested
+                printf '%s\n' '<!-- CASH:START -->' '<!-- SPECTRA:START -->' nested '<!-- SPECTRA:END -->' '<!-- CASH:END -->' >"$target/AGENTS.md"
+            case inline
+                printf '%s\n' 'prefix <!-- CASH:START -->' body '<!-- CASH:END -->' >"$target/AGENTS.md"
+            case reversed
+                printf '%s\n' '<!-- CASH:END -->' body '<!-- CASH:START -->' >"$target/AGENTS.md"
+            case orphan-end
+                printf '%s\n' body '<!-- SPECTRA:END -->' >"$target/AGENTS.md"
+            case unknown-version
+                printf '%s\n' '<!-- SPECTRA:START v1.2 -->' body '<!-- SPECTRA:END -->' >"$target/AGENTS.md"
+        end
+        set -l before (tree_digest "$target")
+        if fish "$installer" --target "$target" --force >"$fixture/$malformed_case.out" 2>"$fixture/$malformed_case.err"
+            fail "installer accepted malformed guidance state: $malformed_case"
+        end
+        test (tree_digest "$target") = "$before"; or fail "malformed guidance state changed target: $malformed_case"
+    end
+
+    set -l mode_target "$fixture/mode-target"
+    command mkdir -p "$mode_target"
+    printf 'agents-custom\n' >"$mode_target/AGENTS.md"
+    printf 'claude-custom\n' >"$mode_target/CLAUDE.md"
+    command chmod 0600 "$mode_target/AGENTS.md"
+    command chmod 0640 "$mode_target/CLAUDE.md"
+    fish "$installer" --target "$mode_target" >"$fixture/mode.out" 2>"$fixture/mode.err"; or fail 'guidance mode-preservation install failed'
+    test (stat -f '%Lp' "$mode_target/AGENTS.md") = 600; or fail 'AGENTS.md mode was not preserved'
+    test (stat -f '%Lp' "$mode_target/CLAUDE.md") = 640; or fail 'CLAUDE.md mode was not preserved'
+
+    set -l new_mode_target "$fixture/new-mode-target"
+    command mkdir -p "$new_mode_target"
+    fish "$installer" --target "$new_mode_target" >"$fixture/new-mode.out" 2>"$fixture/new-mode.err"; or fail 'new guidance mode install failed'
+    test (stat -f '%Lp' "$new_mode_target/AGENTS.md") = 644; or fail 'new AGENTS.md mode was not 0644'
+    test (stat -f '%Lp' "$new_mode_target/CLAUDE.md") = 644; or fail 'new CLAUDE.md mode was not 0644'
+
+    set -l source_permission_target "$fixture/source-permission-target"
+    command mkdir -p "$source_permission_target"
+    command chmod 000 "$source/AGENTS.md"
+    if fish "$installer" --target "$source_permission_target" >"$fixture/source-permission.out" 2>"$fixture/source-permission.err"
+        fail 'installer accepted unreadable source guidance'
+    end
+    test (tree_digest "$source_permission_target") = (tree_digest "$fixture/dry-target"); or fail 'source permission failure wrote target state'
+    command chmod 0644 "$source/AGENTS.md"
+
+    set -l target_permission_target "$fixture/target-permission-target"
+    command mkdir -p "$target_permission_target"
+    printf 'permission-sentinel\n' >"$target_permission_target/AGENTS.md"
+    command chmod 0400 "$target_permission_target/AGENTS.md"
+    set -l target_permission_before (tree_digest "$target_permission_target")
+    if fish "$installer" --target "$target_permission_target" >"$fixture/target-permission.out" 2>"$fixture/target-permission.err"
+        fail 'installer accepted unwritable target guidance'
+    end
+    test (tree_digest "$target_permission_target") = "$target_permission_before"; or fail 'target permission failure wrote target state'
+    command chmod 0644 "$target_permission_target/AGENTS.md"
+
+    set -l hook "$fixture/guidance-race-hook"
+    printf '%s\n' \
+        '#!/bin/sh' \
+        'stage=$1' \
+        'parent=$2' \
+        'basename=$3' \
+        'temporary=$4' \
+        '[ "$stage" = "$CASH_GUIDANCE_SWAP_STAGE" ] || exit 0' \
+        '[ "$basename" = AGENTS.md ] || exit 0' \
+        'case "$CASH_GUIDANCE_SWAP_KIND" in' \
+        '  parent)' \
+        '    mv "$parent" "$CASH_GUIDANCE_ORIGINAL_PARENT" || exit 81' \
+        '    mkdir "$parent" || exit 82' \
+        '    printf "%s\n" "replacement-parent-sentinel" >"$parent/AGENTS.md" || exit 83' \
+        '    ;;' \
+        '  inode)' \
+        '    printf "%s\n" "destination-inode-sentinel" >"$parent/.replacement-guidance" || exit 84' \
+        '    mv -f "$parent/.replacement-guidance" "$parent/$basename" || exit 85' \
+        '    ;;' \
+        '  symlink)' \
+        '    rm -f "$parent/$basename" || exit 86' \
+        '    ln -s "$CASH_GUIDANCE_OUTSIDE" "$parent/$basename" || exit 87' \
+        '    ;;' \
+        '  content)' \
+        '    printf "%s\n" "post-preflight-edit" >"$parent/$basename" || exit 88' \
+        '    ;;' \
+        '  collision)' \
+        '    printf "%s\n" "preexisting-temporary-sentinel" >"$parent/$temporary" || exit 89' \
+        '    printf "%s\n" "$parent/$temporary" >"$CASH_GUIDANCE_TEMP_RECORD" || exit 90' \
+        '    ;;' \
+        '  capability-failure)' \
+        '    exit 91' \
+        '    ;;' \
+        '  cleanup-failure)' \
+        '    chmod 0500 "$parent" || exit 92' \
+        '    exit 93' \
+        '    ;;' \
+        'esac' >"$hook"
+    command chmod +x "$hook"
+
+    for race_spec in before-temp:parent before-temp:inode before-rename:parent before-rename:symlink after-verify-before-rename:parent
+        set -l race_fields (string split : -- "$race_spec")
+        set -l race_stage "$race_fields[1]"
+        set -l race_kind "$race_fields[2]"
+        set -l race_target "$fixture/race-$race_stage-$race_kind"
+        command mkdir -p "$race_target"
+        fish "$installer" --target "$race_target" >/dev/null 2>&1; or fail "could not seed guidance race target: $race_spec"
+        printf '%s\n' '<!-- SPECTRA:START -->' race-drift '<!-- SPECTRA:END -->' >>"$race_target/AGENTS.md"
+        set -l race_receipt_before (shasum -a 256 "$race_target/.cash-skills/receipt.tsv" | awk '{ print $1 }')
+        set -l race_claude_before (shasum -a 256 "$race_target/CLAUDE.md" | awk '{ print $1 }')
+        set -l race_outside "$fixture/race-$race_stage-$race_kind-outside"
+        printf 'outside-race-sentinel\n' >"$race_outside"
+        set -l replacement_parent_expected "$fixture/replacement-parent-expected"
+        printf 'replacement-parent-sentinel\n' >"$replacement_parent_expected"
+        set -l replacement_inode_expected "$fixture/replacement-inode-expected"
+        printf 'destination-inode-sentinel\n' >"$replacement_inode_expected"
+        set -l race_original_parent "$race_target.original"
+        if env \
+            CASH_GUIDANCE_TEST_HOOK="$hook" \
+            CASH_GUIDANCE_SWAP_STAGE="$race_stage" \
+            CASH_GUIDANCE_SWAP_KIND="$race_kind" \
+            CASH_GUIDANCE_ORIGINAL_PARENT="$race_original_parent" \
+            CASH_GUIDANCE_OUTSIDE="$race_outside" \
+            fish --no-config "$installer" --target "$race_target" >"$fixture/race-$race_stage-$race_kind.out" 2>"$fixture/race-$race_stage-$race_kind.err"
+            fail "installer accepted guidance race injection: $race_spec"
+        end
+        if test "$race_kind" = parent
+            command cmp -s "$replacement_parent_expected" "$race_target/AGENTS.md"; or fail "parent race modified replacement sentinel bytes: $race_spec"
+            test (find "$race_original_parent" -maxdepth 1 -name '.cash-guidance.*' | wc -l | string trim) = 0; or fail "parent race left an anchored temporary file: $race_spec"
+            test (shasum -a 256 "$race_original_parent/.cash-skills/receipt.tsv" | awk '{ print $1 }') = "$race_receipt_before"; or fail "parent race replaced the receipt: $race_spec"
+            test (shasum -a 256 "$race_original_parent/CLAUDE.md" | awk '{ print $1 }') = "$race_claude_before"; or fail "parent race published later guidance: $race_spec"
+        else
+            test (shasum -a 256 "$race_target/.cash-skills/receipt.tsv" | awk '{ print $1 }') = "$race_receipt_before"; or fail "destination race replaced the receipt: $race_spec"
+            test (shasum -a 256 "$race_target/CLAUDE.md" | awk '{ print $1 }') = "$race_claude_before"; or fail "destination race published later guidance: $race_spec"
+            if test "$race_kind" = inode
+                command cmp -s "$replacement_inode_expected" "$race_target/AGENTS.md"; or fail "destination inode race modified replacement bytes: $race_spec"
+            else
+                test -L "$race_target/AGENTS.md"; or fail "destination symlink race replaced the injected symlink: $race_spec"
+                test (readlink "$race_target/AGENTS.md") = "$race_outside"; or fail "destination symlink race changed the injected link target: $race_spec"
+            end
+        end
+        printf 'outside-race-sentinel\n' | command cmp -s - "$race_outside"; or fail "guidance race modified outside sentinel bytes: $race_spec"
+        if rg -q '^Result:' "$fixture/race-$race_stage-$race_kind.out"
+            fail "guidance race emitted a domain result: $race_spec"
+        end
+    end
+
+    set -l capability_target "$fixture/capability-target"
+    command mkdir -p "$capability_target"
+    set -l capability_before (tree_digest "$capability_target")
+    if env \
+        CASH_GUIDANCE_TEST_HOOK="$hook" \
+        CASH_GUIDANCE_SWAP_STAGE=capability-preflight \
+        CASH_GUIDANCE_SWAP_KIND=capability-failure \
+        fish --no-config "$installer" --target "$capability_target" >"$fixture/capability.out" 2>"$fixture/capability.err"
+        fail 'installer mutated target before guidance publisher capability validation'
+    end
+    test (tree_digest "$capability_target") = "$capability_before"; or fail 'guidance capability failure wrote target state'
+    if rg -q '^Result:' "$fixture/capability.out"
+        fail 'guidance capability failure emitted a domain result'
+    end
+
+    set -l collision_target "$fixture/collision-target"
+    command mkdir -p "$collision_target"
+    fish "$installer" --target "$collision_target" >/dev/null 2>&1; or fail 'could not seed guidance temporary collision target'
+    printf '%s\n' '<!-- SPECTRA:START -->' collision-drift '<!-- SPECTRA:END -->' >>"$collision_target/AGENTS.md"
+    set -l collision_record "$fixture/collision-record"
+    if env \
+        CASH_GUIDANCE_TEST_HOOK="$hook" \
+        CASH_GUIDANCE_SWAP_STAGE=before-temp-create \
+        CASH_GUIDANCE_SWAP_KIND=collision \
+        CASH_GUIDANCE_TEMP_RECORD="$collision_record" \
+        fish --no-config "$installer" --target "$collision_target" >"$fixture/collision.out" 2>"$fixture/collision.err"
+        fail 'installer accepted a guidance temporary create collision'
+    end
+    test -f "$collision_record"; or fail 'guidance temporary collision hook did not run'
+    set -l collision_path (string trim <"$collision_record")
+    printf 'preexisting-temporary-sentinel\n' | command cmp -s - "$collision_path"; or fail 'guidance create failure deleted or changed a preexisting same-name entry'
+
+    set -l cleanup_target "$fixture/cleanup-failure-target"
+    command mkdir -p "$cleanup_target"
+    fish "$installer" --target "$cleanup_target" >/dev/null 2>&1; or fail 'could not seed guidance cleanup failure target'
+    printf '%s\n' '<!-- SPECTRA:START -->' cleanup-drift '<!-- SPECTRA:END -->' >>"$cleanup_target/AGENTS.md"
+    if env \
+        CASH_GUIDANCE_TEST_HOOK="$hook" \
+        CASH_GUIDANCE_SWAP_STAGE=before-rename \
+        CASH_GUIDANCE_SWAP_KIND=cleanup-failure \
+        fish --no-config "$installer" --target "$cleanup_target" >"$fixture/cleanup-failure.out" 2>"$fixture/cleanup-failure.err"
+        fail 'installer accepted a guidance cleanup failure'
+    end
+    command chmod 0755 "$cleanup_target"
+    rg -q 'cannot clean temporary guidance \.cash-guidance\.[0-9a-f]{32}:' "$fixture/cleanup-failure.err"; or fail 'guidance cleanup failure omitted the relative basename or cause'
+
+    set -l hardlink_target "$fixture/hardlink-target"
+    command mkdir -p "$hardlink_target"
+    printf 'hardlink-sentinel\n' >"$fixture/hardlink-outside"
+    command ln "$fixture/hardlink-outside" "$hardlink_target/AGENTS.md"
+    set -l hardlink_before (shasum -a 256 "$fixture/hardlink-outside" | awk '{ print $1 }')
+    fish "$installer" --target "$hardlink_target" >"$fixture/hardlink.out" 2>"$fixture/hardlink.err"; or fail 'guidance hard-link install failed'
+    test (shasum -a 256 "$fixture/hardlink-outside" | awk '{ print $1 }') = "$hardlink_before"; or fail 'guidance atomic replace modified an external hard-link inode'
+    assert_contains "$hardlink_target/AGENTS.md" '<!-- CASH:START -->' 'guidance hard-link target publication'
+
+    set -l snapshot_target "$fixture/snapshot-target"
+    command mkdir -p "$snapshot_target"
+    fish "$installer" --target "$snapshot_target" >/dev/null 2>&1; or fail 'could not seed guidance snapshot target'
+    printf '%s\n' '<!-- SPECTRA:START -->' external-update '<!-- SPECTRA:END -->' >>"$snapshot_target/AGENTS.md"
+    set -l receipt_before (shasum -a 256 "$snapshot_target/.cash-skills/receipt.tsv" | awk '{ print $1 }')
+    set -l claude_before (shasum -a 256 "$snapshot_target/CLAUDE.md" | awk '{ print $1 }')
+    if env \
+        CASH_GUIDANCE_TEST_HOOK="$hook" \
+        CASH_GUIDANCE_SWAP_STAGE=before-temp \
+        CASH_GUIDANCE_SWAP_KIND=content \
+        fish --no-config "$installer" --target "$snapshot_target" >"$fixture/snapshot.out" 2>"$fixture/snapshot.err"
+        fail 'installer overwrote a post-preflight guidance edit'
+    end
+    test (string trim <"$snapshot_target/AGENTS.md") = post-preflight-edit; or fail 'installer did not preserve the post-preflight guidance edit'
+    test (shasum -a 256 "$snapshot_target/.cash-skills/receipt.tsv" | awk '{ print $1 }') = "$receipt_before"; or fail 'post-preflight guidance failure replaced the receipt'
+    test (shasum -a 256 "$snapshot_target/CLAUDE.md" | awk '{ print $1 }') = "$claude_before"; or fail 'post-preflight guidance failure published a later guidance file'
+    if rg -q '^Result:' "$fixture/snapshot.out"
+        fail 'post-preflight guidance failure emitted a domain result'
+    end
+
+    command rm -rf -- "$fixture"
+end
+
+function assert_guidance_snapshot_binding
+    set -l fixture (mktemp -d /tmp/cash-guidance-snapshot-suite.XXXXXX)
+    string match -q '/tmp/cash-guidance-snapshot-suite.*' "$fixture"; or fail 'mktemp returned an unexpected guidance snapshot fixture path'
+    set fixture (command realpath "$fixture"); or fail 'could not canonicalize guidance snapshot fixture path'
+    set -l source "$fixture/source"
+    copy_cash_source_fixture "$source"
+    set -l target "$fixture/target"
+    command mkdir -p "$target"
+    printf 'project-owned-target\n' >"$target/AGENTS.md"
+    command cp "$source/AGENTS.md" "$fixture/source-original"
+    command cp "$target/AGENTS.md" "$fixture/target-original"
+
+    set -l hook "$fixture/snapshot-hook"
+    printf '%s\n' \
+        '#!/bin/sh' \
+        'stage=$1' \
+        'path=$2' \
+        'case "$stage" in' \
+        '  after-source-snapshot)' \
+        '    printf "%s|%s\n" "$stage" "$path" >>"$CASH_GUIDANCE_SNAPSHOT_RECORD" || exit 82' \
+        '    [ "$path" = "$CASH_GUIDANCE_SNAPSHOT_SOURCE" ] || exit 0' \
+        '    printf "%s\n" "<!-- CASH:START -->" transient-source "<!-- CASH:END -->" >"$path" || exit 81' \
+        '    ;;' \
+        '  after-source-render)' \
+        '    printf "%s|%s\n" "$stage" "$path" >>"$CASH_GUIDANCE_SNAPSHOT_RECORD" || exit 84' \
+        '    [ "$path" = "$CASH_GUIDANCE_SNAPSHOT_SOURCE" ] || exit 0' \
+        '    cp "$CASH_GUIDANCE_SNAPSHOT_SOURCE_ORIGINAL" "$path" || exit 83' \
+        '    ;;' \
+        '  after-target-snapshot)' \
+        '    printf "%s|%s\n" "$stage" "$path" >>"$CASH_GUIDANCE_SNAPSHOT_RECORD" || exit 86' \
+        '    [ "$path" = "$CASH_GUIDANCE_SNAPSHOT_TARGET" ] || exit 0' \
+        '    printf "%s\n" transient-target >"$path" || exit 85' \
+        '    ;;' \
+        '  after-target-render)' \
+        '    printf "%s|%s\n" "$stage" "$path" >>"$CASH_GUIDANCE_SNAPSHOT_RECORD" || exit 88' \
+        '    [ "$path" = "$CASH_GUIDANCE_SNAPSHOT_TARGET" ] || exit 0' \
+        '    cp "$CASH_GUIDANCE_SNAPSHOT_TARGET_ORIGINAL" "$path" || exit 87' \
+        '    ;;' \
+        'esac' >"$hook"
+    command chmod +x "$hook"
+
+    set -l record "$fixture/snapshot-record"
+    env \
+        CASH_GUIDANCE_TEST_HOOK="$hook" \
+        CASH_GUIDANCE_SNAPSHOT_SOURCE="$source/AGENTS.md" \
+        CASH_GUIDANCE_SNAPSHOT_SOURCE_ORIGINAL="$fixture/source-original" \
+        CASH_GUIDANCE_SNAPSHOT_TARGET="$target/AGENTS.md" \
+        CASH_GUIDANCE_SNAPSHOT_TARGET_ORIGINAL="$fixture/target-original" \
+        CASH_GUIDANCE_SNAPSHOT_RECORD="$record" \
+        fish --no-config "$source/install-cash-skills.fish" --target "$target" >"$fixture/install.out" 2>"$fixture/install.err"
+    or fail 'immutable guidance snapshot fixture failed'
+
+    for stage in after-source-snapshot after-source-render after-target-snapshot after-target-render
+        set -l stage_count 0
+        if test -f "$record"
+            if string match -q 'after-source-*' "$stage"
+                set stage_count (rg -Fxc "$stage|$source/AGENTS.md" "$record")
+            else
+                set stage_count (rg -Fxc "$stage|$target/AGENTS.md" "$record")
+            end
+        end
+        test "$stage_count" = 1; or fail "guidance snapshot hook stage did not run exactly once for AGENTS.md: $stage"
+    end
+    assert_absent "$target/AGENTS.md" 'transient-source|transient-target' 'guidance snapshot transient bytes'
+    assert_contains "$target/AGENTS.md" 'project-owned-target' 'guidance snapshot target bytes'
+    assert_contains "$target/AGENTS.md" '本專案只使用 Cash workflow invocations' 'guidance snapshot canonical source bytes'
+
+    command rm -rf -- "$fixture"
+end
+
+function assert_numeric_version_guidance_examples
+    set -l fixture (mktemp -d /tmp/cash-version-guidance-example-suite.XXXXXX)
+    string match -q '/tmp/cash-version-guidance-example-suite.*' "$fixture"; or fail 'mktemp returned an unexpected numeric version example fixture path'
+    set -l source "$fixture/source"
+    copy_cash_source_fixture "$source"
+    set -l installer "$source/install-cash-skills.fish"
+    set -l rows \
+        '1.10.0|1.9.9|canonical|update' \
+        '2.0.0|2.0.0|canonical|current' \
+        '2.0.0|2.0.0|spectra|update' \
+        '2.9.0|3.0.0|spectra|newer'
+
+    set -l row_index 0
+    for row in $rows
+        set row_index (math $row_index + 1)
+        set -l fields (string split '|' -- "$row")
+        set -l source_version "$fields[1]"
+        set -l target_version "$fields[2]"
+        set -l guidance "$fields[3]"
+        set -l expected "$fields[4]"
+        set -l target "$fixture/row-$row_index"
+        command mkdir -p "$target"
+        printf '%s\n' "$target_version" >"$source/cash-skills.version"
+        fish "$installer" --target "$target" >/dev/null 2>&1; or fail "could not seed numeric version example row $row_index"
+        if test "$guidance" = spectra
+            printf '%s\n' '<!-- SPECTRA:START -->' example-drift '<!-- SPECTRA:END -->' >>"$target/AGENTS.md"
+        end
+        printf '%s\n' "$source_version" >"$source/cash-skills.version"
+        fish "$installer" --target "$target" >"$fixture/row-$row_index.out" 2>"$fixture/row-$row_index.err"; or fail "numeric version example row $row_index failed"
+        assert_single_result "$fixture/row-$row_index.out" "$expected" "numeric version example row $row_index"
+    end
+
+    command rm -rf -- "$fixture"
+end
+
+function assert_guidance_transaction_matrix
+    set -l fixture (mktemp -d /tmp/cash-guidance-transaction-suite.XXXXXX)
+    string match -q '/tmp/cash-guidance-transaction-suite.*' "$fixture"; or fail 'mktemp returned an unexpected guidance transaction fixture path'
+    set -l source "$fixture/source"
+    copy_cash_source_fixture "$source"
+    set -l installer "$source/install-cash-skills.fish"
+
+    set -l current_target "$fixture/current-target"
+    command mkdir -p "$current_target"
+    fish "$installer" --target "$current_target" >/dev/null 2>&1; or fail 'could not seed current guidance target'
+    test (wc -l <"$current_target/.cash-skills/receipt.tsv" | string trim) = 25; or fail 'guidance migration changed the 25-record receipt schema'
+    if rg -q 'AGENTS\.md|CLAUDE\.md' "$current_target/.cash-skills/receipt.tsv"
+        fail 'guidance paths were added to the skill receipt'
+    end
+    test (string trim <"$source/cash-skills.version") = 1.0.0; or fail 'guidance migration changed the fixture bundle version'
+    set -l current_before (tree_digest "$current_target")
+    fish "$installer" --target "$current_target" >"$fixture/current.out" 2>"$fixture/current.err"; or fail 'canonical guidance current branch failed'
+    rg -Fq 'Result: current' "$fixture/current.out"; or fail 'canonical guidance did not report current'
+    test (tree_digest "$current_target") = "$current_before"; or fail 'canonical guidance current branch changed target bytes'
+
+    for variant_root in .agents .claude
+        for source_skill_dir in "$root_dir/$variant_root/skills"/spectra-*
+            string match -rq '/spectra-(?:propose|apply)-plus$' -- "$source_skill_dir"; and continue
+            command cp -R "$source_skill_dir" "$current_target/$variant_root/skills/"; or fail 'could not seed complete standard Spectra skill trees'
+        end
+    end
+    set -l spectra_before (standard_spectra_inventory_digest "$current_target"); or fail 'could not hash complete standard Spectra skill trees before guidance migration'
+    set -l guidance_with_sentinel (mktemp "$current_target/.guidance-sentinel.XXXXXX")
+    printf 'project-owned-before\n' >"$guidance_with_sentinel"
+    command cat "$current_target/AGENTS.md" >>"$guidance_with_sentinel"
+    printf 'project-owned-after\n' >>"$guidance_with_sentinel"
+    command mv "$guidance_with_sentinel" "$current_target/AGENTS.md"
+    printf '%s\n' '<!-- SPECTRA:START -->' external-update '<!-- SPECTRA:END -->' >>"$current_target/AGENTS.md"
+    assert_contains "$current_target/AGENTS.md" '$cash-propose' 'Cash block remains effective after an external Spectra update'
+    fish "$installer" --target "$current_target" >"$fixture/update.out" 2>"$fixture/update.err"; or fail 'equal-version guidance migration failed'
+    rg -Fq 'Result: update' "$fixture/update.out"; or fail 'equal-version guidance drift did not report update'
+    test (rg -Fx 'project-owned-before' "$current_target/AGENTS.md" | wc -l | string trim) = 1; or fail 'guidance cleanup changed the leading project-owned sentinel'
+    test (rg -Fx 'project-owned-after' "$current_target/AGENTS.md" | wc -l | string trim) = 1; or fail 'guidance cleanup changed the trailing project-owned sentinel'
+    if rg -q '^<!-- SPECTRA:(?:START|END)' "$current_target/AGENTS.md"
+        fail 'guidance cleanup retained the externally re-added Spectra block'
+    end
+    test (standard_spectra_inventory_digest "$current_target") = "$spectra_before"; or fail 'guidance migration modified complete standard Spectra skill trees'
+    fish "$installer" --target "$current_target" >"$fixture/update-current.out" 2>"$fixture/update-current.err"; or fail 'post-migration current branch failed'
+    rg -Fq 'Result: current' "$fixture/update-current.out"; or fail 'second equal-version guidance install did not report current'
+
+    set -l newer_target "$fixture/newer-target"
+    command cp -R "$current_target" "$newer_target"
+    perl -0pi -e 's/^version\t[^\n]+/version\t9.0.0/' "$newer_target/.cash-skills/receipt.tsv"
+    printf '%s\n' '<!-- SPECTRA:START -->' newer-drift '<!-- SPECTRA:END -->' >>"$newer_target/AGENTS.md"
+    set -l newer_before (tree_digest "$newer_target")
+    fish "$installer" --target "$newer_target" --force >"$fixture/newer.out" 2>"$fixture/newer.err"; or fail 'newer guidance branch failed'
+    rg -Fq 'Result: newer' "$fixture/newer.out"; or fail 'newer guidance branch did not report newer'
+    test (tree_digest "$newer_target") = "$newer_before"; or fail 'newer branch changed guidance bytes'
+
+    set -l conflict_target "$fixture/conflict-target"
+    command cp -R "$current_target" "$conflict_target"
+    printf 'skill-drift\n' >"$conflict_target/.agents/skills/cash-ask/SKILL.md"
+    printf '%s\n' '<!-- SPECTRA:START -->' conflict-drift '<!-- SPECTRA:END -->' >>"$conflict_target/AGENTS.md"
+    set -l conflict_before (tree_digest "$conflict_target")
+    fish "$installer" --target "$conflict_target" >"$fixture/conflict.out" 2>"$fixture/conflict.err"
+    test $status -eq 2; or fail 'skill drift with guidance drift did not return conflict code 2'
+    rg -Fq 'Result: conflict' "$fixture/conflict.out"; or fail 'skill drift with guidance drift did not report conflict'
+    test (tree_digest "$conflict_target") = "$conflict_before"; or fail 'conflict branch changed guidance bytes'
+    fish "$installer" --target "$conflict_target" --force >"$fixture/conflict-force.out" 2>"$fixture/conflict-force.err"; or fail 'force did not converge skill and guidance drift'
+
+    set -l partial_target "$fixture/partial-target"
+    command cp -R "$current_target" "$partial_target"
+    printf '%s\n' '<!-- SPECTRA:START -->' agents-drift '<!-- SPECTRA:END -->' >>"$partial_target/AGENTS.md"
+    printf '%s\n' '<!-- SPECTRA:START -->' claude-drift '<!-- SPECTRA:END -->' >>"$partial_target/CLAUDE.md"
+    set -l partial_receipt_before (shasum -a 256 "$partial_target/.cash-skills/receipt.tsv" | awk '{ print $1 }')
+    set -l partial_hook "$fixture/partial-guidance-hook"
+    printf '%s\n' \
+        '#!/bin/sh' \
+        '[ "$1" = before-temp ] || exit 0' \
+        '[ "$3" = CLAUDE.md ] || exit 0' \
+        'exit 77' >"$partial_hook"
+    command chmod +x "$partial_hook"
+    if env CASH_GUIDANCE_TEST_HOOK="$partial_hook" fish --no-config "$installer" --target "$partial_target" >"$fixture/partial.out" 2>"$fixture/partial.err"
+        fail 'installer masked a partial guidance publication failure'
+    end
+    test (shasum -a 256 "$partial_target/.cash-skills/receipt.tsv" | awk '{ print $1 }') = "$partial_receipt_before"; or fail 'partial guidance failure replaced an existing receipt'
+    if rg -q '^Result:' "$fixture/partial.out"
+        fail 'partial guidance failure emitted a domain result'
+    end
+    fish "$installer" --target "$partial_target" >"$fixture/partial-retry.out" 2>"$fixture/partial-retry.err"; or fail 'ordinary retry did not converge partial guidance publication'
+    rg -Fq 'Result: update' "$fixture/partial-retry.out"; or fail 'partial guidance retry did not report update'
+
+    set -l receipt_failure_target "$fixture/receipt-failure-target"
+    command mkdir -p "$receipt_failure_target"
+    set -l move_stub_dir "$fixture/receipt-move-bin"
+    command mkdir -p "$move_stub_dir"
+    printf '%s\n' \
+        '#!/bin/sh' \
+        'destination=' \
+        'for argument in "$@"; do destination=$argument; done' \
+        'case "$destination" in */.cash-skills/receipt.tsv) exit 78 ;; esac' \
+        'exec /bin/mv "$@"' >"$move_stub_dir/mv"
+    command chmod +x "$move_stub_dir/mv"
+    if env PATH="$move_stub_dir:$PATH" fish --no-config "$installer" --target "$receipt_failure_target" >"$fixture/receipt-failure.out" 2>"$fixture/receipt-failure.err"
+        fail 'installer masked receipt publication failure'
+    end
+    test ! -e "$receipt_failure_target/.cash-skills/receipt.tsv"; or fail 'receipt publication failure left a receipt'
+    test (find "$receipt_failure_target/.agents/skills" "$receipt_failure_target/.claude/skills" -name SKILL.md | wc -l | string trim) = 24; or fail 'receipt publication failure did not leave the completed 24-file publication state'
+    fish "$installer" --target "$receipt_failure_target" >"$fixture/receipt-retry.out" 2>"$fixture/receipt-retry.err"; or fail 'receipt-less adoption did not recover receipt publication failure'
+    rg -Fq 'Result: update' "$fixture/receipt-retry.out"; or fail 'receipt-less adoption recovery did not report update'
+    test -f "$receipt_failure_target/.cash-skills/receipt.tsv"; or fail 'receipt-less adoption recovery did not publish receipt'
+
+    command rm -rf -- "$fixture"
 end
 
 function seed_retired_plus_skill --argument-names target variant skill declared_name
@@ -816,7 +1491,7 @@ function assert_version_contract_inventory
             (string join \t 'openspec/changes/<change>/tasks.md' 2) \
             (string join \t openspec/changes/archive/2026-07-04-guard-dirty-source-auto-repair/specs/spectra-plus-skills/spec.md 1) \
             (string join \t openspec/changes/archive/2026-07-04-version-spectra-plus-skills/specs/spectra-plus-skills/spec.md 1) \
-            (string join \t scripts/cash-skills/tests/skill-checks.fish 16)
+            (string join \t scripts/cash-skills/tests/skill-checks.fish 17)
         check_version_literal_occurrence_inventory "$root_dir" "$governed_literal" $expected_records
         or fail 'repository prior-version literal occurrence inventory drifted'
         assert_version_literal_inventory_fixture
@@ -1420,23 +2095,29 @@ function assert_cash_batch_branch_matrix
     set -l current "$fixture/current"
     set -l newer "$fixture/newer"
     set -l conflict "$fixture/conflict"
+    set -l guidance_drift "$fixture/guidance-drift"
+    set -l guidance_failed "$fixture/guidance-failed"
     set -l later "$fixture/later"
-    command mkdir -p "$older" "$current" "$newer" "$conflict" "$later"; or fail 'could not create batch targets'
+    command mkdir -p "$older" "$current" "$newer" "$conflict" "$guidance_drift" "$guidance_failed" "$later"; or fail 'could not create batch targets'
 
     printf '0.9.0\n' >"$source/cash-skills.version"
     for target in "$older" "$conflict"
         fish "$fixture_installer" --target "$target" >/dev/null 2>&1; or fail 'could not seed older batch target'
     end
     printf '1.0.0\n' >"$source/cash-skills.version"
-    for target in "$current" "$later"
+    for target in "$current" "$guidance_drift" "$guidance_failed" "$later"
         fish "$fixture_installer" --target "$target" >/dev/null 2>&1; or fail 'could not seed current batch target'
     end
     printf '2.0.0\n' >"$source/cash-skills.version"
     fish "$fixture_installer" --target "$newer" >/dev/null 2>&1; or fail 'could not seed newer batch target'
     printf '1.0.0\n' >"$source/cash-skills.version"
     printf 'local drift\n' >>"$conflict/.agents/skills/cash-ask/SKILL.md"
+    printf '%s\n' '<!-- SPECTRA:START -->' batch-guidance-drift '<!-- SPECTRA:END -->' >>"$guidance_drift/AGENTS.md"
+    printf '%s\n' '<!-- CASH:START -->' malformed-guidance >"$guidance_failed/AGENTS.md"
+    printf '%s\n' '<!-- SPECTRA:START -->' newer-guidance-drift '<!-- SPECTRA:END -->' >>"$newer/AGENTS.md"
+    set -l newer_before (tree_digest "$newer")
 
-    for target in "$older" "$current" "$newer" "$conflict" "$fixture/missing-batch-target" "$later"
+    for target in "$older" "$current" "$newer" "$conflict" "$guidance_drift" "$guidance_failed" "$fixture/missing-batch-target" "$later"
         env HOME="$batch_home" fish --no-config "$fixture_installer" --register "$target" >"$fixture/batch-register.out" 2>"$fixture/batch-register.err"
         set -l register_status $status
         if test -d "$target"
@@ -1448,27 +2129,35 @@ function assert_cash_batch_branch_matrix
     printf '%s\n' "$later" >>"$batch_home/.config/cash-skills/projects.txt"
     env HOME="$batch_home" fish --no-config "$fixture_installer" --all >"$fixture/batch.out" 2>"$fixture/batch.err"
     test $status -ne 0; or fail 'batch with conflict and failure returned 0'
-    for status_path in "updated:$older" "current:$current" "newer:$newer" "conflict:$conflict" "failed:$fixture/missing-batch-target" "current:$later"
+    for status_path in "updated:$older" "current:$current" "newer:$newer" "conflict:$conflict" "updated:$guidance_drift" "failed:$guidance_failed" "failed:$fixture/missing-batch-target" "current:$later"
         set -l fields (string split : -- "$status_path")
         rg -Fq "$fields[1]: $fields[2]" "$fixture/batch.out"; or fail "batch omitted status $status_path"
     end
     test (rg -Fxc "current: $later" "$fixture/batch.out") = 1; or fail 'batch did not deduplicate duplicate target'
-    rg -Fq 'Summary: updated=1 current=2 newer=1 conflict=1 failed=1 would-update=0' "$fixture/batch.out"; or fail 'batch summary counts drifted'
+    rg -Fq 'Summary: updated=2 current=2 newer=1 conflict=1 failed=2 would-update=0' "$fixture/batch.out"; or fail 'batch summary counts drifted'
+    test (tree_digest "$newer") = "$newer_before"; or fail 'batch changed guidance on a newer target'
 
     set -l conflict_before (tree_digest "$conflict")
     set -l dry_older "$fixture/dry-older"
-    command mkdir -p "$dry_older"; or fail 'could not create dry-run update target'
+    set -l dry_guidance "$fixture/dry-guidance"
+    command mkdir -p "$dry_older" "$dry_guidance"; or fail 'could not create dry-run update target'
     printf '0.9.0\n' >"$source/cash-skills.version"
     fish "$fixture_installer" --target "$dry_older" >/dev/null 2>&1; or fail 'could not seed dry-run older target'
     printf '1.0.0\n' >"$source/cash-skills.version"
+    fish "$fixture_installer" --target "$dry_guidance" >/dev/null 2>&1; or fail 'could not seed dry-run guidance target'
+    printf '%s\n' '<!-- SPECTRA:START -->' dry-guidance-drift '<!-- SPECTRA:END -->' >>"$dry_guidance/CLAUDE.md"
     env HOME="$batch_home" fish --no-config "$fixture_installer" --register "$dry_older" >/dev/null 2>&1; or fail 'could not register dry-run older target'
+    env HOME="$batch_home" fish --no-config "$fixture_installer" --register "$dry_guidance" >/dev/null 2>&1; or fail 'could not register dry-run guidance target'
     set -l dry_older_before (tree_digest "$dry_older")
+    set -l dry_guidance_before (tree_digest "$dry_guidance")
     set -l batch_home_before (tree_digest "$batch_home")
     env HOME="$batch_home" fish --no-config "$fixture_installer" --all --dry-run >"$fixture/batch-dry.out" 2>"$fixture/batch-dry.err"
     test $status -ne 0; or fail 'batch dry-run masked conflict/failure aggregate status'
     rg -Fq "would-update: $dry_older" "$fixture/batch-dry.out"; or fail 'batch dry-run omitted would-update status'
-    rg -Fq 'Summary: updated=0 current=3 newer=1 conflict=1 failed=1 would-update=1' "$fixture/batch-dry.out"; or fail 'batch dry-run summary counts drifted'
+    rg -Fq "would-update: $dry_guidance" "$fixture/batch-dry.out"; or fail 'batch dry-run omitted guidance would-update status'
+    rg -Fq 'Summary: updated=0 current=4 newer=1 conflict=1 failed=2 would-update=2' "$fixture/batch-dry.out"; or fail 'batch dry-run summary counts drifted'
     test (tree_digest "$dry_older") = "$dry_older_before"; or fail 'batch dry-run changed would-update target state'
+    test (tree_digest "$dry_guidance") = "$dry_guidance_before"; or fail 'batch dry-run changed guidance would-update target state'
     test (tree_digest "$conflict") = "$conflict_before"; or fail 'batch dry-run changed target state'
     test (tree_digest "$batch_home") = "$batch_home_before"; or fail 'batch dry-run changed registry state'
 
@@ -1827,8 +2516,6 @@ function assert_spectra_update_isolation
     command cp "$root_dir/.spectra.yaml" "$root_dir/AGENTS.md" "$root_dir/CLAUDE.md" "$fixture/"; or fail 'could not copy Spectra update fixture guidance'
     command cp "$root_dir/openspec/config.yaml" "$fixture/openspec/"; or fail 'could not copy Spectra update fixture config'
 
-    perl -0pi -e 's{(<!-- SPECTRA:START[^\n]*\n).*?(<!-- SPECTRA:END -->)}{$1\nBROKEN MANAGED BLOCK\n\n$2}s' "$fixture/AGENTS.md"
-    rg -Fq 'BROKEN MANAGED BLOCK' "$fixture/AGENTS.md"; or fail 'could not seed stale managed guidance in the update fixture'
     set -l before (cash_inventory_digest "$fixture")
 
     pushd "$fixture" >/dev/null; or fail 'could not enter Spectra update fixture'
@@ -1838,13 +2525,10 @@ function assert_spectra_update_isolation
     test $update_status -eq 0; or fail 'spectra update --force failed in the isolated fixture'
 
     test (cash_inventory_digest "$fixture") = "$before"; or fail 'spectra update --force mutated the cash skill inventory'
-    if rg -Fq 'BROKEN MANAGED BLOCK' "$fixture/AGENTS.md"
-        fail 'spectra update --force did not refresh the managed AGENTS.md block'
-    end
-    rg -Fq '# Spectra Instructions' "$fixture/AGENTS.md"; or fail 'spectra update --force did not restore managed Spectra guidance'
-    set -l override (awk '/<!-- SPECTRA:END -->/ { after = 1; next } after { print }' "$fixture/AGENTS.md" | string collect)
-    string match -q '*cash workflow invocation takes precedence*' "$override"; or fail 'spectra update --force removed the project-owned cash precedence override'
-    string match -q '*$cash-propose*' "$override"; or fail 'spectra update --force removed effective cash workflow routing'
+    rg -Fq '# Spectra Instructions' "$fixture/AGENTS.md"; or fail 'spectra update --force did not add managed Spectra guidance'
+    test (rg -Fx '<!-- CASH:START -->' "$fixture/AGENTS.md" | wc -l | string trim) = 1; or fail 'spectra update --force removed the canonical Cash block'
+    assert_contains "$fixture/AGENTS.md" '$cash-propose' 'Cash routing remains effective after Spectra update'
+    assert_contains "$fixture/AGENTS.md" '本專案只使用 Cash workflow invocations' 'Cash-only routing remains explicit after Spectra update'
 
     command rm -rf -- "$fixture"
 end
@@ -1869,13 +2553,18 @@ assert_signals_readme_contract
 assert_installer_interface
 assert_cleanup_interface
 assert_legacy_repair_runtime_absent
-assert_cash_guidance_override
+assert_cash_guidance_contract
 assert_cash_live_documentation
 assert_exhaustive_variant_parity
 assert_tree_digest_mutation_oracle
 check_bundle_version_governance "$root_dir"; or fail 'repository cash bundle version governance failed'
 assert_version_contract_inventory
 if not set -q CASH_SKILLS_NESTED
+    assert_guidance_marker_state_matrix
+    assert_guidance_snapshot_binding
+    assert_guidance_boundary_matrix
+    assert_guidance_transaction_matrix
+    assert_numeric_version_guidance_examples
     assert_bundle_version_history_fixtures
     assert_cash_batch_branch_matrix
     assert_versioned_installer_branch_matrix
