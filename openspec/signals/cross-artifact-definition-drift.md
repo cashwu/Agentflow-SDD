@@ -2,7 +2,7 @@
 id: cross-artifact-definition-drift
 type: recurring-finding
 status: open
-occurrences: 7
+occurrences: 8
 first_seen: 2026-07-07
 last_seen: 2026-07-22
 links:
@@ -14,6 +14,7 @@ links:
   - openspec/changes/converge-plus-review-loop/reviews/apply-r3.md
   - openspec/changes/add-versioned-cash-skill-batch-update/reviews/propose-r4.md
   - openspec/changes/migrate-cash-project-guidance/reviews/propose-r1.md
+  - openspec/changes/refine-apply-blocker-triage/reviews/apply-r2.md
 ---
 
 # Cross-artifact definition drift
@@ -29,3 +30,4 @@ The same concept (a role's scope, an enumerated list, a rule's condition set) is
 - 2026-07-16 — converge-plus-review-loop — spectra-apply-plus round 3 — delta spec 的 round file outline 要求所有 `fix-introduced` finding 都含 `introduced_by`，模板卻只對 apply-plus Reviewer B 明定該欄位。
 - 2026-07-18 — add-versioned-cash-skill-batch-update — cash-propose round 4 — design 將 `Result:` 限定於 completed domain decisions，但 delta spec opening 無條件要求每次 invocation emit result，與 execution-failure scenario 的 no-domain-result 契約矛盾。
 - 2026-07-22 — migrate-cash-project-guidance — cash-propose round 1 — Preflight/runtime publication的零寫入與部分完成語意，以及source/target的Spectra contamination recovery，在proposal、design與delta spec間定義不一致；修正後明確拆分failure phase與recovery scope。
+- 2026-07-22 — refine-apply-blocker-triage — cash-apply round 2 — Proposal 將所有「多個可辯護答案」的 open question 都描述為暫停條件，範圍比 design/spec/task 僅涵蓋可能改變 contract／scope 的問題更廣。

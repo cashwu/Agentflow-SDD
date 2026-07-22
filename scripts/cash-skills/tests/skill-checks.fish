@@ -95,10 +95,10 @@ function assert_apply_contract --argument-names variant_root invocation
     set -l relative_path "$variant_root/skills/cash-apply/SKILL.md"
     set -l path "$root_dir/$relative_path"
 
-    for marker in '<!-- MECHANICAL-SELF-CHECK -->' '<!-- GRADER-IMMUTABILITY -->' '<!-- LOOP-LEDGER-STEP -->' '<!-- SIGNALS-WRITE-STEP -->'
+    for marker in '<!-- BLOCKER-TRIAGE -->' '<!-- MECHANICAL-SELF-CHECK -->' '<!-- GRADER-IMMUTABILITY -->' '<!-- LOOP-LEDGER-STEP -->' '<!-- SIGNALS-WRITE-STEP -->'
         assert_contains "$path" "$marker" 'cash-apply retained quality gate'
     end
-    for literal in 'implementation-notes.md' Surgical Simplicity 'tasks.md' needs-design 'decision: aborted' 'decision: passed'
+    for literal in 'implementation-notes.md' Surgical Simplicity 'tasks.md' '然後繼續該 task，不暫停' '暫停、報告 blocker' needs-design 'decision: aborted' 'decision: passed'
         assert_contains "$path" "$literal" 'cash-apply implementation contract'
     end
     assert_contains "$path" "$invocation"'cash-ingest' 'cash-apply design circuit breaker'
@@ -404,6 +404,9 @@ function assert_contract_mutation_fixture
         (string join \t propose 'spectra validate') \
         (string join \t propose 'Do NOT invoke `spectra park`') \
         (string join \t apply 'implementation-notes.md') \
+        (string join \t apply '<!-- BLOCKER-TRIAGE -->') \
+        (string join \t apply '然後繼續該 task，不暫停') \
+        (string join \t apply '暫停、報告 blocker') \
         (string join \t apply needs-design) \
         (string join \t apply cash-archive) \
         (string join \t commit '.spectra/touched/<change-name>.json') \

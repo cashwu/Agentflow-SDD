@@ -2,7 +2,7 @@
 id: task-verification-coverage-incomplete
 type: recurring-finding
 status: open
-occurrences: 9
+occurrences: 10
 first_seen: 2026-07-14
 last_seen: 2026-07-22
 links:
@@ -16,6 +16,7 @@ links:
   - openspec/changes/migrate-cash-project-guidance/reviews/apply-r1.md
   - openspec/changes/migrate-cash-project-guidance/reviews/apply-r2.md
   - openspec/changes/migrate-cash-project-guidance/reviews/apply-r4.md
+  - openspec/changes/refine-apply-blocker-triage/reviews/apply-r1.md
 ---
 
 # Task verification coverage incomplete
@@ -33,3 +34,4 @@ A task is marked complete after testing the primary outcome but omits one or mor
 - 2026-07-22 — migrate-cash-project-guidance — cash-apply round 1 — Task 2.2已標記完成，但boundary matrix未覆蓋parent/destination swaps、permission failure、新檔0644與完整managed-span外byte snapshots。
 - 2026-07-22 — migrate-cash-project-guidance — cash-apply seeded round 1 — 初次補強仍缺少final pathname checkpoint後的parent swap，且部分replacement sentinel只以trimmed text檢查；補上專用hook及完整byte、inode與symlink identity assertions。
 - 2026-07-22 — migrate-cash-project-guidance — cash-apply round 4 — Source malformed fixture只區分成功與非成功，未證明task明列的精確code 1；改為保存`$status`並直接斷言等於1。
+- 2026-07-22 — refine-apply-blocker-triage — cash-apply round 1 — Governed-contract mutation fixture 初版只 mutation `<!-- BLOCKER-TRIAGE -->` marker，未鎖定 continue／pause 兩個處置分支；補上兩個 invocation-free behavior literals 的 direct assertions 與 mutation specs。
