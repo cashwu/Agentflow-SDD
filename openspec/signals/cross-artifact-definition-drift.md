@@ -2,9 +2,9 @@
 id: cross-artifact-definition-drift
 type: recurring-finding
 status: open
-occurrences: 8
+occurrences: 10
 first_seen: 2026-07-07
-last_seen: 2026-07-22
+last_seen: 2026-07-24
 links:
   - openspec/changes/add-micro-verification-round/reviews/propose-r1.md
   - openspec/changes/add-review-loop-discipline/reviews/propose-r1.md
@@ -15,6 +15,8 @@ links:
   - openspec/changes/add-versioned-cash-skill-batch-update/reviews/propose-r4.md
   - openspec/changes/migrate-cash-project-guidance/reviews/propose-r1.md
   - openspec/changes/refine-apply-blocker-triage/reviews/apply-r2.md
+  - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/propose-r3.md
+  - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/apply-r1.md
 ---
 
 # Cross-artifact definition drift
@@ -31,3 +33,5 @@ The same concept (a role's scope, an enumerated list, a rule's condition set) is
 - 2026-07-18 — add-versioned-cash-skill-batch-update — cash-propose round 4 — design 將 `Result:` 限定於 completed domain decisions，但 delta spec opening 無條件要求每次 invocation emit result，與 execution-failure scenario 的 no-domain-result 契約矛盾。
 - 2026-07-22 — migrate-cash-project-guidance — cash-propose round 1 — Preflight/runtime publication的零寫入與部分完成語意，以及source/target的Spectra contamination recovery，在proposal、design與delta spec間定義不一致；修正後明確拆分failure phase與recovery scope。
 - 2026-07-22 — refine-apply-blocker-triage — cash-apply round 2 — Proposal 將所有「多個可辯護答案」的 open question 都描述為暫停條件，範圍比 design/spec/task 僅涵蓋可能改變 contract／scope 的問題更廣。
+- 2026-07-23 — replace-spectra-cli-with-cash-cli — cash-propose rounds 3–5 — archive flags、fixed `openspec/`與legacy `spec_dir`、existing/newer config parser及register prerequisites曾在design、delta與tasks間不同步，需逐輪收斂為單一contract。
+- 2026-07-24 — replace-spectra-cli-with-cash-cli — cash-apply round 1 — Cash workflow文案仍聲稱title mismatch會silently drop，與runtime/spec的`requirement_identity_mismatch` fail-closed contract矛盾；六個variants已同步修正。

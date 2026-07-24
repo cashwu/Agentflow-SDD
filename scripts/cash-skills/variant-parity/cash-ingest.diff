@@ -1,20 +1,20 @@
 --- codex/cash-ingest
 +++ claude/cash-ingest
-@@ -13 +13 @@
+@@ -24 +24 @@
 -This tool uses conversation context to update artifacts (no plan file directory). Otherwise, use conversation context to update artifacts.
 +**Plan file support** is available when the tool has a plan directory (`~/.claude/plans/`). Otherwise, use conversation context to update artifacts.
-@@ -19 +19 @@
+@@ -30 +30 @@
 -- `@cash-ingest agile-discovering-rocket.md`
 +- `@cash-ingest ~/.claude/plans/agile-discovering-rocket.md`
-@@ -29 +29 @@
+@@ -40 +40 @@
 -   a. **Argument provided** → treat as plan file reference (prepend `` and append `.md` if needed)
 +   a. **Argument provided** → treat as plan file reference (prepend `~/.claude/plans/` and append `.md` if needed)
-@@ -34 +34 @@
+@@ -45 +45 @@
 -   - Check conversation context for plan file path (plan mode system messages include the path like `<name>.md`)
 +   - Check conversation context for plan file path (plan mode system messages include the path like `~/.claude/plans/<name>.md`)
-@@ -42 +42 @@
+@@ -53 +53 @@
 -   - Check `` for recent files
 +   - Check `~/.claude/plans/` for recent files
-@@ -256 +256 @@
+@@ -267 +267 @@
 -- **NEVER** modify the original plan file in ``
 +- **NEVER** modify the original plan file in `~/.claude/plans/`

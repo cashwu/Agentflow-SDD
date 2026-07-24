@@ -1,0 +1,8 @@
+.openspec.yaml
+archive-manifest.json
+design.md
+proposal.md
+specs/
+specs/demo/
+specs/demo/spec.md
+tasks.md

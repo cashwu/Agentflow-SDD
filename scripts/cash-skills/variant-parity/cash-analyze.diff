@@ -1,8 +1,8 @@
 --- codex/cash-analyze
 +++ claude/cash-analyze
-@@ -14 +14 @@
+@@ -25 +25 @@
 -## Codex fork context
 +## Claude fork context
-@@ -16 +16 @@
+@@ -27 +27 @@
 -This generated Codex skill runs with `context: fork`. The rules in this section take precedence over the shared `analyze` body below.
 +This generated Claude Code skill runs with `context: fork`. The rules in this section take precedence over the shared `analyze` body below.

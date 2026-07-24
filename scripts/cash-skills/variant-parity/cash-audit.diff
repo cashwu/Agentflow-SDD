@@ -4,16 +4,16 @@
 +context: fork
 +agent: Explore
 +disallowedTools: [Edit, Write]
-@@ -11 +14 @@
+@@ -22 +25 @@
 -Audit changed code for security sharp edges — API design traps, dangerous defaults, and interfaces that make it easy to do the wrong thing.
 +Audit changed code for security sharp edges in a Claude Code fork. This generated skill is report-only: it SHALL NOT edit files and SHALL NOT apply fixes directly inside the fork.
-@@ -13 +16 @@
+@@ -24 +27 @@
 -Good APIs don't require developers to "be careful" to stay secure. If the correct usage requires reading docs, remembering rules, or understanding cryptography, the API has failed.
 +## Claude fork context
-@@ -15 +18 @@
+@@ -26 +29 @@
 -**Core principle:** Security should be the path of least resistance. Insecure usage should be harder than secure usage.
 +Run `git diff HEAD` to gather the current changes. If there are no changes, report that no security sharp edges were found and stop.
-@@ -17,105 +20 @@
+@@ -28,105 +31 @@
 -## Two Modes
 -
 -This skill operates in two modes depending on how it's invoked:
@@ -89,7 +89,7 @@
 -
 -## Discipline Mode
 -
--When referenced by `@cash-apply` (via `spectra instructions --skill audit`), do NOT launch the 3-agent workflow above. Instead, apply this condensed checklist continuously during implementation.
+-When referenced by `@cash-apply` (via `"$cash_cli" instructions --skill audit`), do NOT launch the 3-agent workflow above. Instead, apply this condensed checklist continuously during implementation.
 -
 -### Quick 3-Role Check
 -

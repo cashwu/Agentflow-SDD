@@ -2,9 +2,9 @@
 id: spec-requirement-no-backing-task
 type: recurring-finding
 status: open
-occurrences: 4
+occurrences: 5
 first_seen: 2026-07-04
-last_seen: 2026-07-07
+last_seen: 2026-07-23
 links:
   - openspec/changes/version-spectra-plus-skills/reviews/propose-r1.md
   - openspec/changes/version-spectra-plus-skills/reviews/propose-r2.md
@@ -14,6 +14,7 @@ links:
   - openspec/changes/add-review-loop-discipline/reviews/apply-r3.md
   - openspec/changes/add-review-loop-discipline/reviews/apply-r4.md
   - openspec/changes/add-review-loop-discipline/reviews/apply-r5.md
+  - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/propose-r3.md
 ---
 
 # Spec requirement with no backing task
@@ -26,3 +27,4 @@ A Spectra change artifact introduced a requirement, failure mode, or implementat
 - 2026-07-04 — guard-dirty-source-auto-repair — spectra-propose-plus rounds 1 and 3 — Review found dirty-source guard scenarios and porcelain status coverage that were not fully backed by task/test expectations.
 - 2026-07-07 — add-review-loop-discipline — spectra-propose-plus round 2 — The MODIFIED lifecycle requirement bound the signals write step to preserve `check` fields, but no task delivered that obligation into the SIGNALS-WRITE-STEP template block until task 2.4 was added.
 - 2026-07-07 — add-review-loop-discipline — spectra-apply-plus rounds 3-5 — Review found the generator checks did not fully force the literal protected path set to appear inside the `<!-- GRADER-IMMUTABILITY -->` block until bounded-section assertions covered every protected path and anchor order.
+- 2026-07-23 — replace-spectra-cli-with-cash-cli — cash-propose rounds 1–5 — archive trace、consumer JSON element shapes、config/parser branches與installer recovery edge cases曾缺少逐欄fixture backing；修正後tasks加入snapshot、fault與migration矩陣，剩餘abort obligations仍需後續task同步。

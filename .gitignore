@@ -1,3 +1,6 @@
 .spectra/
+.cash-skills/receipt.tsv
+.cash-skills/state/
 openspec/.vector-search.db*
 *.srt
+__pycache__/
