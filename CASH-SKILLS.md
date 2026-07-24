@@ -41,6 +41,26 @@ Codex files 位於 `.agents/skills/`，Claude files 位於 `.claude/skills/`。C
 - `Result: conflict`：target 有 drift 或無 receipt 的內容不完整／不同；exit `2`。
 - argument、schema、I/O、hash 或 integrity error 不輸出 domain result；exit `1`。
 
+## Target 版控排除保護
+
+receipt 記錄 target 上 launcher 與 workspace lock 的 `st_dev`／`st_ino`，同一份 bytes 換到別的 inode 就會使 launcher 以 `receipt_invalid` fail closed。因此每次 `--target`、registry 與 `--all` 安裝都會在同一個 transaction 內確保 target 根目錄的 `.gitignore` 含這三項規則：
+
+```
+.cash-skills/receipt.tsv
+.cash-skills/state/
+__pycache__/
+```
+
+判定在 byte 層以行為單位進行：以 `\n` 切行、逐行 bytes 精確比對，容忍行尾的 `\r`，不要求 UTF-8，所以 CRLF 或含非 UTF-8 pathname pattern 的 `.gitignore` 不會讓 target 變成 `failed`。判定不做前綴、萬用字元或路徑包含關係推論——`.cash-skills/`、`.cash-skills/state`、`/.cash-skills/state/` 與 `*.tsv` 這類等價或較寬的寫法**不視為已滿足**，結果是 installer 追加一條語意重複但無害的規則；這個取捨換得判定可預測，也避免把語意不同的既有規則誤判為已涵蓋。
+
+`.gitignore` 是 project-owned 檔案，因此只附加、不重排：缺少的規則一律加在檔案尾端，既有內容逐 byte 保留、既有 mode 保留，不去重也不刪除任何既有行。既有內容非空且沒有尾端換行時會先補一個行終止符，這是逐 byte 保留的唯一例外。檔案不存在時以 `0644` 建立；三項規則齊備時該檔案零寫入，其餘 managed inventory 亦無變更時 target 才回報 `Result: current`。`.gitignore` 為 symlink、非 regular file、hard link 或無法安全讀取時，在首次 target write 前 fail closed，`--force` 也不繞過。source-only `--self` 不在此保護範圍內，source repository 的 `.gitignore` 由該 repository 自行維護。
+
+既有 target 若已把 `.cash-skills/receipt.tsv` 納入版控，installer 每次執行都會在 stderr 輸出診斷。installer 不會代為修改版控索引，一次性清理由你在該專案執行：
+
+```fish
+git rm --cached .cash-skills/receipt.tsv
+```
+
 ## Cash project guidance migration
 
 Repository root 的 `AGENTS.md` 與 `CLAUDE.md` 是兩個 canonical guidance sources：前者使用 `$cash-*`，後者使用 `/cash-*`。每份 source 都恰好包含一個 `<!-- CASH:START -->`／`<!-- CASH:END -->` managed block；installer 從這兩份 live files 擷取對應 block，不另外維護 template。

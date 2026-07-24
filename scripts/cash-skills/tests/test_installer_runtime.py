@@ -29,17 +29,24 @@ class InstallerRuntimeTests(unittest.TestCase):
         )
         return temporary, target
 
-    def install(self, target: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+    def install(
+        self,
+        target: Path,
+        *arguments: str,
+        timeout: float | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         environment = os.environ.copy()
-        failure = environment.pop("TEST_CASH_INSTALL_FAIL_AFTER", None)
-        if failure is not None:
-            environment["CASH_INSTALL_FAIL_AFTER"] = failure
+        for name in ("CASH_INSTALL_FAIL_AFTER", "CASH_INSTALL_FAIL_AFTER_PATH"):
+            failure = environment.pop(f"TEST_{name}", None)
+            if failure is not None:
+                environment[name] = failure
         return subprocess.run(
             ["fish", "--no-config", str(INSTALLER), "--target", str(target), *arguments],
             cwd=ROOT,
             text=True,
             capture_output=True,
             env=environment,
+            timeout=timeout,
         )
 
     def run_installer(
@@ -217,6 +224,308 @@ class InstallerRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(launched.returncode, 0, launched.stderr)
         self.assertEqual(launched.stdout, '{"changes":[]}\n')
+
+    def test_fresh_target_receives_version_control_exclusions(self) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+
+        result = self.install(target)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        gitignore = target / ".gitignore"
+        self.assertEqual(
+            gitignore.read_bytes(),
+            b".cash-skills/receipt.tsv\n.cash-skills/state/\n__pycache__/\n",
+        )
+        self.assertEqual(stat.S_IMODE(gitignore.stat().st_mode), 0o644)
+        ignored = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(target),
+                "check-ignore",
+                "--",
+                ".cash-skills/receipt.tsv",
+                ".cash-skills/state/installer/journal.json",
+            ],
+            text=True,
+            capture_output=True,
+        )
+        self.assertEqual(
+            ignored.stdout.splitlines(),
+            [".cash-skills/receipt.tsv", ".cash-skills/state/installer/journal.json"],
+        )
+
+    def test_existing_gitignore_keeps_bytes_and_appends_only_missing_rules(self) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        gitignore = target / ".gitignore"
+        existing = b"# project rules\nnode_modules\n\n__pycache__/\n"
+        gitignore.write_bytes(existing)
+        os.chmod(gitignore, 0o600)
+
+        result = self.install(target)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            gitignore.read_bytes(),
+            existing + b".cash-skills/receipt.tsv\n.cash-skills/state/\n",
+        )
+        self.assertEqual(stat.S_IMODE(gitignore.stat().st_mode), 0o600)
+
+    def test_gitignore_append_preserves_line_terminators_and_encoding(self) -> None:
+        rules = (
+            b".cash-skills/receipt.tsv",
+            b".cash-skills/state/",
+            b"__pycache__/",
+        )
+        cases = (
+            ("no-trailing-terminator", b"node_modules", b"\n"),
+            ("empty-file", b"", b"\n"),
+            ("single-line-no-terminator", b"build", b"\n"),
+            ("crlf", b"node_modules\r\nbuild\r\n", b"\r\n"),
+            ("non-utf8-pathname", b"caf\xe9/**\n", b"\n"),
+            ("equivalent-spellings", b".cash-skills/\n.cash-skills/state\n", b"\n"),
+            ("rooted-and-glob", b"/.cash-skills/state/\n*.tsv\n", b"\n"),
+        )
+        for label, existing, terminator in cases:
+            with self.subTest(case=label):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                gitignore = target / ".gitignore"
+                gitignore.write_bytes(existing)
+                separator = b"" if not existing or existing.endswith(b"\n") else terminator
+
+                result = self.install(target)
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(
+                    gitignore.read_bytes(),
+                    existing
+                    + separator
+                    + b"".join(rule + terminator for rule in rules),
+                )
+
+    def test_gitignore_unsafe_shapes_fail_closed_before_any_write(self) -> None:
+        for shape in ("symlink", "directory", "hardlink", "fifo"):
+            for arguments in ((), ("--force",)):
+                with self.subTest(shape=shape, arguments=arguments):
+                    temporary, target = self.make_target()
+                    self.addCleanup(temporary.cleanup)
+                    gitignore = target / ".gitignore"
+                    if shape == "symlink":
+                        outside = target / "outside-rules"
+                        outside.write_bytes(b"node_modules\n")
+                        gitignore.symlink_to(outside)
+                    elif shape == "directory":
+                        gitignore.mkdir()
+                    elif shape == "fifo":
+                        os.mkfifo(gitignore)
+                    else:
+                        original = target / "original-rules"
+                        original.write_bytes(b"node_modules\n")
+                        os.link(original, gitignore)
+
+                    # A FIFO must fail closed rather than block on open, so the
+                    # timeout is part of the assertion.
+                    result = self.install(target, *arguments, timeout=60)
+
+                    self.assertEqual(result.returncode, 1, result.stdout)
+                    self.assertIn(".gitignore", result.stderr)
+                    self.assertFalse((target / ".cash-workspace.lock").exists())
+                    self.assertFalse((target / ".cash-skills").exists())
+                    self.assertFalse((target / ".cash.yaml").exists())
+
+    def test_complete_gitignore_rules_are_zero_write_and_current(self) -> None:
+        seeds = (
+            ("installed-lf", None),
+            (
+                "seeded-crlf",
+                b"node_modules\r\n.cash-skills/receipt.tsv\r\n"
+                b".cash-skills/state/\r\n__pycache__/\r\n",
+            ),
+        )
+        for label, seed in seeds:
+            with self.subTest(case=label):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                gitignore = target / ".gitignore"
+                if seed is not None:
+                    gitignore.write_bytes(seed)
+                self.assertEqual(self.install(target).returncode, 0)
+                if seed is not None:
+                    self.assertEqual(gitignore.read_bytes(), seed)
+                before = (
+                    gitignore.read_bytes(),
+                    gitignore.stat().st_ino,
+                    gitignore.stat().st_mtime_ns,
+                )
+
+                result = self.install(target)
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("Result: current", result.stdout)
+                self.assertEqual(
+                    (
+                        gitignore.read_bytes(),
+                        gitignore.stat().st_ino,
+                        gitignore.stat().st_mtime_ns,
+                    ),
+                    before,
+                )
+
+    def test_gitignore_dry_run_is_zero_write(self) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        gitignore = target / ".gitignore"
+        gitignore.write_bytes(b"node_modules\n")
+        before = (gitignore.read_bytes(), gitignore.stat().st_mtime_ns)
+
+        result = self.install(target, "--dry-run")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Result: update", result.stdout)
+        self.assertEqual(
+            (gitignore.read_bytes(), gitignore.stat().st_mtime_ns),
+            before,
+        )
+
+    def test_publication_failure_rolls_back_the_gitignore_operation(self) -> None:
+        os.environ["TEST_CASH_INSTALL_FAIL_AFTER_PATH"] = ".gitignore"
+        self.addCleanup(os.environ.pop, "TEST_CASH_INSTALL_FAIL_AFTER_PATH", None)
+        for label, existing in (("created", None), ("appended", b"node_modules\n")):
+            with self.subTest(case=label):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                gitignore = target / ".gitignore"
+                if existing is not None:
+                    gitignore.write_bytes(existing)
+
+                result = self.install(target)
+
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn(".gitignore", result.stderr)
+                if existing is None:
+                    self.assertFalse(gitignore.exists())
+                else:
+                    self.assertEqual(gitignore.read_bytes(), existing)
+                self.assertFalse((target / ".cash-skills" / "receipt.tsv").exists())
+                self.assertFalse((target / ".cash-skills" / "state").exists())
+
+    def test_version_controlled_receipt_is_reported_without_index_changes(self) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        subprocess.run(
+            ["git", "-C", str(target), "config", "user.email", "test@example.com"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(target), "config", "user.name", "Test"],
+            check=True,
+        )
+        self.assertEqual(self.install(target).returncode, 0)
+        subprocess.run(
+            ["git", "-C", str(target), "add", "-f", "--", ".cash-skills/receipt.tsv"],
+            check=True,
+        )
+        index = target / ".git" / "index"
+        before = index.read_bytes()
+
+        result = self.install(target)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Result: current", result.stdout)
+        self.assertIn(".cash-skills/receipt.tsv is tracked by version control", result.stderr)
+        self.assertIn("git rm --cached .cash-skills/receipt.tsv", result.stderr)
+        self.assertNotIn("tracked by version control", result.stdout)
+        self.assertEqual(index.read_bytes(), before)
+
+    def test_receipt_diagnostic_is_one_line_per_target_across_reclassification(self) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        subprocess.run(
+            ["git", "-C", str(target), "config", "user.email", "test@example.com"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(target), "config", "user.name", "Test"],
+            check=True,
+        )
+        self.assertEqual(self.install(target).returncode, 0)
+        subprocess.run(
+            ["git", "-C", str(target), "add", "-f", "--", ".cash-skills/receipt.tsv"],
+            check=True,
+        )
+        gitignore = target / ".gitignore"
+        lock_descriptor = os.open(target / ".cash-workspace.lock", os.O_RDONLY)
+        fcntl.flock(lock_descriptor, fcntl.LOCK_SH)
+        process = subprocess.Popen(
+            [
+                "fish",
+                "--no-config",
+                str(INSTALLER),
+                "--target",
+                str(target),
+            ],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        try:
+            time.sleep(0.2)
+            gitignore.write_bytes(b"concurrent\n")
+        finally:
+            fcntl.flock(lock_descriptor, fcntl.LOCK_UN)
+            os.close(lock_descriptor)
+        stdout, stderr = process.communicate(timeout=20)
+
+        self.assertEqual(process.returncode, 0, stderr)
+        self.assertIn("Result: update", stdout)
+        self.assertEqual(
+            gitignore.read_bytes(),
+            b"concurrent\n.cash-skills/receipt.tsv\n.cash-skills/state/\n__pycache__/\n",
+        )
+        self.assertEqual(stderr.count("is tracked by version control"), 1, stderr)
+
+    def test_receipt_diagnostic_does_not_run_repository_configured_programs(self) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        hook = target / "fsmonitor-hook.sh"
+        hook.write_text(
+            "#!/bin/sh\necho FSMONITOR-HOOK-EXECUTED >&2\nexit 1\n",
+            encoding="utf-8",
+        )
+        os.chmod(hook, 0o755)
+        subprocess.run(
+            ["git", "-C", str(target), "config", "core.fsmonitor", "./fsmonitor-hook.sh"],
+            check=True,
+        )
+
+        result = self.install(target)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("FSMONITOR-HOOK-EXECUTED", result.stderr)
+        self.assertNotIn("FSMONITOR-HOOK-EXECUTED", result.stdout)
+
+    def test_untracked_and_unqueryable_targets_report_no_receipt_diagnostic(self) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        self.assertEqual(self.install(target).returncode, 0)
+
+        untracked = self.install(target)
+
+        self.assertEqual(untracked.returncode, 0, untracked.stderr)
+        self.assertIn("Result: current", untracked.stdout)
+        self.assertNotIn("tracked by version control", untracked.stderr)
+
+        (target / ".git" / "index").write_bytes(b"not an index\n")
+
+        unqueryable = self.install(target)
+
+        self.assertEqual(unqueryable.returncode, 0, unqueryable.stderr)
+        self.assertIn("Result: current", unqueryable.stdout)
+        self.assertNotIn("tracked by version control", unqueryable.stderr)
 
     def test_second_install_is_current_and_preserves_stable_inodes(self) -> None:
         temporary, target = self.make_target()
@@ -1226,6 +1535,81 @@ class InstallerRuntimeTests(unittest.TestCase):
         self.assertTrue(
             guidance.read_text(encoding="utf-8").startswith("concurrent\n")
         )
+
+    def test_post_lock_gitignore_edit_reclassifies_without_overwrite(self) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        self.assertEqual(self.install(target).returncode, 0)
+        gitignore = target / ".gitignore"
+        gitignore.write_bytes(b"node_modules\n")
+        lock_descriptor = os.open(target / ".cash-workspace.lock", os.O_RDONLY)
+        fcntl.flock(lock_descriptor, fcntl.LOCK_SH)
+        process = subprocess.Popen(
+            [
+                "fish",
+                "--no-config",
+                str(INSTALLER),
+                "--target",
+                str(target),
+            ],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        try:
+            time.sleep(0.2)
+            gitignore.write_bytes(b"node_modules\nconcurrent\n")
+        finally:
+            fcntl.flock(lock_descriptor, fcntl.LOCK_UN)
+            os.close(lock_descriptor)
+        stdout, stderr = process.communicate(timeout=20)
+
+        self.assertEqual(process.returncode, 0, stderr)
+        self.assertIn("Result: update", stdout)
+        self.assertEqual(
+            gitignore.read_bytes(),
+            b"node_modules\nconcurrent\n"
+            b".cash-skills/receipt.tsv\n.cash-skills/state/\n__pycache__/\n",
+        )
+
+    def test_publication_gitignore_edit_fails_closed_without_overwrite(self) -> None:
+        temporary, target = self.make_target()
+        hold = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.addCleanup(hold.cleanup)
+        self.assertEqual(self.install(target).returncode, 0)
+        gitignore = target / ".gitignore"
+        gitignore.write_bytes(b"node_modules\n")
+        hold_path = Path(hold.name) / "publication"
+        environment = os.environ.copy()
+        environment["CASH_INSTALL_PUBLICATION_HOLD_FILE"] = str(hold_path)
+        installer = subprocess.Popen(
+            [
+                "fish",
+                "--no-config",
+                str(INSTALLER),
+                "--target",
+                str(target),
+            ],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=environment,
+        )
+        deadline = time.monotonic() + 10
+        while not Path(f"{hold_path}.ready").exists():
+            self.assertIsNone(installer.poll())
+            self.assertLess(time.monotonic(), deadline)
+            time.sleep(0.01)
+        gitignore.write_bytes(b"node_modules\nconcurrent\n")
+        Path(f"{hold_path}.release").touch()
+        stdout, stderr = installer.communicate(timeout=20)
+
+        self.assertEqual(installer.returncode, 1, stdout)
+        self.assertIn("installation inputs changed after lock acquisition", stderr)
+        self.assertEqual(gitignore.read_bytes(), b"node_modules\nconcurrent\n")
 
     def test_lock_wait_rejects_concurrent_invalid_target_config(self) -> None:
         temporary, target = self.make_target()
