@@ -2,7 +2,7 @@
 id: review-fix-propagation-incomplete
 type: recurring-finding
 status: open
-occurrences: 9
+occurrences: 11
 first_seen: 2026-07-07
 last_seen: 2026-07-25
 links:
@@ -26,6 +26,8 @@ links:
   - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r3.md
   - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r4.md
   - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r5.md
+  - openspec/changes/tolerate-versioned-legacy-guidance-marker/reviews/propose-r5.md
+  - openspec/changes/track-review-loop-outputs-in-allowlist/reviews/propose-r2.md
 
 ---
 
@@ -47,3 +49,7 @@ A review-round fix introduces or changes a rule, but claims about that rule else
 - 2026-07-25 — harden-installer-mode-and-recovery — cash-propose rounds 7–8（re-run）— 前一次執行第六輪為 recovery 寫入新增的零寫入 carve-out 未回頭掃描三處與之互斥的無條件斷言（「無併發 installer 介入時 SHALL 為 update、SHALL NOT 為 conflict」），使同一輸入同時被要求 conflict 與非 conflict；另有兩處 fix 未同步到 IC5 與 D2／proposal。修法為在三處加上「且 recovery 之後不存在與該 journal 無關的 drift」的限定並補齊同步。
 
 - 2026-07-25 — derive-version-assertion-and-add-cli-help — cash-propose rounds 3–5 — 改設計後未掃到所有位置：round 2 把錯誤訊息改為指向 help 卻留下 design Risks 的舊敘述與過時的 scenario 標題；round 3 把 receipt gate 覆蓋移出 task 1.1 只改了斷言本體未改具名清單；round 4 更正擁有者計數只落在 Context，Goals、回指與 proposal 三處未同步。
+
+- 2026-07-25 — tolerate-versioned-legacy-guidance-marker — cash-propose round 3 與 round 5 — NF1 是重算 IC6 情境數時漏改另一處引用；V2 更值得記錄：修 Q4 改寫 tasks 3.2 取消內容層級前置保護，卻未同步 design 的兩處引用，造成 design 與 tasks 對同一件事互相否定，是本 loop 第一次由 fix 反向製造 design 對 tasks 的矛盾。
+
+- 2026-07-25 — track-review-loop-outputs-in-allowlist — cash-propose rounds 2 與 3 — 同一批修復連續三次只落到部分位置：round 1 宣稱「proposal、design、spec 三處統一」但未落到 proposal；round 1 的新前置規則只傳播到兩個呼叫點中較晚的那一個，而較早的那個才是該 skill 第一次接觸 state 的位置；round 2 的前綴收斂改了測試案例卻漏了唯一的實作任務，使該任務的驗收目標自相矛盾。三次都是 `## Fix Actions` 的宣稱與實際落點不符。
