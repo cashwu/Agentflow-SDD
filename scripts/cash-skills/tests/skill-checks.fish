@@ -105,6 +105,7 @@ function assert_command_matrix
         '"$cash_cli" in-progress add "<name>"' \
         '"$cash_cli" task done --change "<name>" <task-id>' \
         '"$cash_cli" touched ensure "<change-name>"' \
+        '"$cash_cli" touched record "<change-name>" --path <path>' \
         '"$cash_cli" validate "<name>"' \
         '"$cash_cli" analyze <change-name> --json' \
         '"$cash_cli" drift <change-name>' \
@@ -128,6 +129,21 @@ function assert_command_matrix
             assert_contains "$path" "$literal" "complete artifact-instructions consumer"
         end
     end
+    for path in \
+        "$root_dir/.agents/skills/cash-propose/SKILL.md" \
+        "$root_dir/.agents/skills/cash-apply/SKILL.md" \
+        "$root_dir/.claude/skills/cash-propose/SKILL.md" \
+        "$root_dir/.claude/skills/cash-apply/SKILL.md"
+        for literal in \
+            'record every signal file this step created or updated' \
+            "record the files that round's Fix Actions modified outside the change directory" \
+            'carry this warning into the final completion output' \
+            '"$cash_cli" touched ensure "<change-name>"' \
+            '"$cash_cli" touched record "<change-name>" --path <path>' \
+            'rebuild the receipt before the next cash command'
+            assert_contains "$path" "$literal" "review-loop output tracking"
+        end
+    end
     for path in "$root_dir/.agents/skills/cash-commit/SKILL.md" "$root_dir/.claude/skills/cash-commit/SKILL.md"
         for literal in \
             'Detect a post-archive empty allowlist' \
@@ -142,6 +158,14 @@ function assert_command_matrix
             'every `openspec/specs/` path stays in Unrelated Changes' \
             'NEVER fall through to classifying every dirty source file as Unrelated'
             assert_contains "$path" "$literal" "post-archive empty allowlist guard"
+        end
+    end
+    for path in "$root_dir/.agents/skills/cash-commit/SKILL.md" "$root_dir/.claude/skills/cash-commit/SKILL.md"
+        for literal in \
+            '### Review Loop Outputs' \
+            'a shared signal file cannot be split by change' \
+            'only when that other change directory still exists'
+            assert_contains "$path" "$literal" "review-loop output commit plan"
         end
     end
     for path in "$root_dir/.agents/skills/cash-apply/SKILL.md" "$root_dir/.claude/skills/cash-apply/SKILL.md"

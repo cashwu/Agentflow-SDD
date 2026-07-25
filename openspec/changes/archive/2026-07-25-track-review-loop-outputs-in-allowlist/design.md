@@ -88,7 +88,7 @@ review round 檔（`reviews/*.md`、`loop-ledger.tsv`）不受影響，因為它
 
 判準為：該 signal 檔 frontmatter `links` 中，形如 `openspec/changes/<other>/reviews/` 且 `<other>` 不等於本 change 名稱、**且 `openspec/changes/<other>/` 或 `openspec/changes/.parked/<other>/` 其中之一目前仍存在**者。parked change 未封存、其對共用 signal 的追加同樣可能尚未提交，只看 active 位置會漏判成非共用而靜默納入。
 
-只比對名稱不比對存在性會造成大規模誤判：signal 的 `links` 在 change 封存時不會被改寫，永遠保留原路徑形狀。對本 workspace 現況實測，帶 links 的 signal 檔中有 35 個的 links 跨越多個 change，但跨越多個仍進行中（active 或 parked）之 change 的是 **0** 個。若不加存在性條件，signals write step 每併入一個既有 signal（README 明列這是常態路徑）幾乎必然觸發裁決提示，把例外裁決訓練成無條件按過，真正無法拆分的那一次反而失去把關效力。
+只比對名稱不比對存在性會造成大規模誤判：signal 的 `links` 在 change 封存時不會被改寫，永遠保留原路徑形狀。對本 workspace 現況實測，帶 links 的 signal 檔中有 37 個的 links 跨越多個 change，但跨越多個仍進行中（active 或 parked）之 change 的是 **0** 個。若不加存在性條件，signals write step 每併入一個既有 signal（README 明列這是常態路徑）幾乎必然觸發裁決提示，把例外裁決訓練成無條件按過，真正無法拆分的那一次反而失去把關效力。
 
 **決策十：裁決結果必須有明確去向**
 
