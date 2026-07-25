@@ -9,10 +9,9 @@ set -l source_root (command dirname "$script_path")
 set -l python_path "$source_root/.cash-skills/lib"
 
 set -l python_command ""
-for candidate in python3 python
+for candidate in python3 python python3.14 python3.13 python3.12 python3.11
     if command -q "$candidate"
-        set -l version_output (command "$candidate" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null)
-        if test $status -eq 0
+        if command "$candidate" -s -P -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)' >/dev/null 2>/dev/null
             set python_command "$candidate"
             break
         end
@@ -25,4 +24,4 @@ if test -z "$python_command"
 end
 
 set -lx PYTHONPATH "$python_path"
-command "$python_command" -P -m cash_cli.installer $argv
+exec "$python_command" -s -P -m cash_cli.installer $argv

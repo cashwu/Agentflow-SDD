@@ -2,9 +2,9 @@
 id: task-verification-coverage-incomplete
 type: recurring-finding
 status: open
-occurrences: 10
+occurrences: 11
 first_seen: 2026-07-14
-last_seen: 2026-07-22
+last_seen: 2026-07-25
 links:
   - openspec/changes/repair-all-uses-pinned-commit-inputs/reviews/apply-r1.md
   - openspec/changes/converge-plus-review-loop/reviews/apply-r2.md
@@ -17,6 +17,7 @@ links:
   - openspec/changes/migrate-cash-project-guidance/reviews/apply-r2.md
   - openspec/changes/migrate-cash-project-guidance/reviews/apply-r4.md
   - openspec/changes/refine-apply-blocker-triage/reviews/apply-r1.md
+  - openspec/changes/harden-installer-mode-and-recovery/reviews/apply-r1.md
 ---
 
 # Task verification coverage incomplete
@@ -35,3 +36,4 @@ A task is marked complete after testing the primary outcome but omits one or mor
 - 2026-07-22 — migrate-cash-project-guidance — cash-apply seeded round 1 — 初次補強仍缺少final pathname checkpoint後的parent swap，且部分replacement sentinel只以trimmed text檢查；補上專用hook及完整byte、inode與symlink identity assertions。
 - 2026-07-22 — migrate-cash-project-guidance — cash-apply round 4 — Source malformed fixture只區分成功與非成功，未證明task明列的精確code 1；改為保存`$status`並直接斷言等於1。
 - 2026-07-22 — refine-apply-blocker-triage — cash-apply round 1 — Governed-contract mutation fixture 初版只 mutation `<!-- BLOCKER-TRIAGE -->` marker，未鎖定 continue／pause 兩個處置分支；補上兩個 invocation-free behavior literals 的 direct assertions 與 mutation specs。
+- 2026-07-25 — harden-installer-mode-and-recovery — cash-apply round 1 — Journal diagnostic matrix 未斷言最終 `Result:`、current/update fixture 相同且缺少 real-run 四分類；改為 dry-run／real-run 各自覆蓋四個可辨分類與 recovery 狀態。

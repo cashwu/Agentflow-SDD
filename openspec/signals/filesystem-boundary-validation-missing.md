@@ -2,9 +2,9 @@
 id: filesystem-boundary-validation-missing
 type: recurring-finding
 status: open
-occurrences: 12
+occurrences: 13
 first_seen: 2026-07-18
-last_seen: 2026-07-24
+last_seen: 2026-07-25
 links:
   - openspec/changes/fork-spectra-skills-to-cash/reviews/propose-r1.md
   - openspec/changes/add-versioned-cash-skill-batch-update/reviews/apply-r1.md
@@ -18,6 +18,7 @@ links:
   - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/apply-r1.md
   - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/apply-r3.md
   - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/apply-r6.md
+  - openspec/changes/harden-installer-mode-and-recovery/reviews/apply-r1.md
 ---
 
 # Filesystem boundary validation missing
@@ -38,3 +39,4 @@ A mutating installer or cleanup accepts a caller-controlled root without first c
 - 2026-07-24 — replace-spectra-cli-with-cash-cli — cash-apply rounds 1–2 — workspace rollback、restore與temporary cleanup起初在parent驗證後重新開啟pathname；改為同一verified parent FD內完成identity check與operation。
 - 2026-07-24 — replace-spectra-cli-with-cash-cli — cash-apply rounds 3–5 — Registry 曾接受 canonical source repository 作為 project target；補上 source/target boundary rejection 與零 registry write regression。
 - 2026-07-24 — replace-spectra-cli-with-cash-cli — cash-apply rounds 6–8 — Registry parser 曾將 dangling registry boundary 與 missing child 下的 symlink ancestor 視為缺失，且未完整拒絕 noncanonical records；補上逐component no-follow validation、全records preflight及四模式零寫入 regressions。
+- 2026-07-25 — harden-installer-mode-and-recovery — cash-apply round 1 — Hold hook 只以原始字串判斷兩路徑互異，等價 alias 可避開 preflight；改為正規化 absolute path 後判重並補 alias regression。

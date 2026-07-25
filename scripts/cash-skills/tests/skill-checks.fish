@@ -35,7 +35,7 @@ function assert_inventory
         set -l retired (find "$root_dir/$variant/skills" -mindepth 1 -maxdepth 1 -type d -name 'spectra-*' -print)
         test (count $retired) -eq 0; or fail "$variant retains a retired canonical skill"
     end
-    test (string trim <"$root_dir/cash-skills.version") = 2.2.0; or fail "cash-skills.version must be 2.2.0"
+    test (string trim <"$root_dir/cash-skills.version") = 2.3.0; or fail "cash-skills.version must be 2.3.0"
     test (stat -f '%Lp' "$root_dir/.cash-skills/bin/cash") = 755; or fail "Cash launcher must be 0755"
     test (stat -f '%Lp' "$root_dir/.cash-workspace.lock") = 644; or fail "workspace lock must be 0644"
     test (stat -f '%z' "$root_dir/.cash-workspace.lock") = 0; or fail "workspace lock must be empty"

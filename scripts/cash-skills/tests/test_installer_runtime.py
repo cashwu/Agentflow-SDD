@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import base64
+import json
 import os
 import fcntl
 import hashlib
+import shlex
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -34,12 +38,19 @@ class InstallerRuntimeTests(unittest.TestCase):
         target: Path,
         *arguments: str,
         timeout: float | None = None,
+        env: dict[str, str] | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        environment = os.environ.copy()
-        for name in ("CASH_INSTALL_FAIL_AFTER", "CASH_INSTALL_FAIL_AFTER_PATH"):
-            failure = environment.pop(f"TEST_{name}", None)
-            if failure is not None:
-                environment[name] = failure
+        environment = {
+            name: value
+            for name, value in os.environ.items()
+            if not name.startswith("CASH_INSTALL_")
+            and not name.startswith("TEST_CASH_INSTALL_")
+        }
+        requested = dict(env or {})
+        for name in tuple(requested):
+            if name.startswith("TEST_CASH_INSTALL_"):
+                requested[name.removeprefix("TEST_")] = requested.pop(name)
+        environment.update(requested)
         return subprocess.run(
             ["fish", "--no-config", str(INSTALLER), "--target", str(target), *arguments],
             cwd=ROOT,
@@ -54,9 +65,16 @@ class InstallerRuntimeTests(unittest.TestCase):
         arguments: list[str],
         *,
         home: Path,
+        env: dict[str, str] | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        environment = os.environ.copy()
+        environment = {
+            name: value
+            for name, value in os.environ.items()
+            if not name.startswith("CASH_INSTALL_")
+            and not name.startswith("TEST_CASH_INSTALL_")
+        }
         environment["HOME"] = str(home)
+        environment.update(env or {})
         return subprocess.run(
             ["fish", "--no-config", str(INSTALLER), *arguments],
             cwd=ROOT,
@@ -70,7 +88,15 @@ class InstallerRuntimeTests(unittest.TestCase):
         source: Path,
         target: Path,
         *arguments: str,
+        env: dict[str, str] | None = None,
     ) -> subprocess.CompletedProcess[str]:
+        environment = {
+            name: value
+            for name, value in os.environ.items()
+            if not name.startswith("CASH_INSTALL_")
+            and not name.startswith("TEST_CASH_INSTALL_")
+        }
+        environment.update(env or {})
         return subprocess.run(
             [
                 "fish",
@@ -83,6 +109,7 @@ class InstallerRuntimeTests(unittest.TestCase):
             cwd=source,
             text=True,
             capture_output=True,
+            env=environment,
         )
 
     def make_source_bundle(
@@ -195,6 +222,88 @@ class InstallerRuntimeTests(unittest.TestCase):
                     )
                 )
         return records
+
+    def seed_publishing_journal(
+        self,
+        target: Path,
+        operations: list[tuple[str, bytes | None, int, bytes]],
+        *,
+        version: int = 2,
+    ) -> Path:
+        rows = []
+        for relative, before, mode, published in operations:
+            path = target / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(published)
+            os.chmod(path, mode)
+            rows.append(
+                {
+                    "kind": "write",
+                    "path": relative,
+                    "exists": before is not None,
+                    "content": (
+                        base64.b64encode(before).decode("ascii")
+                        if before is not None
+                        else None
+                    ),
+                    "mode": mode if before is not None else None,
+                }
+            )
+        journal = target / ".cash-skills" / "state" / "installer" / "journal.json"
+        journal.parent.mkdir(parents=True, exist_ok=True)
+        journal.write_text(
+            json.dumps(
+                {
+                    "version": version,
+                    "phase": "publishing",
+                    "published": len(rows),
+                    "operations": rows,
+                },
+                separators=(",", ":"),
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        os.chmod(journal, 0o600)
+        return journal
+
+    def make_python_shim(
+        self,
+        directory: Path,
+        name: str,
+        *,
+        qualified: bool,
+        marker: Path | None = None,
+        pid_marker: Path | None = None,
+    ) -> None:
+        shim = directory / name
+        selected = (
+            f"printf '%s\\n' {shlex.quote(name)} > {shlex.quote(str(marker))}\n"
+            if marker is not None
+            else ""
+        )
+        pid_selected = (
+            f"printf '%s\\n' $$ > {shlex.quote(str(pid_marker))}\n"
+            if pid_marker is not None
+            else ""
+        )
+        shim.write_text(
+            "#!/bin/sh\n"
+            "is_probe=0\n"
+            'for argument in "$@"; do\n'
+            '  if [ "$argument" = "-c" ]; then is_probe=1; fi\n'
+            "done\n"
+            f"if [ \"$is_probe\" = 1 ] && [ {1 if qualified else 0} = 0 ]; then\n"
+            "  exit 1\n"
+            "fi\n"
+            'if [ "$is_probe" = 0 ]; then\n'
+            f"{selected}"
+            f"{pid_selected}"
+            "fi\n"
+            f"exec {shlex.quote(sys.executable)} \"$@\"\n",
+            encoding="utf-8",
+        )
+        os.chmod(shim, 0o755)
 
     def test_fresh_install_receipt_and_direct_launcher(self) -> None:
         temporary, target = self.make_target()
@@ -391,8 +500,6 @@ class InstallerRuntimeTests(unittest.TestCase):
         )
 
     def test_publication_failure_rolls_back_the_gitignore_operation(self) -> None:
-        os.environ["TEST_CASH_INSTALL_FAIL_AFTER_PATH"] = ".gitignore"
-        self.addCleanup(os.environ.pop, "TEST_CASH_INSTALL_FAIL_AFTER_PATH", None)
         for label, existing in (("created", None), ("appended", b"node_modules\n")):
             with self.subTest(case=label):
                 temporary, target = self.make_target()
@@ -401,7 +508,13 @@ class InstallerRuntimeTests(unittest.TestCase):
                 if existing is not None:
                     gitignore.write_bytes(existing)
 
-                result = self.install(target)
+                result = self.install(
+                    target,
+                    env={
+                        "TEST_CASH_INSTALL_TEST_HOOKS": "1",
+                        "TEST_CASH_INSTALL_FAIL_AFTER_PATH": ".gitignore",
+                    },
+                )
 
                 self.assertEqual(result.returncode, 1, result.stdout)
                 self.assertIn(".gitignore", result.stderr)
@@ -696,6 +809,177 @@ class InstallerRuntimeTests(unittest.TestCase):
         self.assertNotIn("SHADOWED", result.stdout)
         self.assertFalse((source / ".cash-skills" / "receipt.tsv").exists())
 
+    def test_entrypoint_falls_back_to_versioned_python_and_prefers_generic_name(self) -> None:
+        candidates = (
+            "python3",
+            "python",
+            "python3.14",
+            "python3.13",
+            "python3.12",
+            "python3.11",
+        )
+        for case, qualified, expected in (
+            ("versioned-fallback", {"python3.14"}, "python3.14"),
+            ("generic-preferred", {"python3", "python3.14"}, "python3"),
+        ):
+            with self.subTest(case=case):
+                temporary, target = self.make_target()
+                shims = tempfile.TemporaryDirectory()
+                self.addCleanup(temporary.cleanup)
+                self.addCleanup(shims.cleanup)
+                shim_dir = Path(shims.name)
+                marker = shim_dir / "selected"
+                for candidate in candidates:
+                    self.make_python_shim(
+                        shim_dir,
+                        candidate,
+                        qualified=candidate in qualified,
+                        marker=marker,
+                    )
+                fish_dir = Path(shutil.which("fish") or "/usr/bin/fish").parent
+                environment = os.environ.copy()
+                environment["PATH"] = (
+                    f"{shim_dir}{os.pathsep}{fish_dir}{os.pathsep}/usr/bin:/bin"
+                )
+
+                result = subprocess.run(
+                    [
+                        "fish",
+                        "--no-config",
+                        str(INSTALLER),
+                        "--target",
+                        str(target),
+                    ],
+                    cwd=ROOT,
+                    text=True,
+                    capture_output=True,
+                    env=environment,
+                )
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(marker.read_text(encoding="utf-8"), f"{expected}\n")
+
+    def test_entrypoint_rejects_when_no_candidate_meets_minimum_version(self) -> None:
+        temporary, target = self.make_target()
+        shims = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.addCleanup(shims.cleanup)
+        shim_dir = Path(shims.name)
+        for candidate in (
+            "python3",
+            "python",
+            "python3.14",
+            "python3.13",
+            "python3.12",
+            "python3.11",
+        ):
+            self.make_python_shim(shim_dir, candidate, qualified=False)
+        fish_dir = Path(shutil.which("fish") or "/usr/bin/fish").parent
+        environment = os.environ.copy()
+        environment["PATH"] = (
+            f"{shim_dir}{os.pathsep}{fish_dir}{os.pathsep}/usr/bin:/bin"
+        )
+
+        result = subprocess.run(
+            ["fish", "--no-config", str(INSTALLER), "--target", str(target)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            env=environment,
+        )
+
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("requires Python 3.11+", result.stderr)
+        self.assertFalse((target / ".cash-workspace.lock").exists())
+        self.assertFalse((target / ".cash-skills").exists())
+
+    def test_entrypoint_execs_python_and_disables_user_site(self) -> None:
+        temporary, target = self.make_target()
+        shims = tempfile.TemporaryDirectory()
+        hold = tempfile.TemporaryDirectory()
+        user_base = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.addCleanup(shims.cleanup)
+        self.addCleanup(hold.cleanup)
+        self.addCleanup(user_base.cleanup)
+        shim_dir = Path(shims.name)
+        interpreter_pid = shim_dir / "interpreter-pid"
+        self.make_python_shim(
+            shim_dir,
+            "python3",
+            qualified=True,
+            pid_marker=interpreter_pid,
+        )
+        for candidate in (
+            "python",
+            "python3.14",
+            "python3.13",
+            "python3.12",
+            "python3.11",
+        ):
+            self.make_python_shim(shim_dir, candidate, qualified=False)
+        side_effect = Path(user_base.name) / "user-site-loaded"
+        site_environment = os.environ.copy()
+        site_environment["PYTHONUSERBASE"] = user_base.name
+        discovered_site = subprocess.run(
+            [
+                sys.executable,
+                "-s",
+                "-P",
+                "-c",
+                "import site; print(site.getusersitepackages())",
+            ],
+            text=True,
+            capture_output=True,
+            check=True,
+            env=site_environment,
+        )
+        site_packages = Path(discovered_site.stdout.strip())
+        site_packages.mkdir(parents=True)
+        (site_packages / "usercustomize.py").write_text(
+            "from pathlib import Path\n"
+            f"Path({str(side_effect)!r}).touch()\n"
+            "print('PROBE_USERCUSTOMIZE_RAN')\n",
+            encoding="utf-8",
+        )
+        hold_path = Path(hold.name) / "entrypoint"
+        fish_dir = Path(shutil.which("fish") or "/usr/bin/fish").parent
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "PATH": (
+                    f"{shim_dir}{os.pathsep}{fish_dir}{os.pathsep}/usr/bin:/bin"
+                ),
+                "PYTHONUSERBASE": user_base.name,
+                "CASH_INSTALL_TEST_HOOKS": "1",
+                "CASH_INSTALL_HOLD_FILE": str(hold_path),
+            }
+        )
+        process = subprocess.Popen(
+            ["fish", "--no-config", str(INSTALLER), "--target", str(target)],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=environment,
+        )
+        deadline = time.monotonic() + 10
+        while not Path(f"{hold_path}.ready").exists():
+            self.assertIsNone(process.poll())
+            self.assertLess(time.monotonic(), deadline)
+            time.sleep(0.01)
+        Path(f"{hold_path}.release").touch()
+        stdout, stderr = process.communicate(timeout=10)
+
+        self.assertEqual(process.returncode, 0, stderr)
+        self.assertIn("Result: update", stdout)
+        self.assertEqual(
+            int(interpreter_pid.read_text(encoding="utf-8")),
+            process.pid,
+        )
+        self.assertFalse(side_effect.exists())
+        self.assertNotIn("PROBE_USERCUSTOMIZE_RAN", stdout)
+
     def test_source_self_revalidates_openspec_config_after_lock_wait(self) -> None:
         temporary, source = self.make_self_source()
         self.addCleanup(temporary.cleanup)
@@ -862,13 +1146,240 @@ class InstallerRuntimeTests(unittest.TestCase):
         self.assertIn("runtime_generation\t", migrated)
         self.assertNotIn("\nsha256\t", migrated)
 
+    def test_publishing_journal_recovers_before_conflict_and_replans_gitignore(self) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        self.assertEqual(self.install(target).returncode, 0)
+        receipt = target / ".cash-skills" / "receipt.tsv"
+        receipt_rows = receipt.read_text(encoding="utf-8").splitlines()
+        receipt_rows[0] = "version\t1.0.0"
+        receipt.write_text("\n".join(receipt_rows) + "\n", encoding="utf-8")
+        runtime_relative = ".cash-skills/lib/cash_cli/installer.py"
+        runtime_before = (target / runtime_relative).read_bytes()
+        gitignore_before = (target / ".gitignore").read_bytes()
+        journal = self.seed_publishing_journal(
+            target,
+            [
+                (".gitignore", gitignore_before, 0o644, b"half-published-ignore\n"),
+                (runtime_relative, runtime_before, 0o644, b"half-published-runtime\n"),
+            ],
+        )
+
+        result = self.install(target)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("unfinished installer journal", result.stderr)
+        self.assertIn("Result: update", result.stdout)
+        self.assertNotIn("Result: conflict", result.stdout)
+        self.assertNotIn("installation inputs changed after lock acquisition", result.stderr)
+        self.assertFalse(journal.exists())
+        self.assertEqual((target / runtime_relative).read_bytes(), runtime_before)
+        self.assertEqual((target / ".gitignore").read_bytes(), gitignore_before)
+
+    def test_recovery_reclassifies_unrelated_drift_as_conflict(self) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        self.assertEqual(self.install(target).returncode, 0)
+        runtime_relative = ".cash-skills/lib/cash_cli/installer.py"
+        runtime_before = (target / runtime_relative).read_bytes()
+        journal = self.seed_publishing_journal(
+            target,
+            [(runtime_relative, runtime_before, 0o644, b"half-published-runtime\n")],
+        )
+        skill = target / ".agents" / "skills" / "cash-apply" / "SKILL.md"
+        drift = skill.read_bytes() + b"\nunrelated drift\n"
+        skill.write_bytes(drift)
+
+        result = self.install(target)
+
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("Result: conflict", result.stdout)
+        self.assertFalse(journal.exists())
+        self.assertEqual((target / runtime_relative).read_bytes(), runtime_before)
+        self.assertEqual(skill.read_bytes(), drift)
+
+    def test_publishing_journal_precedes_receiptless_and_legacy_early_returns(self) -> None:
+        for fixture in ("receiptless", "legacy"):
+            with self.subTest(fixture=fixture):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                launcher = target / ".cash-skills" / "bin" / "cash"
+                launcher.parent.mkdir(parents=True)
+                shutil.copy2(ROOT / ".cash-skills" / "bin" / "cash", launcher)
+                shutil.copy2(ROOT / ".cash-workspace.lock", target / ".cash-workspace.lock")
+                if fixture == "receiptless":
+                    relative = ".agents/skills/cash-apply/SKILL.md"
+                    journal = self.seed_publishing_journal(
+                        target,
+                        [(relative, None, 0o644, (ROOT / relative).read_bytes())],
+                    )
+                else:
+                    records = self.copy_skills(target)
+                    receipt = target / ".cash-skills" / "receipt.tsv"
+                    receipt.parent.mkdir(parents=True, exist_ok=True)
+                    original = (
+                        "version\t1.2.0\n"
+                        + "".join(
+                            f"sha256\t{digest}\t{path}\n" for path, digest in records
+                        )
+                    ).encode()
+                    published_rows = original.decode("utf-8").splitlines()
+                    first_fields = published_rows[1].split("\t")
+                    first_fields[1] = "0" * 64
+                    published_rows[1] = "\t".join(first_fields)
+                    receipt.write_text(
+                        "\n".join(published_rows) + "\n",
+                        encoding="utf-8",
+                    )
+                    journal = self.seed_publishing_journal(
+                        target,
+                        [
+                            (
+                                ".cash-skills/receipt.tsv",
+                                original,
+                                0o644,
+                                receipt.read_bytes(),
+                            )
+                        ],
+                    )
+
+                result = self.install(target)
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("Result: update", result.stdout)
+                self.assertFalse(journal.exists())
+                self.assertNotIn("inventory is partial", result.stderr)
+                self.assertNotIn("legacy receipt drift", result.stderr)
+
+    def test_newer_target_reports_journal_without_recovery(self) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        self.assertEqual(self.install(target).returncode, 0)
+        receipt = target / ".cash-skills" / "receipt.tsv"
+        rows = receipt.read_text(encoding="utf-8").splitlines()
+        rows[0] = "version\t999999999999999999999.0.0"
+        before = ("\n".join(rows) + "\n").encode()
+        receipt.write_bytes(before)
+        journal = self.seed_publishing_journal(
+            target,
+            [(".gitignore", b"before\n", 0o644, b"published\n")],
+        )
+        journal_before = journal.read_bytes()
+        lock = target / ".cash-workspace.lock"
+        identity = (lock.stat().st_dev, lock.stat().st_ino)
+
+        result = self.install(target)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Result: newer", result.stdout)
+        self.assertIn("unfinished installer journal", result.stderr)
+        self.assertIn("newer installer", result.stderr)
+        self.assertEqual(journal.read_bytes(), journal_before)
+        self.assertEqual((target / ".gitignore").read_bytes(), b"published\n")
+        self.assertEqual((lock.stat().st_dev, lock.stat().st_ino), identity)
+
+    def test_journal_boundaries_fail_closed_without_creating_lock(self) -> None:
+        for shape in ("unknown-version", "symlink", "dangling-symlink", "missing-lock"):
+            with self.subTest(shape=shape):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                lock = target / ".cash-workspace.lock"
+                if shape != "missing-lock":
+                    shutil.copy2(ROOT / ".cash-workspace.lock", lock)
+                journal_path = (
+                    target / ".cash-skills" / "state" / "installer" / "journal.json"
+                )
+                if shape == "unknown-version":
+                    self.seed_publishing_journal(
+                        target,
+                        [(".gitignore", None, 0o644, b"published\n")],
+                        version=999,
+                    )
+                elif shape == "missing-lock":
+                    self.seed_publishing_journal(
+                        target,
+                        [(".gitignore", None, 0o644, b"published\n")],
+                    )
+                else:
+                    journal_path.parent.mkdir(parents=True)
+                    destination = (
+                        target / "missing-journal"
+                        if shape == "dangling-symlink"
+                        else target / "outside-journal"
+                    )
+                    if shape == "symlink":
+                        destination.write_text("{}\n", encoding="utf-8")
+                    journal_path.symlink_to(destination)
+
+                result = self.install(target)
+
+                self.assertEqual(result.returncode, 1, result.stdout)
+                if shape == "unknown-version":
+                    self.assertIn("matching or newer installer", result.stderr)
+                elif shape in {"symlink", "dangling-symlink"}:
+                    self.assertIn("unsafe installer journal", result.stderr)
+                else:
+                    self.assertIn("stable workspace lock", result.stderr)
+                    self.assertFalse(lock.exists())
+
+    def test_journal_diagnostic_precedes_all_dry_and_real_classifications(self) -> None:
+        for dry_run in (True, False):
+            for classification in ("current", "update", "newer", "conflict"):
+                with self.subTest(dry_run=dry_run, classification=classification):
+                    temporary, target = self.make_target()
+                    self.addCleanup(temporary.cleanup)
+                    self.assertEqual(self.install(target).returncode, 0)
+                    receipt = target / ".cash-skills" / "receipt.tsv"
+                    if classification == "update":
+                        (target / ".cash.yaml").unlink()
+                    elif classification == "newer":
+                        rows = receipt.read_text(encoding="utf-8").splitlines()
+                        rows[0] = "version\t999999999999999999999.0.0"
+                        receipt.write_text("\n".join(rows) + "\n", encoding="utf-8")
+                    elif classification == "conflict":
+                        skill = (
+                            target / ".agents" / "skills" / "cash-apply" / "SKILL.md"
+                        )
+                        skill.write_bytes(skill.read_bytes() + b"\nconflict\n")
+                    gitignore = target / ".gitignore"
+                    gitignore_before = gitignore.read_bytes()
+                    journal = self.seed_publishing_journal(
+                        target,
+                        [
+                            (
+                                ".gitignore",
+                                gitignore_before,
+                                0o644,
+                                gitignore_before,
+                            )
+                        ],
+                    )
+                    before = journal.read_bytes()
+
+                    arguments = ("--dry-run",) if dry_run else ()
+                    result = self.install(target, *arguments)
+
+                    expected_code = 2 if classification == "conflict" else 0
+                    self.assertEqual(result.returncode, expected_code, result.stderr)
+                    self.assertIn(f"Result: {classification}", result.stdout)
+                    self.assertIn("unfinished installer journal", result.stderr)
+                    if dry_run or classification == "newer":
+                        self.assertEqual(journal.read_bytes(), before)
+                    else:
+                        self.assertFalse(journal.exists())
+                    self.assertEqual(gitignore.read_bytes(), gitignore_before)
+
     def test_publication_failure_rolls_back_replaceable_state_only(self) -> None:
         temporary, target = self.make_target()
         self.addCleanup(temporary.cleanup)
-        os.environ["TEST_CASH_INSTALL_FAIL_AFTER"] = "1"
-        self.addCleanup(os.environ.pop, "TEST_CASH_INSTALL_FAIL_AFTER", None)
 
-        result = self.install(target)
+        result = self.install(
+            target,
+            env={
+                "TEST_CASH_INSTALL_TEST_HOOKS": "1",
+                "TEST_CASH_INSTALL_FAIL_AFTER": "1",
+            },
+        )
 
         self.assertEqual(result.returncode, 1)
         self.assertTrue((target / ".cash-workspace.lock").is_file())
@@ -877,9 +1388,267 @@ class InstallerRuntimeTests(unittest.TestCase):
         self.assertFalse((target / ".cash.yaml").exists())
         self.assertFalse((target / ".cash-skills" / "state").exists())
 
-        os.environ.pop("TEST_CASH_INSTALL_FAIL_AFTER", None)
         recovered = self.install(target)
         self.assertEqual(recovered.returncode, 0, recovered.stderr)
+
+    def test_fault_injection_hooks_are_inert_without_exact_enable_switch(self) -> None:
+        for switch in (None, "0", "true"):
+            with self.subTest(switch=switch):
+                temporary, target = self.make_target()
+                hold = tempfile.TemporaryDirectory()
+                self.addCleanup(temporary.cleanup)
+                self.addCleanup(hold.cleanup)
+                hold_path = Path(hold.name) / "inert"
+                Path(f"{hold_path}.release").touch()
+                environment = {
+                    "CASH_INSTALL_FAIL_AFTER": "1",
+                    "CASH_INSTALL_FAIL_AFTER_PATH": ".cash.yaml",
+                    "CASH_INSTALL_HOLD_FILE": str(hold_path),
+                    "CASH_INSTALL_PUBLICATION_HOLD_FILE": str(hold_path),
+                    "CASH_INSTALL_CRASH_AFTER_QUARANTINE": "1",
+                }
+                if switch is not None:
+                    environment["CASH_INSTALL_TEST_HOOKS"] = switch
+
+                result = self.install(target, env=environment)
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("Result: update", result.stdout)
+                self.assertFalse(Path(f"{hold_path}.ready").exists())
+
+    def test_hold_hook_configuration_fails_closed_before_first_target_write(self) -> None:
+        for shape in (
+            "relative",
+            "missing-parent",
+            "symlink-parent",
+            "ready-exists",
+            "release-exists",
+            "duplicate",
+            "duplicate-alias",
+        ):
+            with self.subTest(shape=shape):
+                temporary, target = self.make_target()
+                hold = tempfile.TemporaryDirectory()
+                self.addCleanup(temporary.cleanup)
+                self.addCleanup(hold.cleanup)
+                base = Path(hold.name)
+                hold_path = base / "hold"
+                publication_path = base / "publication"
+                if shape == "relative":
+                    hold_path = Path(os.path.relpath(hold_path, ROOT))
+                    (base / "hold.release").touch()
+                elif shape == "missing-parent":
+                    hold_path = base / "missing" / "hold"
+                elif shape == "symlink-parent":
+                    real = base / "real"
+                    real.mkdir()
+                    linked = base / "linked"
+                    linked.symlink_to(real, target_is_directory=True)
+                    hold_path = linked / "hold"
+                    Path(f"{hold_path}.release").touch()
+                elif shape == "ready-exists":
+                    Path(f"{hold_path}.ready").touch()
+                    Path(f"{hold_path}.release").touch()
+                elif shape == "release-exists":
+                    Path(f"{hold_path}.release").touch()
+                elif shape == "duplicate":
+                    publication_path = hold_path
+                    Path(f"{hold_path}.release").touch()
+                elif shape == "duplicate-alias":
+                    alias = base / "alias"
+                    alias.mkdir()
+                    publication_path = alias / ".." / "hold"
+                    Path(f"{hold_path}.release").touch()
+                environment = {
+                    "CASH_INSTALL_TEST_HOOKS": "1",
+                    "CASH_INSTALL_HOLD_FILE": str(hold_path),
+                }
+                if shape in {"duplicate", "duplicate-alias"}:
+                    environment["CASH_INSTALL_PUBLICATION_HOLD_FILE"] = str(
+                        publication_path
+                    )
+
+                result = self.install(target, env=environment, timeout=5)
+
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn("invalid installer test hook", result.stderr)
+                self.assertFalse((target / ".cash-workspace.lock").exists())
+                self.assertFalse((target / ".cash-skills").exists())
+
+    def test_hold_hook_revalidates_late_ready_and_release_shapes(self) -> None:
+        for shape in ("ready", "release", "release-symlink"):
+            with self.subTest(shape=shape):
+                temporary, target = self.make_target()
+                hold = tempfile.TemporaryDirectory()
+                self.addCleanup(temporary.cleanup)
+                self.addCleanup(hold.cleanup)
+                lock = target / ".cash-workspace.lock"
+                shutil.copy2(ROOT / ".cash-workspace.lock", lock)
+                descriptor = os.open(lock, os.O_RDONLY)
+                fcntl.flock(descriptor, fcntl.LOCK_EX)
+                hold_path = Path(hold.name) / "late"
+                environment = os.environ.copy()
+                environment.update(
+                    {
+                        "CASH_INSTALL_TEST_HOOKS": "1",
+                        "CASH_INSTALL_HOLD_FILE": str(hold_path),
+                    }
+                )
+                process = subprocess.Popen(
+                    [
+                        "fish",
+                        "--no-config",
+                        str(INSTALLER),
+                        "--target",
+                        str(target),
+                    ],
+                    cwd=ROOT,
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    env=environment,
+                )
+                try:
+                    time.sleep(0.2)
+                    late = Path(f"{hold_path}.{shape.split('-')[0]}")
+                    if shape == "release-symlink":
+                        destination = Path(hold.name) / "release-target"
+                        destination.touch()
+                        late.symlink_to(destination)
+                    else:
+                        late.touch()
+                finally:
+                    fcntl.flock(descriptor, fcntl.LOCK_UN)
+                    os.close(descriptor)
+                stdout, stderr = process.communicate(timeout=10)
+
+                self.assertEqual(process.returncode, 1, stdout)
+                # 斷言階段標記而非通用字串：preflight 與等待點對同一形狀都會
+                # fail closed，若只比對通用字串，時序失準（late 檔在 preflight
+                # 之前就建立）會讓本測試靜默退化成 preflight 案例的重複。
+                self.assertIn("appeared after preflight", stderr)
+                self.assertNotIn("already exists", stderr)
+                self.assertFalse((target / ".cash-skills" / "receipt.tsv").exists())
+                if late.is_symlink():
+                    self.assertTrue(late.is_symlink())
+
+    def test_hold_hooks_are_accounted_independently(self) -> None:
+        temporary, target = self.make_target()
+        hold = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.addCleanup(hold.cleanup)
+        first = Path(hold.name) / "locked"
+        second = Path(hold.name) / "publication"
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "CASH_INSTALL_TEST_HOOKS": "1",
+                "CASH_INSTALL_HOLD_FILE": str(first),
+                "CASH_INSTALL_PUBLICATION_HOLD_FILE": str(second),
+            }
+        )
+        process = subprocess.Popen(
+            ["fish", "--no-config", str(INSTALLER), "--target", str(target)],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=environment,
+        )
+        deadline = time.monotonic() + 10
+        while not Path(f"{first}.ready").exists():
+            self.assertIsNone(process.poll())
+            self.assertLess(time.monotonic(), deadline)
+            time.sleep(0.01)
+        Path(f"{first}.release").touch()
+        while not Path(f"{second}.ready").exists():
+            self.assertIsNone(process.poll())
+            self.assertLess(time.monotonic(), deadline)
+            time.sleep(0.01)
+        Path(f"{second}.release").touch()
+        stdout, stderr = process.communicate(timeout=10)
+
+        self.assertEqual(process.returncode, 0, stderr)
+        self.assertIn("Result: update", stdout)
+
+    def test_consumed_hold_hook_is_skipped_on_reentry_and_later_batch_targets(self) -> None:
+        for flow in ("reentry", "batch"):
+            with self.subTest(flow=flow):
+                home = tempfile.TemporaryDirectory()
+                first_temp, first = self.make_target()
+                self.addCleanup(home.cleanup)
+                self.addCleanup(first_temp.cleanup)
+                second_temp = None
+                if flow == "batch":
+                    second_temp, second = self.make_target()
+                    self.addCleanup(second_temp.cleanup)
+                    for target in (first, second):
+                        registered = self.run_installer(
+                            ["--register", str(target)],
+                            home=Path(home.name),
+                        )
+                        self.assertEqual(registered.returncode, 0, registered.stderr)
+                    arguments = ["--all"]
+                else:
+                    (first / "AGENTS.md").write_text("before\n", encoding="utf-8")
+                    arguments = ["--target", str(first)]
+                hold = tempfile.TemporaryDirectory()
+                self.addCleanup(hold.cleanup)
+                hold_path = Path(hold.name) / flow
+                environment = os.environ.copy()
+                environment["HOME"] = home.name
+                environment.update(
+                    {
+                        "CASH_INSTALL_TEST_HOOKS": "1",
+                        "CASH_INSTALL_HOLD_FILE": str(hold_path),
+                    }
+                )
+                process = subprocess.Popen(
+                    ["fish", "--no-config", str(INSTALLER), *arguments],
+                    cwd=ROOT,
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    env=environment,
+                )
+                deadline = time.monotonic() + 10
+                while not Path(f"{hold_path}.ready").exists():
+                    self.assertIsNone(process.poll())
+                    self.assertLess(time.monotonic(), deadline)
+                    time.sleep(0.01)
+                if flow == "reentry":
+                    (first / "AGENTS.md").write_text("concurrent\n", encoding="utf-8")
+                Path(f"{hold_path}.release").touch()
+                stdout, stderr = process.communicate(timeout=15)
+
+                self.assertEqual(process.returncode, 0, stderr)
+                if flow == "batch":
+                    self.assertTrue(
+                        (second / ".cash-skills" / "receipt.tsv").is_file()
+                    )
+                else:
+                    self.assertTrue(
+                        (first / "AGENTS.md")
+                        .read_text(encoding="utf-8")
+                        .startswith("concurrent\n")
+                    )
+
+    def test_non_integer_failure_hook_fails_before_first_target_write(self) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+
+        result = self.install(
+            target,
+            env={
+                "CASH_INSTALL_TEST_HOOKS": "1",
+                "CASH_INSTALL_FAIL_AFTER": "not-an-integer",
+            },
+        )
+
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("invalid installer test hook", result.stderr)
+        self.assertFalse((target / ".cash-workspace.lock").exists())
+        self.assertFalse((target / ".cash-skills").exists())
 
     def test_invalid_receipt_is_execution_error_not_domain_result(self) -> None:
         temporary, target = self.make_target()
@@ -1034,6 +1803,74 @@ class InstallerRuntimeTests(unittest.TestCase):
         self.assertFalse(
             (Path(home.name) / ".config" / "cash-skills" / "projects.txt").exists()
         )
+
+    def test_empty_string_value_modes_fail_before_registry_or_target_access(self) -> None:
+        for mode in ("--target", "--register", "--unregister"):
+            for extra in ((), ("--dry-run",), ("--force",)):
+                with self.subTest(mode=mode, extra=extra):
+                    home = tempfile.TemporaryDirectory()
+                    temporary, target = self.make_target()
+                    self.addCleanup(home.cleanup)
+                    self.addCleanup(temporary.cleanup)
+                    registry = (
+                        Path(home.name)
+                        / ".config"
+                        / "cash-skills"
+                        / "projects.txt"
+                    )
+                    registry.parent.mkdir(parents=True)
+                    registry.write_bytes(
+                        f"{target.resolve()}\n/private/tmp/../tmp/invalid\n".encode()
+                    )
+                    before = (
+                        registry.stat().st_ino,
+                        registry.stat().st_mtime_ns,
+                        registry.read_bytes(),
+                    )
+
+                    result = self.run_installer(
+                        [mode, "", *extra],
+                        home=Path(home.name),
+                    )
+
+                    self.assertEqual(result.returncode, 2, result.stdout)
+                    self.assertIn(f"{mode} requires a non-empty value", result.stderr)
+                    self.assertNotIn("registry line", result.stderr)
+                    self.assertEqual(
+                        (
+                            registry.stat().st_ino,
+                            registry.stat().st_mtime_ns,
+                            registry.read_bytes(),
+                        ),
+                        before,
+                    )
+                    self.assertFalse((target / ".cash-workspace.lock").exists())
+                    self.assertFalse((target / ".cash-skills").exists())
+                    self.assertFalse((target / ".cash.yaml").exists())
+                    self.assertFalse((target / "AGENTS.md").exists())
+                    self.assertFalse((target / "CLAUDE.md").exists())
+
+    def test_boolean_mode_compatibility_rules_remain_unchanged(self) -> None:
+        home = tempfile.TemporaryDirectory()
+        temporary, target = self.make_target()
+        self.addCleanup(home.cleanup)
+        self.addCleanup(temporary.cleanup)
+
+        invalid_list = self.run_installer(
+            ["--list", "--dry-run"],
+            home=Path(home.name),
+        )
+        invalid_register = self.run_installer(
+            ["--register", str(target), "--force"],
+            home=Path(home.name),
+        )
+
+        self.assertEqual(invalid_list.returncode, 2, invalid_list.stdout)
+        self.assertEqual(invalid_register.returncode, 2, invalid_register.stdout)
+        self.assertFalse(
+            (Path(home.name) / ".config" / "cash-skills" / "projects.txt").exists()
+        )
+        self.assertFalse((target / ".cash-workspace.lock").exists())
 
     def test_registry_modes_ignore_exact_empty_lines(self) -> None:
         first_temp, first = self.make_target()
@@ -1583,6 +2420,7 @@ class InstallerRuntimeTests(unittest.TestCase):
         gitignore.write_bytes(b"node_modules\n")
         hold_path = Path(hold.name) / "publication"
         environment = os.environ.copy()
+        environment["CASH_INSTALL_TEST_HOOKS"] = "1"
         environment["CASH_INSTALL_PUBLICATION_HOLD_FILE"] = str(hold_path)
         installer = subprocess.Popen(
             [
@@ -1738,6 +2576,7 @@ class InstallerRuntimeTests(unittest.TestCase):
         (target / "AGENTS.md").write_text("project-owned preface\n", encoding="utf-8")
         hold_path = Path(hold.name) / "publication"
         environment = os.environ.copy()
+        environment["CASH_INSTALL_TEST_HOOKS"] = "1"
         environment["CASH_INSTALL_HOLD_FILE"] = str(hold_path)
         installer = subprocess.Popen(
             [
@@ -1836,10 +2675,15 @@ class InstallerRuntimeTests(unittest.TestCase):
         self.addCleanup(source_temp.cleanup)
         self.addCleanup(target_temp.cleanup)
         self.seed_legacy_baselines(target, bodies)
-        os.environ["CASH_INSTALL_FAIL_AFTER"] = "47"
-        self.addCleanup(os.environ.pop, "CASH_INSTALL_FAIL_AFTER", None)
 
-        result = self.install_from(source, target)
+        result = self.install_from(
+            source,
+            target,
+            env={
+                "CASH_INSTALL_TEST_HOOKS": "1",
+                "CASH_INSTALL_FAIL_AFTER": "47",
+            },
+        )
 
         self.assertEqual(result.returncode, 1)
         for relative, body in bodies.items():
@@ -1852,14 +2696,15 @@ class InstallerRuntimeTests(unittest.TestCase):
         self.addCleanup(source_temp.cleanup)
         self.addCleanup(target_temp.cleanup)
         self.seed_legacy_baselines(target, bodies)
-        os.environ["CASH_INSTALL_CRASH_AFTER_QUARANTINE"] = "1"
-        self.addCleanup(
-            os.environ.pop,
-            "CASH_INSTALL_CRASH_AFTER_QUARANTINE",
-            None,
-        )
 
-        crashed = self.install_from(source, target)
+        crashed = self.install_from(
+            source,
+            target,
+            env={
+                "CASH_INSTALL_TEST_HOOKS": "1",
+                "CASH_INSTALL_CRASH_AFTER_QUARANTINE": "1",
+            },
+        )
 
         self.assertEqual(crashed.returncode, 98)
         journal = (
@@ -1873,7 +2718,6 @@ class InstallerRuntimeTests(unittest.TestCase):
         quarantines = list(target.rglob(".cash-legacy-*"))
         self.assertGreater(len(quarantines), 0)
         self.assertLess(len(quarantines), len(bodies))
-        os.environ.pop("CASH_INSTALL_CRASH_AFTER_QUARANTINE")
         recovered = self.install_from(source, target)
         self.assertEqual(recovered.returncode, 0, recovered.stderr)
         self.assertFalse(journal.exists())
