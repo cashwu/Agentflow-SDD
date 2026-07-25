@@ -2,9 +2,9 @@
 id: review-fix-propagation-incomplete
 type: recurring-finding
 status: open
-occurrences: 5
+occurrences: 8
 first_seen: 2026-07-07
-last_seen: 2026-07-23
+last_seen: 2026-07-25
 links:
   - openspec/changes/add-micro-verification-round/reviews/propose-r3.md
   - openspec/changes/converge-plus-review-loop/reviews/propose-r5.md
@@ -14,6 +14,16 @@ links:
   - openspec/changes/migrate-cash-project-guidance/reviews/propose-r4.md
   - openspec/changes/migrate-cash-project-guidance/reviews/propose-r5.md
   - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/propose-r6.md
+  - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r1.md
+  - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r2.md
+  - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r3.md
+  - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r4.md
+  - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r5.md
+  - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r6.md
+  - openspec/changes/align-cli-skill-contracts/reviews/propose-r1.md
+  - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r7.md
+  - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r8.md
+
 ---
 
 # Review fix propagation incomplete
@@ -27,3 +37,8 @@ A review-round fix introduces or changes a rule, but claims about that rule else
 - 2026-07-19 — chinese-spec-content — cash-propose round 2 — round 1 修復把 cash-ingest parity diff 補進 proposal Impact 與 tasks 4.1，但 design 決策 6/C6 未同步，成為 round 2 的 fix-introduced finding（V-1）。
 - 2026-07-22 — migrate-cash-project-guidance — cash-propose rounds 2–5 — Publication recovery修正連續漏掉receipt drift、receipt-less首次安裝、可觀測adoption與零檔clean install分支；最終以現行installer可觀測的0／24全等／partial-or-different三分法同步所有artifacts與fixtures。
 - 2026-07-23 — replace-spectra-cli-with-cash-cli — cash-propose rounds 3–6 — consumer schema、config validation、stable bootstrap與legacy migration修正連續引入merge phase、parser ordering、old-receipt cutover、touched雙來源及lock rollback缺口；最後三項成為abort obligations。
+
+- 2026-07-25 — harden-installer-mode-and-recovery — cash-propose rounds 1–6 — 本 loop 最高頻的形狀，出現七次：fix 只改到被舉例的那個 artifact／運算元／檔案，未涵蓋該規則涉及的全部位置（proposal 未隨 design 更新、免除規則只涵蓋 ready 檔而漏 release 檔、Non-Goals 措辭只落在 design、`--force` 變體只落在 tasks、IC5 列舉宣稱一一對應卻有缺漏）。fix action 的記述涵蓋範圍大於實際編輯範圍是其共同成因。
+- 2026-07-25 — align-cli-skill-contracts — cash-propose round 2、3、5 — 三輪各有一項 blocking finding 是前一輪修正未同步到其餘出現位置所致：C6 驗收補了內容斷言但未同步承載斷言的任務、依賴理由更正未同步到 proposal、receipt 重建規則的觸發時點未覆蓋第一個 runtime 改動。
+
+- 2026-07-25 — harden-installer-mode-and-recovery — cash-propose rounds 7–8（re-run）— 前一次執行第六輪為 recovery 寫入新增的零寫入 carve-out 未回頭掃描三處與之互斥的無條件斷言（「無併發 installer 介入時 SHALL 為 update、SHALL NOT 為 conflict」），使同一輸入同時被要求 conflict 與非 conflict；另有兩處 fix 未同步到 IC5 與 D2／proposal。修法為在三處加上「且 recovery 之後不存在與該 journal 無關的 drift」的限定並補齊同步。

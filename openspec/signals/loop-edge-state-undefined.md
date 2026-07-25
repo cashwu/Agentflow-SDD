@@ -2,12 +2,15 @@
 id: loop-edge-state-undefined
 type: recurring-finding
 status: open
-occurrences: 2
+occurrences: 3
 first_seen: 2026-07-16
-last_seen: 2026-07-16
+last_seen: 2026-07-25
 links:
   - openspec/changes/converge-plus-review-loop/reviews/propose-r1.md
   - openspec/changes/converge-plus-review-loop/reviews/apply-r2.md
+  - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r1.md
+  - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r3.md
+
 ---
 
 # Loop edge state record contract undefined
@@ -18,3 +21,5 @@ A new loop or gate mechanism defines its happy path but leaves an edge path's re
 
 - 2026-07-16 — converge-plus-review-loop — spectra-propose-plus rounds 5–6 — 全裁判面保護的 seeded re-run 短路在零輪次 run 的判定時點未定義；spawn 前短路 round file 的 round_type 無合法值可填（full 違反必 spawn 兩 reviewer、micro 違反首輪必 full）。
 - 2026-07-16 — converge-plus-review-loop — spectra-apply-plus round 2 — fully protected seeded re-run 的短路已定義 round file 與 ledger，但 completion output 的恢復路徑未要求導向取得同意或透過 `/spectra-ingest` 擴充 structured scope。
+
+- 2026-07-25 — harden-installer-mode-and-recovery — cash-propose rounds 1、3 — hold hook 的等待點位於可重入區段內，改成 exclusive 建立 ready 檔後，重新分類的重新進入與 `--all` batch 的後續 target 會因自身前一輪留下的 hold 檔而 fail closed；重入語意與免除範圍（ready 與 release 兩個運算元）原本皆未定義。
