@@ -128,6 +128,27 @@ function assert_command_matrix
             assert_contains "$path" "$literal" "complete artifact-instructions consumer"
         end
     end
+    for path in "$root_dir/.agents/skills/cash-commit/SKILL.md" "$root_dir/.claude/skills/cash-commit/SKILL.md"
+        for literal in \
+            'Detect a post-archive empty allowlist' \
+            'parsed files array is empty' \
+            'openspec/changes/.parked/<change-name>/' \
+            'openspec/changes/archive/<date>-<change-name>/' \
+            'keep the existing behavior and continue to step 3' \
+            'except when step 2a establishes a post-archive recovery source' \
+            'point-in-time snapshot taken at archive time' \
+            'stop without committing' \
+            'master_digests' \
+            'every `openspec/specs/` path stays in Unrelated Changes' \
+            'NEVER fall through to classifying every dirty source file as Unrelated'
+            assert_contains "$path" "$literal" "post-archive empty allowlist guard"
+        end
+    end
+    for path in "$root_dir/.agents/skills/cash-apply/SKILL.md" "$root_dir/.claude/skills/cash-apply/SKILL.md"
+        for literal in 'Archive first, then commit together' 'deletes the touched state that'
+            assert_contains "$path" "$literal" "commit-before-archive guidance"
+        end
+    end
 end
 
 function normalized_variant_diff --argument-names skill output

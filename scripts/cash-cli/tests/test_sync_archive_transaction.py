@@ -1,5 +1,7 @@
 import os
 import json
+import datetime as dt
+import hashlib
 import subprocess
 import tempfile
 import unittest
@@ -308,6 +310,94 @@ class SyncArchiveTransactionTests(unittest.TestCase):
 
         self.assertEqual(result["legacyCleanup"], "preserved_drift")
         self.assertEqual(legacy.read_bytes(), content)
+
+    def test_archive_manifest_records_touched_files(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        files = ["src/demo.py", "tests/demo_test.py"]
+        touched = {
+            "version": 1,
+            "change": "demo-change",
+            "legacy_import": None,
+            "touched": [
+                {
+                    "task_id": "1.1",
+                    "task_desc": "Modify `src/demo.py`",
+                    "files": files,
+                }
+            ],
+            "files": files,
+        }
+        state = root / ".cash-skills" / "state" / "touched" / "demo-change.json"
+        state.parent.mkdir(parents=True, exist_ok=True)
+        state.write_text(
+            json.dumps(touched, ensure_ascii=False, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        expected_digest = hashlib.sha256(
+            json.dumps(touched, ensure_ascii=False, separators=(",", ":")).encode(
+                "utf-8"
+            )
+        ).hexdigest()
+
+        result = archive_change(workspace, "demo-change", skip_specs=True)
+
+        manifest = json.loads(
+            (root / result["destination"] / "archive-manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(manifest["touched_files"], files)
+        self.assertEqual(manifest["touched_digest"], expected_digest)
+
+    def test_archive_manifest_touched_files_is_empty_without_state(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+
+        result = archive_change(workspace, "demo-change", skip_specs=True)
+
+        manifest = json.loads(
+            (root / result["destination"] / "archive-manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(manifest["touched_files"], [])
+
+    def test_archive_manifest_other_fields_unchanged(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+
+        result = archive_change(workspace, "demo-change", skip_specs=True)
+
+        manifest = json.loads(
+            (root / result["destination"] / "archive-manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(manifest["version"], 1)
+        self.assertEqual(manifest["change"], "demo-change")
+        self.assertEqual(
+            manifest["destination"],
+            f"openspec/changes/archive/{dt.date.today().isoformat()}-demo-change",
+        )
+        self.assertEqual(manifest["specs_synced"], False)
+        self.assertEqual(
+            manifest["delta_digests"],
+            {
+                "openspec/changes/demo-change/specs/demo/spec.md": (
+                    "355e2db1ea62582a628dcfa25bdaa18112fb3e3ee59b8a1f822c13151b543caa"
+                )
+            },
+        )
+        self.assertEqual(
+            manifest["master_digests"],
+            {
+                "openspec/specs/demo/spec.md": (
+                    "0a5f36486f71521cadce1950ced272f4858183adfed91eba77c9144178961539"
+                )
+            },
+        )
+        self.assertEqual(manifest["legacy_cleanup"], "not_imported")
 
 
 if __name__ == "__main__":

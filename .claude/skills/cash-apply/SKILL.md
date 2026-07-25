@@ -416,7 +416,7 @@ Simplicity First 與 Surgical Changes 的目的是「不寫不必要的東西」
 
    Do not suggest archive before the Sub-Agent Review/Rating/Fix Loop has ended with `decision: passed`.
 
-   - If the final round decision is `passed`, the final response MAY tell the user they can archive with `/cash-archive`.
+   - If the final round decision is `passed`, the final response MAY tell the user they can archive with `/cash-archive`. When it does, it MUST also tell them to commit first with `/cash-commit`, or to archive through the `/cash-commit` "Archive first, then commit together" sub-flow, because running `/cash-archive` on its own deletes the touched state that `/cash-commit` uses as its source allowlist, leaving it to fall back to the archive manifest's point-in-time snapshot — which does not include anything changed after archiving, and does not exist at all in archives created before that field was added.
    - If the final round decision is `aborted`, do NOT suggest archive; summarize the unresolved findings and point to the final round file.
 
 11. **Sub-Agent Review/Rating/Fix Loop**

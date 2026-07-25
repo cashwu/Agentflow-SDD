@@ -2,13 +2,14 @@
 id: new-scope-contradicts-unamended-contract
 type: recurring-finding
 status: open
-occurrences: 3
+occurrences: 4
 first_seen: 2026-07-24
 last_seen: 2026-07-25
 links:
   - openspec/changes/guard-target-receipt-version-control/reviews/propose-r1.md
   - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r6.md
   - openspec/changes/align-cli-skill-contracts/reviews/propose-r1.md
+  - openspec/changes/guard-post-archive-commit-allowlist/reviews/propose-r1.md
 
 ---
 
@@ -22,3 +23,5 @@ A delta introduces behavior that contradicts a closed enumeration or an exclusiv
 
 - 2026-07-25 — harden-installer-mode-and-recovery — cash-propose round 6 — 新增的 recovery 會在分類前寫入 target，與 delta 中原文保留、未修訂的 `conflict` 零寫入 scenario 直接牴觸；補上 carve-out 說明零寫入契約自 recovery 完成後的重新分類起適用。
 - 2026-07-25 — align-cli-skill-contracts — cash-propose round 1 — drift 的 primary_recommendation 改為不含 invocation 前綴，但 cash-drift 兩個變體的 SKILL.md 仍逐字宣稱該欄位是 a single copy-pasteable command line 並指示直接執行其值，未修訂即成為假敘述。
+
+- 2026-07-25 — guard-post-archive-commit-allowlist — cash-propose round 1 — 新增的 step `2a` 以 archive manifest 的 `touched_files` 作為來源允許清單，與同一份 SKILL.md 內未修訂的絕對句 `Cash state is the only allowlist authority after this point.` 直接牴觸；修法是把該句改寫為帶 `2a` 例外的形式並將例外字面句納入機械斷言。
