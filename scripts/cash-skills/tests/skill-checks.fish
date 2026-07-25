@@ -2,7 +2,7 @@
 
 set -g root_dir (path resolve (dirname (status filename))/../../..)
 set -g cash_skills analyze apply archive ask audit commit debug discuss drift ingest propose verify
-set -g divergent_skills analyze ask audit drift ingest propose verify
+set -g divergent_skills analyze ask audit discuss drift ingest propose verify
 
 function fail
     echo "FAIL: $argv" >&2
@@ -35,7 +35,7 @@ function assert_inventory
         set -l retired (find "$root_dir/$variant/skills" -mindepth 1 -maxdepth 1 -type d -name 'spectra-*' -print)
         test (count $retired) -eq 0; or fail "$variant retains a retired canonical skill"
     end
-    test (string trim <"$root_dir/cash-skills.version") = 2.1.0; or fail "cash-skills.version must be 2.1.0"
+    test (string trim <"$root_dir/cash-skills.version") = 2.2.0; or fail "cash-skills.version must be 2.2.0"
     test (stat -f '%Lp' "$root_dir/.cash-skills/bin/cash") = 755; or fail "Cash launcher must be 0755"
     test (stat -f '%Lp' "$root_dir/.cash-workspace.lock") = 644; or fail "workspace lock must be 0644"
     test (stat -f '%z' "$root_dir/.cash-workspace.lock") = 0; or fail "workspace lock must be empty"
@@ -225,6 +225,40 @@ function assert_namespace
     python3 "$root_dir/scripts/cash-skills/tests/test_live_namespace.py" "$root_dir"; or fail "live namespace scan failed"
 end
 
+function assert_well_formedness
+    for variant in .agents .claude
+        for skill in $cash_skills
+            set -l relative "$variant/skills/cash-$skill/SKILL.md"
+            set -l path "$root_dir/$relative"
+            set -l invalid (perl -ne '$count = 0; while (/(?<!`)``(?!`)/g) { $count++ } print "$.:$_" if $count % 2' "$path" | string collect)
+            test -z "$invalid"; or fail "$relative contains an empty code span at $invalid"
+        end
+    end
+
+    for skill in $cash_skills
+        set -l relative ".agents/skills/cash-$skill/SKILL.md"
+        set -l path "$root_dir/$relative"
+        set -l frontmatter (mktemp "/tmp/cash-$skill-frontmatter.XXXXXX")
+        awk 'NR == 1 && $0 == "---" { front = 1; next } front && $0 == "---" { exit } front { print }' "$path" >"$frontmatter"
+        if rg -n '^(context|agent|disallowedTools):' "$frontmatter"
+            command rm -f -- "$frontmatter"
+            fail "$relative contains Claude-only frontmatter"
+        end
+        command rm -f -- "$frontmatter"
+    end
+
+    for variant in .agents .claude
+        set -l propose "$root_dir/$variant/skills/cash-propose/SKILL.md"
+        for heading in '## Why' '## What Changes' '## Problem' '## Root Cause' '## Success Criteria'
+            assert_absent "$propose" (string escape --style=regex "$heading") "CLI-owned proposal template"
+        end
+        assert_absent "$root_dir/$variant/skills/cash-drift/SKILL.md" 'copy-pasteable' "variant-neutral drift recommendation"
+    end
+
+    set -l ingest "$root_dir/.agents/skills/cash-ingest/SKILL.md"
+    assert_absent "$ingest" '~/.claude/plans/|(?<![A-Za-z0-9_*])(?:[A-Za-z0-9_.~-]+/)+(?:<name>|agile-discovering-rocket)(?:\\.md)?' "directory-free Codex plan references"
+end
+
 set -l group all
 if test (count $argv) -gt 0
     set group $argv[1]
@@ -246,8 +280,11 @@ switch "$group"
         assert_inventory
     case namespace-scan
         assert_namespace
+    case well-formedness
+        assert_well_formedness
     case all
         assert_inventory
+        assert_well_formedness
         assert_command_matrix
         assert_variant_parity
         assert_grader_immutability

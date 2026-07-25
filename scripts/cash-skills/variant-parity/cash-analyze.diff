@@ -1,8 +1,15 @@
 --- codex/cash-analyze
 +++ claude/cash-analyze
-@@ -25 +25 @@
--## Codex fork context
+@@ -3,0 +4,3 @@
++context: fork
++agent: Explore
++disallowedTools: [Edit, Write]
+@@ -20,0 +24,8 @@
++
 +## Claude fork context
-@@ -27 +27 @@
--This generated Codex skill runs with `context: fork`. The rules in this section take precedence over the shared `analyze` body below.
++
 +This generated Claude Code skill runs with `context: fork`. The rules in this section take precedence over the shared `analyze` body below.
++
++When no change name is provided, run `"$cash_cli" list --json`. Auto-select only when there is exactly one active change. If there are zero active changes or more than one active change, return the candidate list or empty-state message and ask the main thread to rerun `@cash-analyze <change-name>`. Do NOT ask an interactive selection question inside the fork.
++
++---

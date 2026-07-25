@@ -71,7 +71,7 @@ If no argument is provided, the workflow will extract requirements from conversa
    | Bug Fix  | Fixing existing behavior, resolving errors                          |
    | Refactor | Architecture improvements, performance optimization, UI adjustments |
 
-   This determines the proposal template format in step 5.
+   This determines the narrative emphasis in `## Motivation` and `## Proposed Solution`.
 
 3. **Scan existing specs for relevance**
 
@@ -120,7 +120,7 @@ If no argument is provided, the workflow will extract requirements from conversa
    "$cash_cli" instructions proposal --change "<name>" --json
    ```
 
-   Generate the proposal content based on change type (see formats below), then write it via CLI:
+   Use the `template` returned by the CLI as the proposal structure. Fill in every section, using the change type to guide the narrative emphasis, then write the content via CLI:
 
    ```bash
    "$cash_cli" new artifact proposal --change "<name>" --stdin <<'ARTIFACT_EOF'
@@ -129,107 +129,6 @@ If no argument is provided, the workflow will extract requirements from conversa
    ```
 
    If the command fails with a validation error, fix the content and retry.
-
-   Use the following format based on change type:
-
-   ### Feature
-
-   ```markdown
-   ## Why
-
-   <!-- Why this functionality is needed -->
-
-   ## What Changes
-
-   <!-- What will be different -->
-
-   ## Non-Goals (optional)
-
-   <!-- Scope exclusions and rejected approaches. Required when design.md is skipped. -->
-
-   ## Capabilities
-
-   ### New Capabilities
-
-   - `<capability-name>`: <brief description>
-
-   ### Modified Capabilities
-
-   (none)
-
-   ## Impact
-
-   - Affected specs: <new or modified capabilities>
-   - Affected code:
-     - New: <paths to be created, relative to project root>
-     - Modified: <paths that already exist>
-     - Removed: <paths to be deleted>
-   ```
-
-   ### Bug Fix
-
-   ```markdown
-   ## Problem
-
-   <!-- Current broken behavior -->
-
-   ## Root Cause
-
-   <!-- Why it happens -->
-
-   ## Proposed Solution
-
-   <!-- How to fix -->
-
-   ## Non-Goals (optional)
-
-   <!-- Scope exclusions and rejected approaches. Required when design.md is skipped. -->
-
-   ## Success Criteria
-
-   <!-- Expected behavior after fix, verifiable conditions -->
-
-   ## Impact
-
-   - Affected code:
-     - Modified: <paths that already exist>
-     - New: <paths to be created, relative to project root>
-     - Removed: <paths to be deleted>
-   ```
-
-   ### Refactor / Enhancement
-
-   ```markdown
-   ## Summary
-
-   <!-- One sentence description -->
-
-   ## Motivation
-
-   <!-- Why this is needed -->
-
-   ## Proposed Solution
-
-   <!-- How to do it -->
-
-   ## Non-Goals (optional)
-
-   <!-- Scope exclusions and rejected approaches. Required when design.md is skipped. -->
-
-   ## Alternatives Considered (optional)
-
-   <!-- Other approaches considered and why not -->
-
-   ## Impact
-
-   - Affected specs: <affected capabilities>
-   - Affected code:
-     - Modified: <paths that already exist>
-     - New: <paths to be created, relative to project root>
-     - Removed: <paths to be deleted>
-   ```
-
-
 
    **cash-propose impact granularity advisory**
    - After writing the proposal and before creating `design.md`, count the affected-code path entries under proposal `## Impact` across Modified, New, and Removed.
@@ -445,7 +344,7 @@ If no argument is provided, the workflow will extract requirements from conversa
    - Pedantic style nitpicks that a senior engineer would not call out in review.
    - "Missing test coverage" complaints unless `tasks.md` or `design.md` explicitly required the test, or a spec `##### Example:` block is not exercised.
    - Issues already documented as intentional in `design.md`, `implementation-notes.md`, the proposal's Non-Goals section, or `## Alternatives Considered`.
-   - Intentional behavior changes that align with the proposal's `## What Changes` or `## Proposed Solution`.
+   - Intentional behavior changes that align with the proposal's `## Proposed Solution`.
    - Suggestions to add abstractions, configurability, or defensive error handling that the spec/contract did not require — these conflict with Simplicity First.
    - Suggestions to refactor unrelated code touched only incidentally — these conflict with Surgical Changes.
 

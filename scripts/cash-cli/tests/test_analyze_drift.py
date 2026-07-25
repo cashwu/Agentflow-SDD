@@ -1,3 +1,4 @@
+import datetime as dt
 import subprocess
 import tempfile
 import unittest
@@ -106,10 +107,46 @@ class AnalyzeDriftTests(unittest.TestCase):
         self.assertIsInstance(payload["broken_anchors"], list)
         self.assertIsInstance(payload["tasks_maybe_resolved"], list)
         self.assertIsInstance(payload["tasks_blocked_external"], list)
-        self.assertTrue(payload["primary_recommendation"].startswith("$cash-"))
+        self.assertNotIn("$", payload["primary_recommendation"])
+        self.assertNotIn("/", payload["primary_recommendation"])
         report = render_report(payload)
         self.assertIn(f"Severity: {payload['severity']}", report)
         self.assertIn(payload["primary_recommendation"], report)
+        recommendation_line = report.splitlines()[-1]
+        self.assertEqual(
+            recommendation_line,
+            f"Primary recommendation: {payload['primary_recommendation']}",
+        )
+        self.assertNotIn("$", recommendation_line)
+        self.assertNotIn("/", recommendation_line)
+
+    def test_drift_severity_recommends_variant_neutral_skill(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_change(root, complete=True)
+
+        cases = [
+            ("light", 0, ["src/demo.py"], "cash-apply demo"),
+            ("medium", 10, ["src/demo.py"], "cash-ingest demo"),
+            ("heavy", 20, ["src/demo.py", "src/missing.py"], "cash-ingest demo"),
+        ]
+        for severity, days_old, impact_paths, recommendation in cases:
+            with self.subTest(severity=severity):
+                created = dt.date.today() - dt.timedelta(days=days_old)
+                with (
+                    mock.patch(
+                        "cash_cli.commands.drift._created",
+                        return_value=created,
+                    ),
+                    mock.patch(
+                        "cash_cli.commands.drift._impact_paths",
+                        return_value=impact_paths,
+                    ),
+                ):
+                    payload = drift_payload(workspace, "demo")
+
+                self.assertEqual(payload["severity"], severity)
+                self.assertEqual(payload["primary_recommendation"], recommendation)
 
     def test_missing_impact_path_is_broken_anchor_and_blocked_task(self) -> None:
         temporary, root, workspace = self.make_workspace()

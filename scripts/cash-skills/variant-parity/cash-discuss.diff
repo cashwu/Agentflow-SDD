@@ -1,0 +1,4 @@
+--- codex/cash-discuss
++++ claude/cash-discuss
+@@ -3,0 +4 @@
++disallowedTools: [Edit, Write]

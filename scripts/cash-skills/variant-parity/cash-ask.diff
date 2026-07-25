@@ -1,9 +1,10 @@
 --- codex/cash-ask
 +++ claude/cash-ask
-@@ -3,0 +4,2 @@
+@@ -3,0 +4,3 @@
 +context: fork
 +agent: Explore
-@@ -21,0 +24,8 @@
++disallowedTools: [Edit, Write]
+@@ -20,0 +24,8 @@
 +
 +## Claude fork context
 +
