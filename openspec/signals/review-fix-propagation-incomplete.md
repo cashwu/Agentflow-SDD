@@ -2,7 +2,7 @@
 id: review-fix-propagation-incomplete
 type: recurring-finding
 status: open
-occurrences: 8
+occurrences: 9
 first_seen: 2026-07-07
 last_seen: 2026-07-25
 links:
@@ -23,6 +23,9 @@ links:
   - openspec/changes/align-cli-skill-contracts/reviews/propose-r1.md
   - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r7.md
   - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r8.md
+  - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r3.md
+  - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r4.md
+  - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r5.md
 
 ---
 
@@ -42,3 +45,5 @@ A review-round fix introduces or changes a rule, but claims about that rule else
 - 2026-07-25 — align-cli-skill-contracts — cash-propose round 2、3、5 — 三輪各有一項 blocking finding 是前一輪修正未同步到其餘出現位置所致：C6 驗收補了內容斷言但未同步承載斷言的任務、依賴理由更正未同步到 proposal、receipt 重建規則的觸發時點未覆蓋第一個 runtime 改動。
 
 - 2026-07-25 — harden-installer-mode-and-recovery — cash-propose rounds 7–8（re-run）— 前一次執行第六輪為 recovery 寫入新增的零寫入 carve-out 未回頭掃描三處與之互斥的無條件斷言（「無併發 installer 介入時 SHALL 為 update、SHALL NOT 為 conflict」），使同一輸入同時被要求 conflict 與非 conflict；另有兩處 fix 未同步到 IC5 與 D2／proposal。修法為在三處加上「且 recovery 之後不存在與該 journal 無關的 drift」的限定並補齊同步。
+
+- 2026-07-25 — derive-version-assertion-and-add-cli-help — cash-propose rounds 3–5 — 改設計後未掃到所有位置：round 2 把錯誤訊息改為指向 help 卻留下 design Risks 的舊敘述與過時的 scenario 標題；round 3 把 receipt gate 覆蓋移出 task 1.1 只改了斷言本體未改具名清單；round 4 更正擁有者計數只落在 Context，Goals、回指與 proposal 三處未同步。

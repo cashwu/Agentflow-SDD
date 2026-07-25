@@ -2,9 +2,9 @@
 id: cross-artifact-definition-drift
 type: recurring-finding
 status: open
-occurrences: 10
+occurrences: 11
 first_seen: 2026-07-07
-last_seen: 2026-07-24
+last_seen: 2026-07-25
 links:
   - openspec/changes/add-micro-verification-round/reviews/propose-r1.md
   - openspec/changes/add-review-loop-discipline/reviews/propose-r1.md
@@ -17,6 +17,9 @@ links:
   - openspec/changes/refine-apply-blocker-triage/reviews/apply-r2.md
   - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/propose-r3.md
   - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/apply-r1.md
+  - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r1.md
+  - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r2.md
+
 ---
 
 # Cross-artifact definition drift
@@ -35,3 +38,5 @@ The same concept (a role's scope, an enumerated list, a rule's condition set) is
 - 2026-07-22 — refine-apply-blocker-triage — cash-apply round 2 — Proposal 將所有「多個可辯護答案」的 open question 都描述為暫停條件，範圍比 design/spec/task 僅涵蓋可能改變 contract／scope 的問題更廣。
 - 2026-07-23 — replace-spectra-cli-with-cash-cli — cash-propose rounds 3–5 — archive flags、fixed `openspec/`與legacy `spec_dir`、existing/newer config parser及register prerequisites曾在design、delta與tasks間不同步，需逐輪收斂為單一contract。
 - 2026-07-24 — replace-spectra-cli-with-cash-cli — cash-apply round 1 — Cash workflow文案仍聲稱title mismatch會silently drop，與runtime/spec的`requirement_identity_mismatch` fail-closed contract矛盾；六個variants已同步修正。
+
+- 2026-07-25 — derive-version-assertion-and-add-cli-help — cash-propose rounds 1–2 — 一份宗旨為消除重複定義的 change，兩次差點自己製造新的一份：delta spec 一度複述 master 已定義的版本格式規則；錯誤訊息一度要內嵌 15 個 command 名稱，而該訊息被 golden fixture 以整個 object 相等比對釘住，等於新增一份需手動同步的清單。最終以「引用而非複述」與「指向 help 而非內嵌清單」兩項改設計解決。
