@@ -5,3 +5,4 @@ propose	3	micro	0	1	next_round	4
 propose	4	full	0	1	next_round	4
 propose	5	micro	0	1	next_round	2
 propose	6	micro	0	0	passed	1
+apply	1	full	0	0	passed	0
