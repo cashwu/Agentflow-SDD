@@ -75,8 +75,6 @@
     - `.agents/skills/cash-verify/SKILL.md`
     - `.agents/skills/cash-ask/SKILL.md`
     - `.agents/skills/cash-discuss/SKILL.md`
-    - `scripts/cash-skills/variant-parity/cash-propose.diff`
-    - `scripts/cash-skills/variant-parity/cash-drift.diff`
     - `scripts/cash-skills/variant-parity/cash-ingest.diff`
     - `scripts/cash-skills/variant-parity/cash-analyze.diff`
     - `scripts/cash-skills/variant-parity/cash-verify.diff`
