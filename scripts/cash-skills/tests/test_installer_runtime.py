@@ -267,6 +267,314 @@ class InstallerRuntimeTests(unittest.TestCase):
         os.chmod(journal, 0o600)
         return journal
 
+    def canonical_guidance(self, source: Path, relative: str) -> bytes:
+        content = (source / relative).read_bytes()
+        start = content.index(b"<!-- CASH:START -->")
+        end_marker = b"<!-- CASH:END -->"
+        end = content.index(end_marker, start) + len(end_marker)
+        if content[end : end + 1] == b"\n":
+            end += 1
+        return content[start:end]
+
+    def assert_guidance_install(
+        self,
+        target: Path,
+        relative: str,
+        before: bytes,
+        expected: bytes,
+    ) -> bytes:
+        guidance = target / relative
+        guidance.write_bytes(before)
+        os.chmod(guidance, 0o600)
+
+        result = self.install(target)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(guidance.read_bytes(), expected)
+        self.assertEqual(stat.S_IMODE(guidance.stat().st_mode), 0o600)
+        return guidance.read_bytes()
+
+    def assert_guidance_failure_before_write(
+        self,
+        content: bytes,
+        *,
+        expected_diagnostic: str,
+    ) -> None:
+        for arguments in ((), ("--force",)):
+            with self.subTest(arguments=arguments):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                guidance = target / "AGENTS.md"
+                guidance.write_bytes(content)
+                os.chmod(guidance, 0o600)
+
+                result = self.install(target, *arguments)
+
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn(expected_diagnostic, result.stderr)
+                self.assertIn("AGENTS.md", result.stderr)
+                self.assertNotIn("source AGENTS.md", result.stderr)
+                self.assertEqual(guidance.read_bytes(), content)
+                self.assertEqual(stat.S_IMODE(guidance.stat().st_mode), 0o600)
+                self.assertFalse((target / ".cash-workspace.lock").exists())
+                self.assertFalse((target / ".cash-skills").exists())
+
+    def test_guidance_mixed_legacy_suffix_converges(self) -> None:
+        canonical = self.canonical_guidance(ROOT, "AGENTS.md")
+        legacy = (
+            b"<!-- SPECTRA:START v1.0.2 -->\n"
+            b"legacy guidance\n"
+            b"<!-- SPECTRA:END -->\n"
+        )
+        stale_cash = (
+            b"<!-- CASH:START -->\n"
+            b"stale Cash guidance\n"
+            b"<!-- CASH:END -->\n"
+        )
+        suffix = b"project-owned suffix\n"
+        fixtures = (
+            (legacy + stale_cash + suffix, canonical + suffix),
+            (
+                b"project-owned prefix\n" + legacy + stale_cash + suffix,
+                b"project-owned prefix\n" + canonical + suffix,
+            ),
+        )
+        for relative in ("AGENTS.md", "CLAUDE.md"):
+            canonical = self.canonical_guidance(ROOT, relative)
+            for index, (before, expected) in enumerate(fixtures):
+                with self.subTest(relative=relative, fixture=index):
+                    temporary, target = self.make_target()
+                    self.addCleanup(temporary.cleanup)
+                    actual = self.assert_guidance_install(
+                        target,
+                        relative,
+                        before,
+                        expected.replace(
+                            self.canonical_guidance(ROOT, "AGENTS.md"),
+                            canonical,
+                        ),
+                    )
+                    self.assertNotIn(b"SPECTRA:", actual)
+                    self.assertEqual(actual.count(b"<!-- CASH:START -->"), 1)
+                    self.assertEqual(actual.count(b"<!-- CASH:END -->"), 1)
+
+    def test_guidance_legacy_only_suffix_migrates(self) -> None:
+        legacy = (
+            b"<!-- SPECTRA:START v1.0.2 -->\n"
+            b"legacy guidance\n"
+            b"<!-- SPECTRA:END -->\n"
+        )
+        prefix = b"project-owned prefix\n"
+        suffix = b"project-owned suffix\n"
+        for relative in ("AGENTS.md", "CLAUDE.md"):
+            with self.subTest(relative=relative):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                canonical = self.canonical_guidance(ROOT, relative)
+                actual = self.assert_guidance_install(
+                    target,
+                    relative,
+                    prefix + legacy + suffix,
+                    prefix + canonical + suffix,
+                )
+                self.assertNotIn(b"SPECTRA:", actual)
+                self.assertEqual(actual.count(b"<!-- CASH:START -->"), 1)
+                self.assertEqual(actual.count(b"<!-- CASH:END -->"), 1)
+
+    def test_guidance_unsuffixed_markers_keep_existing_span_behavior(self) -> None:
+        canonical = self.canonical_guidance(ROOT, "AGENTS.md")
+        before = (
+            b"project-owned prefix\n"
+            b"<!-- SPECTRA:START -->\n"
+            b"legacy guidance\n"
+            b"<!-- SPECTRA:END -->\n"
+            b"<!-- CASH:START -->\n"
+            b"stale Cash guidance\n"
+            b"<!-- CASH:END -->\n"
+            b"project-owned suffix\n"
+        )
+        expected = (
+            b"project-owned prefix\n"
+            + canonical
+            + b"project-owned suffix\n"
+        )
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+
+        self.assert_guidance_install(target, "AGENTS.md", before, expected)
+
+    def test_guidance_suffix_applies_to_all_marker_kinds(self) -> None:
+        canonical = self.canonical_guidance(ROOT, "AGENTS.md")
+        cases = (
+            (
+                b"project-owned prefix\n"
+                b"<!-- SPECTRA:START -->\n"
+                b"legacy guidance\n"
+                b"<!-- SPECTRA:END release -->\n"
+                b"<!-- CASH:START -->\n"
+                b"stale Cash guidance\n"
+                b"<!-- CASH:END -->\n"
+                b"project-owned suffix\n",
+                b"project-owned prefix\n"
+                + canonical
+                + b"project-owned suffix\n",
+            ),
+            (
+                b"project-owned prefix\n"
+                b"<!-- CASH:START versioned -->\n"
+                b"stale Cash guidance\n"
+                b"<!-- CASH:END versioned -->\n"
+                b"project-owned suffix\n",
+                b"project-owned prefix\n"
+                + canonical
+                + b"project-owned suffix\n",
+            ),
+        )
+        for index, (before, expected) in enumerate(cases):
+            with self.subTest(case=index):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                actual = self.assert_guidance_install(
+                    target, "AGENTS.md", before, expected
+                )
+                self.assertEqual(actual.count(b"<!-- CASH:START -->"), 1)
+                self.assertEqual(actual.count(b"<!-- CASH:END -->"), 1)
+                self.assertNotIn(b"CASH:START versioned", actual)
+                self.assertNotIn(b"CASH:END versioned", actual)
+                self.assertNotIn(b"SPECTRA:", actual)
+
+        outputs = []
+        for marker_suffix in (b"v1.0.2", b"arbitrary opaque suffix"):
+            temporary, target = self.make_target()
+            self.addCleanup(temporary.cleanup)
+            before = (
+                b"<!-- SPECTRA:START "
+                + marker_suffix
+                + b" -->\nlegacy guidance\n<!-- SPECTRA:END -->\n"
+                b"<!-- CASH:START -->\nstale\n<!-- CASH:END -->\n"
+            )
+            outputs.append(
+                self.assert_guidance_install(
+                    target, "AGENTS.md", before, canonical
+                )
+            )
+        self.assertEqual(outputs[0], outputs[1])
+
+    def test_suffixed_malformed_guidance_fails_closed(self) -> None:
+        cases = (
+            (
+                "isolated",
+                b"<!-- SPECTRA:START versioned -->\nlegacy\n",
+                "duplicate or unbalanced SPECTRA guidance marker",
+            ),
+            (
+                "duplicate",
+                b"<!-- SPECTRA:START one -->\n"
+                b"<!-- SPECTRA:START two -->\nlegacy\n",
+                "duplicate or unbalanced SPECTRA guidance marker",
+            ),
+            (
+                "reversed",
+                b"<!-- SPECTRA:END versioned -->\nlegacy\n"
+                b"<!-- SPECTRA:START versioned -->\n",
+                "reversed SPECTRA guidance marker",
+            ),
+            (
+                "non-independent",
+                b"<!-- SPECTRA:START versioned --> trailing\nlegacy\n"
+                b"<!-- SPECTRA:END versioned -->\n",
+                "malformed SPECTRA guidance marker",
+            ),
+            (
+                "nested",
+                b"<!-- CASH:START versioned -->\n"
+                b"<!-- SPECTRA:START versioned -->\n"
+                b"nested\n"
+                b"<!-- CASH:END versioned -->\n"
+                b"<!-- SPECTRA:END versioned -->\n",
+                "nested guidance markers",
+            ),
+            (
+                "carriage-return-in-suffix",
+                b"<!-- SPECTRA:START versioned\rproject-owned -->\n"
+                b"legacy\n"
+                b"<!-- SPECTRA:END versioned -->\n",
+                "duplicate or unbalanced SPECTRA guidance marker",
+            ),
+        )
+        for label, content, diagnostic in cases:
+            with self.subTest(case=label):
+                self.assert_guidance_failure_before_write(
+                    content,
+                    expected_diagnostic=diagnostic,
+                )
+
+    def test_guidance_suffix_does_not_cross_comment_boundary(self) -> None:
+        canonical = self.canonical_guidance(ROOT, "AGENTS.md")
+        prefix = b"project-owned prefix <!-- CASH:START "
+        before = (
+            prefix
+            + b"<!-- CASH:START -->\n"
+            b"stale Cash guidance\n"
+            b"<!-- CASH:END -->\n"
+            b"project-owned suffix\n"
+        )
+        expected = prefix + canonical + b"project-owned suffix\n"
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+
+        self.assert_guidance_install(target, "AGENTS.md", before, expected)
+
+    def test_source_canonical_markers_reject_suffixes_before_target_write(self) -> None:
+        for marker in (b"CASH:START", b"CASH:END"):
+            with self.subTest(marker=marker):
+                source_temp, source, _ = self.make_source_bundle()
+                target_temp, target = self.make_target()
+                self.addCleanup(source_temp.cleanup)
+                self.addCleanup(target_temp.cleanup)
+                guidance = source / "AGENTS.md"
+                guidance.write_bytes(
+                    guidance.read_bytes().replace(
+                        b"<!-- " + marker + b" -->",
+                        b"<!-- " + marker + b" versioned -->",
+                        1,
+                    )
+                )
+
+                result = self.install_from(source, target)
+
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn("source AGENTS.md", result.stderr)
+                self.assertFalse((target / ".cash-workspace.lock").exists())
+                self.assertFalse((target / ".cash-skills").exists())
+                self.assertFalse((target / "AGENTS.md").exists())
+                self.assertFalse((target / "CLAUDE.md").exists())
+
+    def test_source_marker_span_failure_names_source_guidance(self) -> None:
+        source_temp, source, _ = self.make_source_bundle()
+        target_temp, target = self.make_target()
+        self.addCleanup(source_temp.cleanup)
+        self.addCleanup(target_temp.cleanup)
+        guidance = source / "AGENTS.md"
+        content = guidance.read_bytes()
+        guidance.write_bytes(
+            content.replace(
+                b"<!-- CASH:START -->",
+                b"<!-- CASH:START -->\n<!-- CASH:START -->",
+                1,
+            )
+        )
+
+        result = self.install_from(source, target)
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("duplicate or unbalanced CASH guidance marker", result.stderr)
+        self.assertIn("source AGENTS.md", result.stderr)
+        self.assertFalse((target / ".cash-workspace.lock").exists())
+        self.assertFalse((target / ".cash-skills").exists())
+        self.assertFalse((target / "AGENTS.md").exists())
+        self.assertFalse((target / "CLAUDE.md").exists())
+
     def make_python_shim(
         self,
         directory: Path,

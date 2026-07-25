@@ -63,9 +63,9 @@ git rm --cached .cash-skills/receipt.tsv
 
 ## Cash project guidance migration
 
-Repository root 的 `AGENTS.md` 與 `CLAUDE.md` 是兩個 canonical guidance sources：前者使用 `$cash-*`，後者使用 `/cash-*`。每份 source 都恰好包含一個 `<!-- CASH:START -->`／`<!-- CASH:END -->` managed block；installer 從這兩份 live files 擷取對應 block，不另外維護 template。
+Repository root 的 `AGENTS.md` 與 `CLAUDE.md` 是兩個 canonical guidance sources：前者使用 `$cash-*`，後者使用 `/cash-*`。每份 source 都恰好包含一個 `<!-- CASH:START -->`／`<!-- CASH:END -->` managed block；installer 從這兩份 live files 擷取對應 block，不另外維護 template。Source 的 Cash start 與 end marker 都不得帶字尾；任一側帶字尾時會在首次 target write 前 fail closed，且不會把該字尾寫入任何 target。Source guidance 的任何位置也不得出現形似 legacy marker 的文字，包括散文中的舉例，否則 canonical guidance 擷取會在首次 target write 前 fail closed，並阻擋全部 registered targets。
 
-每次非 `newer`、非 `conflict` 的 target 安裝都會檢查同名 guidance files。Installer 會更新既有 Cash block、以 Cash block取代一個合法的 `<!-- SPECTRA:START ... -->`／`<!-- SPECTRA:END -->` block，或在沒有 managed block 時附加 Cash block。它只改動已辨識的 block spans與必要邊界換行，逐位元組保留 managed spans 以外的 project-owned內容與既有 mode。Symlink、duplicate、orphan、reversed、nested、非獨立行或未知版本 marker都會在首次 target write前 fail closed，`--force` 也不會繞過。
+每次非 `newer`、非 `conflict` 的 target 安裝都會檢查同名 guidance files。Installer 會更新既有 Cash block、以 Cash block取代一個合法的 `<!-- SPECTRA:START ... -->`／`<!-- SPECTRA:END -->` block，或在沒有 managed block 時附加 Cash block。Marker 名稱與結尾符號之間的字尾會被容忍並略過，不會被解析。Installer 只改動已辨識的 block spans與必要邊界換行，逐位元組保留 managed spans 以外的 project-owned內容與既有 mode。Symlink、duplicate、orphan、reversed、nested 或非獨立行 marker都會在首次 target write前 fail closed，`--force` 也不會繞過。
 
 標準 `spectra-*` skills 不屬於新的 canonical inventory。Installer 只會依 `scripts/cash-skills/legacy-spectra-digests.tsv` 的已知版本與 full-body digest baseline 移除可證明為標準發行內容的目錄。無法證明 ownership 的目錄（同名 customization、未知版本或 mode drift）會被**保留、不修改、也不阻斷安裝**，installer 會在該 target 的輸出逐筆列出被保留的路徑，你可以自行確認後手動移除。只有可能讓刪除逃出 target 邊界的形狀——symlink、hard link 或目錄含額外檔案——才會在首次 write 前 fail closed，不會猜測 ownership。舊 schema receipt 的 migration 只驗證它實際記載的 path 與 digest；舊 schema 沒有 mode 欄位，因此 mode 不會成為 migration 的門檻，managed skills 的 mode 由該次 transaction 正規化。guidance 不會加入 `.cash-skills/receipt.tsv`，因此只遷移 guidance 不需要調升 `cash-skills.version`；同版本 target 可先因 guidance drift 回報 `Result: update`，下一次則穩定回報 `Result: current`。
 

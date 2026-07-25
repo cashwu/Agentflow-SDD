@@ -631,29 +631,46 @@ def config_plan(source: Path, target: Path) -> tuple[bytes | None, bool]:
     return source_content, True
 
 
-def marker_span(data: bytes, name: bytes) -> tuple[int, int] | None:
-    start = b"<!-- " + name + b":START -->"
-    end = b"<!-- " + name + b":END -->"
-    if data.count(start) != data.count(start + b"\n") or data.count(end) != data.count(end + b"\n"):
-        raise InstallerError(f"malformed {name.decode()} guidance marker")
-    if data.count(start) > 1 or data.count(end) > 1 or data.count(start) != data.count(end):
-        raise InstallerError(f"duplicate or unbalanced {name.decode()} guidance marker")
-    if not data.count(start):
+def marker_matches(data: bytes, name: bytes, kind: bytes) -> list[re.Match[bytes]]:
+    prefix = re.escape(b"<!-- " + name + b":" + kind)
+    return list(re.finditer(prefix + rb"(?: [^<>\r\n]+)? -->", data))
+
+
+def marker_span(data: bytes, name: bytes, label: str) -> tuple[int, int] | None:
+    starts = marker_matches(data, name, b"START")
+    ends = marker_matches(data, name, b"END")
+    if (
+        sum(match.end() < len(data) and data[match.end()] == 10 for match in starts)
+        != len(starts)
+        or sum(match.end() < len(data) and data[match.end()] == 10 for match in ends)
+        != len(ends)
+    ):
+        raise InstallerError(f"malformed {name.decode()} guidance marker: {label}")
+    if len(starts) > 1 or len(ends) > 1 or len(starts) != len(ends):
+        raise InstallerError(
+            f"duplicate or unbalanced {name.decode()} guidance marker: {label}"
+        )
+    if not starts:
         return None
-    begin = data.index(start)
-    finish = data.index(end)
+    begin = starts[0].start()
+    finish = ends[0].start()
     if finish < begin:
-        raise InstallerError(f"reversed {name.decode()} guidance marker")
+        raise InstallerError(f"reversed {name.decode()} guidance marker: {label}")
     line_end = data.find(b"\n", finish)
     return begin, len(data) if line_end < 0 else line_end + 1
 
 
 def canonical_guidance(source: Path, relative: str) -> bytes:
     content, _ = read_regular(source, relative, expected_mode=0o644)
-    span = marker_span(content, b"CASH")
+    label = f"source {relative}"
+    span = marker_span(content, b"CASH", label)
     if span is None:
         raise InstallerError(f"source guidance has no Cash block: {relative}")
-    if marker_span(content, b"SPECTRA") is not None:
+    for kind in (b"START", b"END"):
+        expected = b"<!-- CASH:" + kind + b" -->"
+        if marker_matches(content, b"CASH", kind)[0].group() != expected:
+            raise InstallerError(f"Cash guidance marker has suffix: {label}")
+    if marker_span(content, b"SPECTRA", label) is not None:
         raise InstallerError(f"source guidance contains a legacy Spectra block: {relative}")
     return content[span[0] : span[1]]
 
@@ -662,8 +679,8 @@ def render_guidance(source: Path, target: Path, relative: str) -> tuple[bytes, i
     canonical = canonical_guidance(source, relative)
     existing = optional_snapshot(target, relative)
     content = existing.content or b""
-    cash = marker_span(content, b"CASH")
-    legacy = marker_span(content, b"SPECTRA")
+    cash = marker_span(content, b"CASH", relative)
+    legacy = marker_span(content, b"SPECTRA", relative)
     if cash and legacy and not (cash[1] <= legacy[0] or legacy[1] <= cash[0]):
         raise InstallerError(f"nested guidance markers: {relative}")
     spans: list[tuple[int, int, bytes]] = []
