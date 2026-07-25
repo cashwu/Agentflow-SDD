@@ -423,6 +423,41 @@ class LauncherLockTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, '{"changes":[]}\n')
 
+    def test_help_does_not_bypass_missing_receipt(self) -> None:
+        (self.root / ".cash-skills" / "receipt.tsv").unlink()
+
+        result = subprocess.run(
+            [str(self.launcher), "--help", "--json"],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["error"]["code"], "bootstrap_invalid")
+        self.assertNotIn("commands", payload)
+        self.assertEqual(result.stderr, "")
+
+    def test_help_does_not_bypass_invalid_receipt(self) -> None:
+        (self.root / ".cash-skills" / "receipt.tsv").write_text(
+            "invalid receipt\n",
+            encoding="utf-8",
+        )
+
+        result = subprocess.run(
+            [str(self.launcher), "--help", "--json"],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 1)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["error"]["code"], "receipt_invalid")
+        self.assertNotIn("commands", payload)
+        self.assertEqual(result.stderr, "")
+
     def test_error_fixture_documents_stable_exit_classes(self) -> None:
         contracts = json.loads(
             (FIXTURES / "error-contracts.json").read_text(encoding="utf-8")

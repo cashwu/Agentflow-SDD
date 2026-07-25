@@ -1,1 +1,1 @@
-{"unknown_command":{"error":{"code":"unknown_command","message":"Unknown command: nope"}},"unsafe_path":{"error":{"code":"unsafe_path","message":"Symlink managed paths are not allowed.","path":"openspec/state.txt"}}}
+{"unknown_command":{"error":{"code":"unknown_command","message":"Unknown command: nope. Run --help for available commands."}},"unsafe_path":{"error":{"code":"unsafe_path","message":"Symlink managed paths are not allowed.","path":"openspec/state.txt"}}}

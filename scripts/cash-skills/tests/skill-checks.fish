@@ -21,6 +21,43 @@ function assert_absent --argument-names path pattern contract
     end
 end
 
+function write_bundle_version_fixture --argument-names path shape
+    python3 -c '
+import sys
+from pathlib import Path
+
+content = Path(sys.argv[1]).read_bytes()
+fixtures = {
+    "valid": content,
+    "no-lf": content[:-1],
+    "crlf": content[:-1] + b"\r\n",
+    "multiple-lf": content + b"\n",
+    "empty": b"",
+    "leading-zero": b"0" + content,
+}
+Path(sys.argv[2]).write_bytes(fixtures[sys.argv[3]])
+' "$root_dir/cash-skills.version" "$path" "$shape"; or fail "could not create bundle version fixture"
+    chmod 0644 "$path"; or fail "could not set bundle version fixture mode"
+end
+
+function bundle_version_shape_is_valid --argument-names path
+    python3 -c '
+import sys
+from pathlib import Path
+
+sys.path.insert(0, sys.argv[2])
+from cash_cli.installer import InstallerError, version_parts
+
+content = Path(sys.argv[1]).read_bytes()
+if not content.endswith(b"\n") or content.count(b"\n") != 1:
+    raise SystemExit(1)
+try:
+    version_parts(content[:-1].decode("utf-8"))
+except (InstallerError, UnicodeDecodeError):
+    raise SystemExit(1)
+' "$path" "$root_dir/.cash-skills/lib"
+end
+
 function assert_inventory
     set -l directories (find "$root_dir/.agents/skills" "$root_dir/.claude/skills" -mindepth 1 -maxdepth 1 -type d -name 'cash-*' -print | sort)
     test (count $directories) -eq 24; or fail "canonical Cash inventory must contain exactly 24 directories"
@@ -35,7 +72,6 @@ function assert_inventory
         set -l retired (find "$root_dir/$variant/skills" -mindepth 1 -maxdepth 1 -type d -name 'spectra-*' -print)
         test (count $retired) -eq 0; or fail "$variant retains a retired canonical skill"
     end
-    test (string trim <"$root_dir/cash-skills.version") = 2.3.0; or fail "cash-skills.version must be 2.3.0"
     test (stat -f '%Lp' "$root_dir/.cash-skills/bin/cash") = 755; or fail "Cash launcher must be 0755"
     test (stat -f '%Lp' "$root_dir/.cash-workspace.lock") = 644; or fail "workspace lock must be 0644"
     test (stat -f '%z' "$root_dir/.cash-workspace.lock") = 0; or fail "workspace lock must be empty"
@@ -217,6 +253,20 @@ function assert_installer
     end
     set -lx PYTHONDONTWRITEBYTECODE 1
     python3 "$root_dir/scripts/cash-skills/tests/test_installer_runtime.py"; or fail "installer runtime contract tests failed"
+    set -l version_fixture (mktemp /tmp/cash-bundle-version.XXXXXX)
+    write_bundle_version_fixture "$version_fixture" valid
+    bundle_version_shape_is_valid "$version_fixture"; or begin
+        command rm -f -- "$version_fixture"
+        fail "valid bundle version fixture was rejected"
+    end
+    for invalid_shape in no-lf crlf multiple-lf empty leading-zero
+        write_bundle_version_fixture "$version_fixture" "$invalid_shape"
+        if bundle_version_shape_is_valid "$version_fixture"
+            command rm -f -- "$version_fixture"
+            fail "invalid bundle version fixture was accepted: $invalid_shape"
+        end
+    end
+    command rm -f -- "$version_fixture"
     python3 "$root_dir/scripts/cash-skills/tests/test_bundle_version_history.py"; or fail "bundle version history contract tests failed"
 end
 

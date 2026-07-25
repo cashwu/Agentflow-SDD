@@ -114,7 +114,7 @@ command 清單 SHALL 只有 help 一個輸出處，且 SHALL 由 dispatch table 
 
 - **形狀驗證比字面值弱**：字面值能攔到「有人改了版本但沒意識到」，形狀驗證不能。但那個能力是以「每次升版都要動 grader-protected 檔案」換來的，且 `test_bundle_version_history.py` 的嚴格遞增檢查已能攔到版本倒退或未升這個真正有害的方向。刻意接受。
 - **`canonical-inventory` 與 `codex-command-matrix` 將不再含任何版本治理**：形狀驗證移到 `assert_installer` 之後，這兩個 group 對版本完全不檢查。今日它們至少還有字面值。判斷是：這兩個 group 的職責分別是 canonical inventory 與 command matrix，版本治理本就不屬於它們；`all` 與 `installer-runtime` 仍完整涵蓋。
-- **fresh clone 的 `cash --help` 拿不到 help**：receipt 是 gitignore 檔，必然不存在，使用者第一個打的指令會得到 `receipt_invalid`。要繞過必須改 stable path 的 bytes，此路不通。已明文寫入規範並在此記錄。
+- **fresh clone 的 `cash --help` 拿不到 help**：receipt 是 gitignore 檔，必然不存在，使用者第一個打的指令會得到 `bootstrap_invalid`。要繞過必須改 stable path 的 bytes，此路不通。已明文寫入規範並在此記錄。
 - **help 仍會取 shared lock**：`--help` 不在 mutating families，取 `LOCK_SH`，因此在既有 exclusive lock 存在時會被阻塞。與其他 read command 一致，不另做處理。
 - **help 只揭露 top-level key**：使用者看到 `new`、`task`、`in-progress`、`touched` 但看不到必填的子命令 token。子命令由各 handler 的 `invalid_arguments` 訊息承載，已列為 Non-Goal。
 - **`cash --json --help` 不觸發 help**：觸發規則只認第一個引數，該組合會走 `unknown_command`（訊息會指向 help flag）。收斂觸發面的代價；日後若造成困擾，擴張規則是相容變更。
