@@ -2,9 +2,9 @@
 id: cross-artifact-definition-drift
 type: recurring-finding
 status: open
-occurrences: 12
+occurrences: 13
 first_seen: 2026-07-07
-last_seen: 2026-07-25
+last_seen: 2026-07-26
 links:
   - openspec/changes/add-micro-verification-round/reviews/propose-r1.md
   - openspec/changes/add-review-loop-discipline/reviews/propose-r1.md
@@ -20,6 +20,7 @@ links:
   - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r1.md
   - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r2.md
   - openspec/changes/tolerate-versioned-legacy-guidance-marker/reviews/propose-r1.md
+  - openspec/changes/rightsize-cash-skills/reviews/propose-r4.md
 
 ---
 
@@ -43,3 +44,4 @@ The same concept (a role's scope, an enumerated list, a rule's condition set) is
 - 2026-07-25 — derive-version-assertion-and-add-cli-help — cash-propose rounds 1–2 — 一份宗旨為消除重複定義的 change，兩次差點自己製造新的一份：delta spec 一度複述 master 已定義的版本格式規則；錯誤訊息一度要內嵌 15 個 command 名稱，而該訊息被 golden fixture 以整個 object 相等比對釘住，等於新增一份需手動同步的清單。最終以「引用而非複述」與「指向 help 而非內嵌清單」兩項改設計解決。
 
 - 2026-07-25 — tolerate-versioned-legacy-guidance-marker — cash-propose round 1 — W4：`CASH-SKILLS.md` 逐字宣稱「未知版本 marker都會在首次 target write前 fail closed」，本次改動使該句直接變假。該檔由 `openspec/specs/cash-skill-workflows/spec.md` 治理，但三個候選自動檢查（live namespace 掃描、source guidance 的 sha256 baseline、docs 的 14 條字面斷言）逐一核實都不會偵測到這處 drift，必須手動列入 Impact 並以獨立 task 同步。
+- 2026-07-26 — rightsize-cash-skills — cash-propose round 4 — 修正 requirement 主句後標題仍為舊形狀措辭；identifier cross-grep 只掃了改動過的舊字串而未涵蓋同義字串，使「檔案層級／全域規則」在 delta spec 兩處與 proposal 三處殘留並與新主句互斥。
