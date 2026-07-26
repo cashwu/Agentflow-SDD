@@ -2,7 +2,7 @@
 id: design-claim-unverified-against-code
 type: recurring-finding
 status: open
-occurrences: 7
+occurrences: 8
 first_seen: 2026-07-25
 last_seen: 2026-07-26
 links:
@@ -19,7 +19,7 @@ links:
   - openspec/changes/harden-spec-trace-path-extraction/reviews/propose-r6.md
   - openspec/changes/harden-spec-trace-path-extraction/reviews/propose-r7.md
   - openspec/changes/harden-spec-trace-path-extraction/reviews/propose-r9.md
-
+  - openspec/changes/harden-trace-path-containment-and-label-shape/reviews/propose-r1.md
 ---
 
 # Design claim unverified against code
@@ -39,3 +39,4 @@ A design or proposal states a fact about the existing codebase as the premise of
 
 - 2026-07-26 — harden-spec-trace-path-extraction — cash-propose rounds 1／2／6 — 三次修正建立在對程式碼的錯誤事實之上，且每次都在下一輪被實測推翻：round 1 宣稱「ASCII 限定後零偽陽性」（實際殘留 `runtime/install`）與「23 個空 tests 代表合法無測試」（實際全來自同一 change 的 clause 定位缺陷）；round 2 為補救機制宣稱「merge 對相同輸入是冪等的」（實際只對 MODIFIED-only 冪等，ADDED 撞 `requirement_collision`）；round 6 發現 round 4 寫入的「`workspace.spec_files` 順序來自未排序的 `os.listdir`」是錯的（`list_directory` 最後一行即 `sorted(...)`），而 round 5 據該錯誤事實設計的驗證 case 因此空轉。
 - 2026-07-26 — harden-spec-trace-path-extraction — cash-propose rounds 7–9（re-run）—— 同型於重跑中復發兩次，皆為修正動作寫入未經量測的語料宣稱：round 7 的修正把 round 3 已判定不可重現並移除的「73／72」總數重新寫回兩處（R7-W2）；round 7 對 R7-S7 的修正在 design Risks 寫入「實測⋯損失為 0」的未量測宣稱（R8-W1），round 8 修正其計數後同句又寫入錯誤的出處歸屬「皆來自同一份已封存 proposal」（實為兩份，R9-W1），至 round 9 修正、round 10 兩位檢查點 reviewer 獨立量測後才確認收斂。教訓：fix action 中的每一個「實測」字樣都必須附帶當下真的執行過的量測。
+- 2026-07-26 — harden-trace-path-containment-and-label-shape — cash-propose round 1 — design 的 Risks 與 tasks 的版本提升任務都以「`cash-skills.version` 在工作區已被前一個 change 提升過且尚未提交」為前提，但該 change 已封存並提交，工作區值與 `git show HEAD:` 相同。指示本身（取兩者最大值後嚴格遞增）安全且結果不變，但錯誤的前提會讓實作者預期一個不存在的 dirty working tree 而誤判環境異常。

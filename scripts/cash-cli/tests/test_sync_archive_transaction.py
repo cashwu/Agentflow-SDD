@@ -150,6 +150,116 @@ class SyncArchiveTransactionTests(unittest.TestCase):
         self.assertTrue(all(not value.startswith("./") for value in values))
         self.assertTrue(all(not value.endswith("/") for value in values))
 
+    def test_trace_code_paths_reject_noncanonical_segments(self) -> None:
+        for rejected in ("../outside/x.py", "a/./b.py", "a//b.py"):
+            with self.subTest(rejected=rejected):
+                self.assertEqual(
+                    self.extract_code_paths(
+                        "## Impact\n\n"
+                        "- Affected code:\n"
+                        "  - Modified:\n"
+                        f"    - {rejected}\n"
+                        "    - scripts/cash-cli/valid.py\n"
+                    ),
+                    ["scripts/cash-cli/valid.py"],
+                )
+
+    def test_trace_paths_reject_home_relative_first_segment(self) -> None:
+        self.assertEqual(
+            self.extract_code_paths(
+                "## Impact\n\n"
+                "- Affected code:\n"
+                "  - Modified:\n"
+                "    - ~/outside/x.py\n"
+                "    - a/~b/c.py\n"
+            ),
+            ["a/~b/c.py"],
+        )
+
+    def test_trace_test_paths_reject_home_relative_first_segment(self) -> None:
+        self.assertEqual(
+            self.extract_test_paths(
+                "- [ ] 1.1 實作；以 `python3 ~/outside/tests/test_a.py` 驗證\n"
+            ),
+            [],
+        )
+
+    def test_trace_test_paths_reject_parent_segment(self) -> None:
+        self.assertEqual(
+            self.extract_test_paths(
+                "- [ ] 1.1 實作；以 `python3 ../tests/test_a.py` 驗證\n"
+            ),
+            [],
+        )
+
+    def test_trace_code_paths_accept_label_trailing_whitespace(self) -> None:
+        self.assertEqual(
+            self.extract_code_paths(
+                "## Impact\n\n"
+                "- Affected code:   \n"
+                "  - Modified:\n"
+                "    - scripts/cash-cli/trailing.py\n"
+            ),
+            ["scripts/cash-cli/trailing.py"],
+        )
+
+    def test_trace_code_paths_accept_indented_label(self) -> None:
+        self.assertEqual(
+            self.extract_code_paths(
+                "## Impact\n\n"
+                "  - Affected code:\n"
+                "    - Modified:\n"
+                "      - scripts/cash-cli/indented.py\n"
+            ),
+            ["scripts/cash-cli/indented.py"],
+        )
+
+    def test_trace_code_paths_collect_inline_label_path(self) -> None:
+        self.assertEqual(
+            self.extract_code_paths(
+                "## Impact\n\n"
+                "- Affected code: scripts/cash-cli/inline.py\n"
+            ),
+            ["scripts/cash-cli/inline.py"],
+        )
+
+    def test_trace_code_paths_accept_impact_heading_trailing_whitespace(self) -> None:
+        self.assertEqual(
+            self.extract_code_paths(
+                "## Impact   \n\n"
+                "- Affected code:\n"
+                "  - Modified:\n"
+                "    - scripts/cash-cli/impact.py\n"
+            ),
+            ["scripts/cash-cli/impact.py"],
+        )
+
+    def test_trace_code_paths_reject_emphasized_and_fullwidth_labels(self) -> None:
+        self.assertEqual(
+            self.extract_code_paths(
+                "## Impact\n\n"
+                "- **Affected code:**\n"
+                "  - scripts/cash-cli/emphasized.py\n"
+                "- Affected code：\n"
+                "  - scripts/cash-cli/fullwidth.py\n"
+                "- Affected code:\n"
+                "  - scripts/cash-cli/exact.py\n"
+            ),
+            ["scripts/cash-cli/exact.py"],
+        )
+
+    def test_trace_code_paths_stop_at_indented_affected_specs(self) -> None:
+        self.assertEqual(
+            self.extract_code_paths(
+                "## Impact\n\n"
+                "  - Affected code:\n"
+                "    - scripts/cash-cli/code.py\n"
+                "  - Affected specs:\n"
+                "    - openspec/specs/cash-cli/spec.md\n"
+            ),
+            ["scripts/cash-cli/code.py"],
+        )
+
     def test_trace_test_paths_exclude_non_path_punctuation(self) -> None:
         self.assertEqual(
             self.extract_test_paths(

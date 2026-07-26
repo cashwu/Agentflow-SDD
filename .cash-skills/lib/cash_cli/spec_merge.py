@@ -144,6 +144,11 @@ def _canonical_path(value: str) -> str | None:
             value = value[:-1]
     if value.startswith("/") or "/" not in value:
         return None
+    segments = value.split("/")
+    if any(segment in {"", ".", ".."} for segment in segments):
+        return None
+    if segments[0].startswith("~"):
+        return None
     return value
 
 
@@ -160,21 +165,8 @@ def _paths_in_section(
     in_section = False
     in_list = False
     values: set[str] = set()
-    for line in lines:
-        if line == heading:
-            in_section = True
-            continue
-        if in_section and line.startswith("## "):
-            break
-        if not in_section:
-            continue
-        if line == list_label:
-            in_list = True
-            continue
-        if in_list and line.startswith("- Affected "):
-            break
-        if not in_list:
-            continue
+
+    def collect(line: str) -> None:
         candidates = [
             *(value for value in _CODE_SPAN.findall(line) if "/" in value),
             *_PLAIN_PATH.findall(_CODE_SPAN.sub(" ", line)),
@@ -184,6 +176,24 @@ def _paths_in_section(
             for value in candidates
             if (canonical := _canonical_path(value)) is not None
         )
+
+    for line in lines:
+        if line.rstrip() == heading:
+            in_section = True
+            continue
+        if in_section and line.startswith("## "):
+            break
+        if not in_section:
+            continue
+        stripped = line.strip()
+        if stripped.startswith(list_label):
+            in_list = True
+            line = stripped[len(list_label) :]
+        elif in_list and stripped.startswith("- Affected "):
+            break
+        if not in_list:
+            continue
+        collect(line)
     return sorted(values, key=lambda value: value.encode("utf-8"))
 
 
