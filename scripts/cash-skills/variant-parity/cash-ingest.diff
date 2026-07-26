@@ -15,6 +15,6 @@
 @@ -53 +53 @@
 -   - Check the current working directory and repository root for recent plan files
 +   - Check `~/.claude/plans/` for recent files
-@@ -267 +267 @@
+@@ -252 +252 @@
 -- **NEVER** modify the original plan file, regardless of its resolved location
 +- **NEVER** modify the original plan file in `~/.claude/plans/`

@@ -2,14 +2,15 @@
 id: enumerated-site-set-factually-wrong
 type: recurring-finding
 status: open
-occurrences: 2
+occurrences: 3
 first_seen: 2026-07-25
-last_seen: 2026-07-25
+last_seen: 2026-07-26
 links:
   - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r4.md
   - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r5.md
   - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r6.md
   - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r7.md
+  - openspec/changes/rightsize-cash-skills/reviews/propose-r1.md
 
 ---
 
@@ -22,3 +23,4 @@ artifact 以枚舉方式列出某項變更需要處理的全部位置（測試�
 - 2026-07-25 — harden-installer-mode-and-recovery — cash-propose rounds 4–6 — fault-injection hook 測試的注入路徑枚舉連續三輪不正確：先是漏列全部經 `install` helper `TEST_` 轉譯層的兩個測試並宣稱「沒有一個經過該層」，修正後又留下「六個測試分屬四條路徑」但只列出三組的計數矛盾。
 
 - 2026-07-25 — harden-installer-mode-and-recovery — cash-propose round 7（re-run）— recovery 的位置錨定只列舉 `managed target drift` 一個提前返回分支，但 `install_target` 在它之前還有 `legacy receipt drift` 與 `receipt-less Cash skill inventory is partial` 兩個分支；fresh install 在 skills 發布途中崩潰恰恰命中後者，因此本變更的核心修復在最典型情境下仍不成立，而所有既有 fixture 都建在已安裝 target 上、測試不會捕捉。修法為改以「緊接在 `newer` early return 之後、早於全部三個分支」錨定並具名列出。
+- 2026-07-26 — rightsize-cash-skills — cash-propose round 1 — `cash-commit` 的 AskUserQuestion fallback 實為五處，proposal 與任務記為四處——遺漏的 `:72` 使用未逐字提及工具名的泛稱措辭，依原計數執行會殘留一處。

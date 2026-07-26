@@ -2,7 +2,7 @@
 id: test-fixture-required-case-missing
 type: recurring-finding
 status: open
-occurrences: 5
+occurrences: 6
 first_seen: 2026-07-24
 last_seen: 2026-07-25
 links:
@@ -11,6 +11,7 @@ links:
   - openspec/changes/harden-installer-mode-and-recovery/reviews/apply-r1.md
   - openspec/changes/tolerate-versioned-legacy-guidance-marker/reviews/propose-r4.md
   - openspec/changes/tolerate-versioned-legacy-guidance-marker/reviews/propose-r7.md
+  - openspec/changes/rightsize-cash-skills/reviews/apply-r1.md
 
 ---
 
@@ -28,3 +29,4 @@ A regression test claims to cover a task-required input shape, but its fixture d
 - 2026-07-25 — tolerate-versioned-legacy-guidance-marker — cash-propose round 1 與 round 4 — Q2 最嚴重：1.5 的五個 fail-closed case 未指明對側 marker 是否也帶字尾，而現行實作對單側帶字尾必然已 fail closed，因此四個 case 照字面寫出來在修復前就是綠的，宣稱最重要的「五種判定不放寬」驗證實際上四分之四空轉。另 W1 與 F-A2 分別遺漏帶字尾的 END 與 source 側 CASH:END，W2 的 fixture 描述自相矛盾（首行即 marker vs marker 之前另有文字）。
 
 - 2026-07-25 — tolerate-versioned-legacy-guidance-marker — cash-propose round 7 與 round 10 —— B-2：IC4 的核心 MUST（`canonical_guidance` 須傳入帶 source 限定詞的標籤）完全沒有驗證點，因為全部失敗情境中 `marker_span` 的例外都在 target 側，source 側的兩個打到的是另一條 IC5 新例外；實作者只要在該新訊息寫死限定詞就能讓全部斷言變綠而 IC4 已被違反。B-3 與 Q-4：1.4 case 二與 1.2 的斷言非排他形式，現行實作對兩側皆帶字尾的 block 會於檔尾附加 canonical 而 exit 0，包含式斷言在修復前即成立。
+- 2026-07-26 — rightsize-cash-skills — cash-apply round 1 — fallback parser 的 canonical corpus 全為單行 `ask` 形式，沒有固定 fixture 覆蓋 spec 要求的跨行 `present the same options` 形狀；修正後加入單行、跨行、單軸與重複陳述 fixtures。

@@ -320,7 +320,75 @@ function assert_namespace
     python3 "$root_dir/scripts/cash-skills/tests/test_live_namespace.py" "$root_dir"; or fail "live namespace scan failed"
 end
 
+function fallback_statement_count --argument-names path
+    perl -ne '
+BEGIN {
+    $count = 0;
+}
+sub axis_a {
+    my ($line) = @_;
+    return $line =~ /(?:AskUserQuestion|interaction|(?:this|the)\s+(?:\*\*)?tool).*?(?:not\s+available|unavailable)/i
+        || $line =~ /\bno\b.*?AskUserQuestion.*?available/i;
+}
+sub finish {
+    my $same_prompt = $block =~ /\bask\b/i
+        || $block =~ /\b(?:present|show|offer)\b.*?\b(?:questions?|options?)\b/i;
+    if ($collect && $same_prompt && $block =~ /plain[- ](?:text|language)/i && $block =~ /\bwait\b/i) {
+        $count++;
+    }
+    $collect = 0;
+    $block = "";
+}
+if (/^\s*$/) {
+    finish();
+} elsif (axis_a($_)) {
+    finish() if $collect;
+    $collect = 1;
+    $block = $_;
+} elsif ($collect) {
+    $block .= $_;
+}
+END {
+    finish();
+    print "$count\n";
+}
+' "$path"
+end
+
+function assert_fallback_parser_examples
+    set -l fixture (mktemp /tmp/cash-fallback-parser.XXXXXX)
+
+    printf '%s\n' \
+        'If the AskUserQuestion tool is unavailable, ask the same question in plain text and wait.' \
+        >"$fixture"
+    test (fallback_statement_count "$fixture") = 1; or fail "fallback parser rejected single-line question form"
+
+    printf '%s\n' \
+        'If the AskUserQuestion tool is unavailable:' \
+        'present the same options in plain text and wait.' \
+        >"$fixture"
+    test (fallback_statement_count "$fixture") = 1; or fail "fallback parser rejected multi-line option form"
+
+    printf '%s\n' \
+        'If interaction is unavailable, do not write the entry.' \
+        '' \
+        'Use plain-language option labels and wait for the user.' \
+        >"$fixture"
+    test (fallback_statement_count "$fixture") = 0; or fail "fallback parser counted a one-axis paragraph"
+
+    printf '%s\n' \
+        'If the AskUserQuestion tool is unavailable, ask the same question in plain text and wait.' \
+        '' \
+        'If the tool is unavailable, present the same options in plain text and wait.' \
+        >"$fixture"
+    test (fallback_statement_count "$fixture") = 2; or fail "fallback parser missed a duplicate statement"
+
+    command rm -f -- "$fixture"
+end
+
 function assert_well_formedness
+    assert_fallback_parser_examples
+
     for variant in .agents .claude
         for skill in $cash_skills
             set -l relative "$variant/skills/cash-$skill/SKILL.md"
@@ -352,6 +420,37 @@ function assert_well_formedness
 
     set -l ingest "$root_dir/.agents/skills/cash-ingest/SKILL.md"
     assert_absent "$ingest" '~/.claude/plans/|(?<![A-Za-z0-9_*])(?:[A-Za-z0-9_.~-]+/)+(?:<name>|agile-discovering-rocket)(?:\\.md)?' "directory-free Codex plan references"
+
+    for variant in .agents .claude
+        set -l apply "$root_dir/$variant/skills/cash-apply/SKILL.md"
+        assert_contains "$apply" '本次 diff 的每一行，都能直接追溯到 `tasks.md` 中的某條任務或 `design.md` 中的 Implementation Contract 項目' "focused implementation traceability"
+        assert_contains "$apply" '若刻意 deviate，依 Implementation Notes Protocol 寫一筆 `deviation` 條目' "focused implementation deviation protocol"
+        for forbidden in \
+            '巢狀三元運算子（nested ternary）' \
+            'dense one-liner' \
+            '把多個關注點塞進同一個 function' \
+            '移除有意義的中介變數' \
+            '移除真正在傳遞意圖的命名常數' \
+            '拿掉合理的抽象'
+            assert_absent "$apply" (string escape --style=regex "$forbidden") "criterion-based implementation discipline"
+        end
+        for skill in apply propose
+            set -l path "$root_dir/$variant/skills/cash-$skill/SKILL.md"
+            assert_contains "$path" 'Focused Implementation Discipline' "focused implementation discipline reference"
+            assert_absent "$path" 'Simplicity First|Surgical Changes' "retired implementation discipline reference"
+        end
+    end
+
+    set -l ask_user_skills analyze apply archive commit drift ingest propose verify
+    for variant in .agents .claude
+        for skill in $cash_skills
+            set -l path "$root_dir/$variant/skills/cash-$skill/SKILL.md"
+            set -l expected 0
+            contains "$skill" $ask_user_skills; and set expected 1
+            set -l actual (fallback_statement_count "$path")
+            test "$actual" = "$expected"; or fail "$variant/skills/cash-$skill/SKILL.md has $actual interaction fallback statements; expected $expected"
+        end
+    end
 end
 
 set -l group all
