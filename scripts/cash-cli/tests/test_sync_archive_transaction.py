@@ -11,11 +11,154 @@ from unittest import mock
 from cash_cli.commands.archive import archive_change, sync_change
 from cash_cli.commands.tasks import ensure_touched
 from cash_cli.errors import CashError
-from cash_cli.spec_merge import _task_paths
+from cash_cli.spec_merge import _paths_in_section, _task_paths
 from cash_cli.workspace import Workspace
 
 
 class SyncArchiveTransactionTests(unittest.TestCase):
+    def extract_code_paths(self, proposal: str) -> list[str]:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "proposal.md"
+            path.write_text(proposal, encoding="utf-8")
+            return _paths_in_section(
+                Workspace(Path(directory)),
+                path,
+                "## Impact",
+                "- Affected code:",
+            )
+
+    def extract_test_paths(self, tasks: str) -> list[str]:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "tasks.md"
+            path.write_text(tasks, encoding="utf-8")
+            return _task_paths(Workspace(Path(directory)), path)
+
+    def test_trace_code_paths_accept_plain_affected_code_path(self) -> None:
+        self.assertEqual(
+            self.extract_code_paths(
+                "## Impact\n\n"
+                "- Affected code:\n"
+                "  - Modified:\n"
+                "    - scripts/cash-cli/plain.py\n"
+            ),
+            ["scripts/cash-cli/plain.py"],
+        )
+
+    def test_trace_code_paths_deduplicate_plain_and_code_span_path(self) -> None:
+        self.assertEqual(
+            self.extract_code_paths(
+                "## Impact\n\n"
+                "- Affected code:\n"
+                "  - Modified:\n"
+                "    - scripts/cash-cli/shared.py and `scripts/cash-cli/shared.py`\n"
+            ),
+            ["scripts/cash-cli/shared.py"],
+        )
+
+    def test_trace_code_paths_ignore_non_ascii_plain_prose(self) -> None:
+        self.assertEqual(
+            self.extract_code_paths(
+                "## Impact\n\n"
+                "- Affected code:\n"
+                "  - Modified:\n"
+                "    - 這是中文/散文片語\n"
+            ),
+            [],
+        )
+
+    def test_trace_code_paths_exclude_affected_specs(self) -> None:
+        self.assertEqual(
+            self.extract_code_paths(
+                "## Impact\n\n"
+                "- Affected specs:\n"
+                "  - `openspec/specs/demo/spec.md`\n"
+                "- Affected code:\n"
+                "  - Modified:\n"
+                "    - `scripts/cash-cli/demo.py`\n"
+            ),
+            ["scripts/cash-cli/demo.py"],
+        )
+
+    def test_trace_test_paths_scan_all_verification_tokens(self) -> None:
+        self.assertEqual(
+            self.extract_test_paths(
+                "- [ ] 1.1 實作；以 `python3 scripts/cash-cli/tests/test_demo.py` 驗證\n"
+                "- [ ] 1.2 實作；以 `fish scripts/cash-cli/tests/cli-checks.fish demo` 驗證\n"
+            ),
+            [
+                "scripts/cash-cli/tests/cli-checks.fish",
+                "scripts/cash-cli/tests/test_demo.py",
+            ],
+        )
+
+    def test_trace_test_paths_ignore_other_tokens_in_code_span(self) -> None:
+        self.assertEqual(
+            self.extract_test_paths(
+                "- [ ] 1.1 實作；以 `scripts/cash-cli/tests/test_demo.py --verbose demo` 驗證\n"
+            ),
+            ["scripts/cash-cli/tests/test_demo.py"],
+        )
+
+    def test_trace_test_paths_preserve_bare_check_script_mappings(self) -> None:
+        self.assertEqual(
+            self.extract_test_paths(
+                "- [ ] 1.1 實作；以 `cli-checks.fish` 驗證\n"
+                "- [ ] 1.2 實作；以 `skill-checks.fish` 驗證\n"
+            ),
+            [
+                "scripts/cash-cli/tests/cli-checks.fish",
+                "scripts/cash-skills/tests/skill-checks.fish",
+            ],
+        )
+
+    def test_trace_test_paths_exclude_delivery_fish_script(self) -> None:
+        self.assertEqual(
+            self.extract_test_paths(
+                "- [ ] 1.1 實作；以 `scripts/cash-cli/install-helper.fish` 驗證\n"
+            ),
+            [],
+        )
+
+    def test_trace_test_paths_canonicalize_dot_slash_prefix(self) -> None:
+        self.assertEqual(
+            self.extract_test_paths(
+                "- [ ] 1.1 實作；以 `./scripts/cash-cli/tests/test_demo.py` 驗證\n"
+            ),
+            ["scripts/cash-cli/tests/test_demo.py"],
+        )
+
+    def test_trace_code_paths_canonicalize_repeated_prefixes_and_suffixes(self) -> None:
+        values = self.extract_code_paths(
+            "## Impact\n\n"
+            "- Affected code:\n"
+            "  - Modified:\n"
+            "    - `./scripts/cash-cli/one.py`\n"
+            "    - `././scripts/cash-cli/two.py`\n"
+            "    - `scripts/cash-cli/three/`\n"
+            "    - `scripts/cash-cli/four//`\n"
+        )
+
+        self.assertEqual(
+            values,
+            [
+                "scripts/cash-cli/four",
+                "scripts/cash-cli/one.py",
+                "scripts/cash-cli/three",
+                "scripts/cash-cli/two.py",
+            ],
+        )
+        self.assertTrue(all(not value.startswith("./") for value in values))
+        self.assertTrue(all(not value.endswith("/") for value in values))
+
+    def test_trace_test_paths_exclude_non_path_punctuation(self) -> None:
+        self.assertEqual(
+            self.extract_test_paths(
+                "- [ ] 1.1 實作；以 `scripts/cash-cli/tests/x.py::test_y` "
+                "與 `--rootdir=scripts/cash-cli/tests/z` 驗證\n"
+            ),
+            [],
+        )
+
     def test_trace_path_extraction_never_crosses_lines(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             tasks = Path(directory) / "tasks.md"
@@ -74,7 +217,11 @@ class SyncArchiveTransactionTests(unittest.TestCase):
         )
         (change / "proposal.md").write_text(
             "## Summary\n\nDemo\n\n## Capabilities\n\nDemo\n\n"
-            "## Impact\n\n- Modified: `src/demo.py`\n",
+            "## Impact\n\n"
+            "- Affected specs:\n"
+            "  - demo\n"
+            "- Affected code:\n"
+            "  - Modified: `src/demo.py`\n",
             encoding="utf-8",
         )
         (change / "design.md").write_text(

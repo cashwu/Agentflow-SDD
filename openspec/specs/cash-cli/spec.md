@@ -448,6 +448,10 @@ tests:
 
 `archive` MUST總是先執行workspace/config、identity、destination、journal及filesystem safety preflight。預設 MUST再執行完整change validation；`--no-validate`只略過此domain gate，MUST NOT略過delta parse/title identity、sync或safety preflight。`--mark-tasks-complete` MUST在validation後stage所有remaining checkbox，再與sync、manifest及archive move一同commit或rollback。未帶`--skip-specs`時驗證既有sync manifest或執行一次sync，帶`--skip-specs`時 MUST NOT merge；Cash workflows MUST NOT委派`spectra-sync-specs`。成功後 MUST寫入archive identity manifest、移動到`openspec/changes/archive/YYYY-MM-DD-<name>/`並清理Cash state。正常failure MUST回滾checkbox、master specs與change location；rollback failure MUST保留journal並阻斷後續mutation。
 
+`@trace`的兩個路徑欄位 MUST自被治理的artifact形狀抽取，MUST NOT額外要求該形狀未規定的書寫慣例。`code`的抽取範圍 MUST限定為proposal `## Impact`的`- Affected code:`子清單，MUST NOT涵蓋`- Affected specs:`，使抽取範圍與本requirement既有的「`code`取proposal affected-code paths」定義一致。該範圍內 MUST同時接受backtick code span內的路徑與裸路徑token；裸路徑token的字元集 MUST限定為ASCII路徑字元，使以斜線分隔的非ASCII散文 MUST NOT被視為路徑；該字元集 MUST NOT含`,`、`;`、`(`、`)`、`:`、`=`等非路徑標點，使帶指令參數或test-id後綴的token MUST NOT被逐字寫入。同一個路徑以兩種形式出現時 MUST只計一次。
+
+`tests`的抽取 MUST掃描驗證子句內每個code span的全部whitespace token，MUST NOT只判定第一個token，因此以直譯器或指令名稱起首的驗證子句 MUST仍能貢獻其中的測試路徑。其token判準 MUST為：canonical check script的裸檔名維持既有映射，且該映射 MUST在任何canonical化之前判定；其餘token MUST先要求全部字元屬於與`code`側相同的ASCII路徑字元集，不符者 MUST NOT進入`tests`，再經canonical化（剝除`./`前綴與結尾的`/`；以`/`起首或剝除後不含斜線的token MUST NOT進入`tests`），最後要求canonical化後的值滿足`/tests/`出現在其路徑中或其檔名以`test_`起首。僅以`.fish`或`.sh`副檔名為由 MUST NOT被視為測試路徑，因為交付腳本與測試腳本共用該副檔名，僅憑副檔名接受會使source交付路徑被記為測試證據。兩個欄位寫入trace的值 MUST皆為剝除`./`前綴後、不以`/`起首且不以`/`結尾的canonical repo-relative形式。
+
 #### Scenario: MODIFIED title 不吻合時 sync 失敗
 
 - **GIVEN** delta spec的MODIFIED title不存在於對應master spec
@@ -507,48 +511,56 @@ tests:
 - **THEN**command略過獨立change validation後stage所有task checkboxes
 - **AND**checkbox、spec merge、manifest與move在任一步失敗時一起rollback
 
+#### Scenario: Impact 以純文字路徑書寫仍產生 code trace
+
+- **GIVEN** 某個change的proposal `## Impact`的`- Affected code:`子清單以不加backtick的純文字列出路徑
+- **WHEN** 執行`sync`或`archive`
+- **THEN** 產生的`@trace`的`code`欄位含該子清單列出的路徑
+- **AND** 同一路徑同時以backtick與純文字出現時只列一次
+
+#### Scenario: Affected specs 的路徑不進入 code trace
+
+- **GIVEN** 某個change的proposal `## Impact`同時有`- Affected specs:`與`- Affected code:`兩個子清單
+- **WHEN** 執行`sync`
+- **THEN** `@trace`的`code`欄位只含`- Affected code:`子清單的路徑
+- **AND** 只出現在`- Affected specs:`的路徑 MUST NOT出現在該欄位
+
+#### Scenario: 以斜線分隔的非 ASCII 散文不進入 code trace
+
+- **GIVEN** 某個change的proposal `- Affected code:`子清單含以純文字（非code span）書寫、以斜線分隔的非ASCII散文片語
+- **WHEN** 執行`sync`
+- **THEN** 該片語 MUST NOT出現在`@trace`的`code`欄位
+
+#### Scenario: 驗證子句以直譯器起首仍產生 tests trace
+
+- **GIVEN** 某個change的tasks驗證子句寫成直譯器或指令名稱在前、測試路徑在後的形式
+- **WHEN** 執行`sync`或`archive`
+- **THEN** 產生的`@trace`的`tests`欄位含該測試路徑
+- **AND** 同一個code span內不滿足測試判準的其他token MUST NOT出現在該欄位
+
+#### Scenario: 交付腳本不因副檔名被記為測試證據
+
+- **GIVEN** 某個change的驗證子句含位於tests目錄之外、檔名不以`test_`起首、且以`.fish`或`.sh`結尾的交付腳本路徑
+- **WHEN** 執行`sync`
+- **THEN** 該路徑 MUST NOT出現在`@trace`的`tests`欄位
+
+#### Scenario: 兩個欄位的非 canonical 形式皆被正規化
+
+- **WHEN** 某個change以`./`起首書寫`- Affected code:`的路徑或驗證子句的測試路徑
+- **THEN** 寫入`@trace`的值為剝除`./`後的repo-relative形式
+
+- **WHEN** 該路徑以`/`結尾
+- **THEN** 寫入`@trace`的值 MUST NOT以`/`結尾
+
 <!-- @trace
-source: replace-spectra-cli-with-cash-cli
-updated: 2026-07-24
+source: harden-spec-trace-path-extraction
+updated: 2026-07-26
 code:
-  - .agents/skills/
-  - .agents/skills/spectra-analyze/
-  - .agents/skills/spectra-apply/
-  - .agents/skills/spectra-archive/
-  - .agents/skills/spectra-ask/
-  - .agents/skills/spectra-audit/
-  - .agents/skills/spectra-commit/
-  - .agents/skills/spectra-debug/
-  - .agents/skills/spectra-discuss/
-  - .agents/skills/spectra-drift/
-  - .agents/skills/spectra-ingest/
-  - .agents/skills/spectra-propose/
-  - .agents/skills/spectra-verify/
-  - .cash-skills/bin/cash
-  - .cash-skills/lib/cash_cli/
-  - .cash-skills/receipt.tsv
-  - .cash-skills/state/
-  - .cash-skills/state/snapshots/
-  - .cash-skills/state/touched/
-  - .claude/skills/
-  - .claude/skills/spectra-analyze/
-  - .claude/skills/spectra-apply/
-  - .claude/skills/spectra-archive/
-  - .claude/skills/spectra-ask/
-  - .claude/skills/spectra-audit/
-  - .claude/skills/spectra-commit/
-  - .claude/skills/spectra-debug/
-  - .claude/skills/spectra-discuss/
-  - .claude/skills/spectra-drift/
-  - .claude/skills/spectra-ingest/
-  - .claude/skills/spectra-propose/
-  - .claude/skills/spectra-verify/
-  - .spectra/
-  - scripts/cash-cli/fixtures/
-  - scripts/cash-cli/tests/
-  - scripts/cash-skills/legacy-spectra-digests.tsv
-  - scripts/cash-skills/tests/skill-checks.fish
+  - .cash-skills/lib/cash_cli/spec_merge.py
+  - scripts/cash-cli/tests/test_sync_archive_transaction.py
 tests:
+  - scripts/cash-cli/tests/test_sync_archive_transaction.py
+  - scripts/cash-skills/tests/test_bundle_version_history.py
 -->
 
 ### Requirement: Deterministic validation、analysis 與 drift

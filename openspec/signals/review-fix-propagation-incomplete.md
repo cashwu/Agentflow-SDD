@@ -2,7 +2,7 @@
 id: review-fix-propagation-incomplete
 type: recurring-finding
 status: open
-occurrences: 13
+occurrences: 14
 first_seen: 2026-07-07
 last_seen: 2026-07-26
 links:
@@ -30,6 +30,7 @@ links:
   - openspec/changes/track-review-loop-outputs-in-allowlist/reviews/propose-r2.md
   - openspec/changes/bootstrap-openspec-config-on-install/reviews/propose-r2.md
   - openspec/changes/support-multi-file-skill-payload/reviews/propose-r3.md
+  - openspec/changes/harden-spec-trace-path-extraction/reviews/propose-r6.md
 
 ---
 
@@ -57,3 +58,5 @@ A review-round fix introduces or changes a rule, but claims about that rule else
 - 2026-07-25 — track-review-loop-outputs-in-allowlist — cash-propose rounds 2 與 3 — 同一批修復連續三次只落到部分位置：round 1 宣稱「proposal、design、spec 三處統一」但未落到 proposal；round 1 的新前置規則只傳播到兩個呼叫點中較晚的那一個，而較早的那個才是該 skill 第一次接觸 state 的位置；round 2 的前綴收斂改了測試案例卻漏了唯一的實作任務，使該任務的驗收目標自相矛盾。三次都是 `## Fix Actions` 的宣稱與實際落點不符。
 - 2026-07-26 — bootstrap-openspec-config-on-install — cash-propose round 2 — 第 1 輪為修正 `--register` 語意，同步了 `proposal.md`、delta spec、design 的 D5 與 Implementation Contract，卻漏掉同一份 `design.md` 的 `## Goals`；Goals 仍寫著「三種 target mode 行為一致」，與 D5／IC 的「`--register` MUST NOT 建立該檔」直接矛盾。fix propagation 的盲點常落在同一份檔案裡層級較高、措辭較概括的段落——grep 概念時容易只命中精確識別字，而漏掉概括敘述。
 - 2026-07-26 — support-multi-file-skill-payload — cash-propose round 2／3 — 連續兩輪出現同型缺陷：Round 2 的 Y6 修正只記錄並執行了 `design.md`，而同一概念也出現在 `tasks.md` 6.1 的引述句；Round 1 的改寫亦未傳播到 `proposal.md` 三段與 `tasks.md` 2.2 本文。
+
+- 2026-07-26 — harden-spec-trace-path-extraction — cash-propose rounds 3／4／5／6 — 同一個 loop 內連續四輪出現同型缺陷，且全部發生在主 agent 自己的修正上：round 3 發現前兩輪的修正集中在 delta／design／tasks 而 proposal 被落下到互相矛盾；round 4 發現被 D6 否定的因果句只從 design 移除、仍逐字留在 proposal 與會併入 master spec 的 delta；round 5 發現第 4 輪的 tasks 側修正全部未落地；round 6 發現新增 case 時未同步該 task 的 case 計數、下游 task 的驗證句與追溯表。教訓是「修正的傳播面」本身要當成 checklist 機械檢查，而非依賴撰寫當下的記憶。
