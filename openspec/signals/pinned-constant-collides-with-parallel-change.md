@@ -2,11 +2,12 @@
 id: pinned-constant-collides-with-parallel-change
 type: recurring-finding
 status: open
-occurrences: 1
+occurrences: 2
 first_seen: 2026-07-25
-last_seen: 2026-07-25
+last_seen: 2026-07-26
 links:
   - openspec/changes/tolerate-versioned-legacy-guidance-marker/reviews/propose-r8.md
+  - openspec/changes/bootstrap-openspec-config-on-install/reviews/propose-r1.md
 ---
 
 # Pinned constant collides with parallel change
@@ -16,3 +17,4 @@ A task hard-codes a value it must advance (a version, a counter, a sequence numb
 ## Occurrences
 
 - 2026-07-25 — tolerate-versioned-legacy-guidance-marker — cash-propose round 8 與 round 9 —— tasks 2.5 與 IC7 寫死「`cash-skills.version` 由 `2.3.1` 調升為 `2.3.2`」，而 sibling change `guard-post-archive-commit-allowlist` 已於工作樹升至 `2.4.0`。主 agent 在此前回答使用者「兩個 change 誰先做」時就明確指出過這個碰撞並提醒後做者必須調整，卻沒有把該認知寫進自己的 artifact——知道風險與防範風險是兩件事。修法是改為推導規則（讀當下工作樹值與 `git show HEAD:` 值、取嚴格大於兩者的下一個版本，MUST NOT 寫死常數），而非把常數改成 `2.4.1`。round 9 另發現 IC7 對後果的描述也錯：`check_history` 只比對工作樹與 HEAD，故 sibling 未提交時寫死值會靜默通過並覆寫，而非拋錯。sibling 的對應 task 用的正是推導式寫法，且其正文逐字點名本 change 提出警告。
+- 2026-07-26 — bootstrap-openspec-config-on-install — cash-propose round 1 — Implementation Contract 與 task 寫死「`cash-skills.version` 由 `2.5.0` 提升為 `2.6.0`」，而同一 workspace 的兩個 in-flight sibling change（`rightsize-cash-skills`、`support-multi-file-skill-payload`）也各自宣告要提升同一檔案，且兩者都用推導式寫法。修法同前例：改為「讀工作樹值與 `git show HEAD:cash-skills.version`，寫入嚴格大於兩者的下一個版本」，並把示例值明確標為示例。

@@ -33,6 +33,12 @@ class InstallerRuntimeTests(unittest.TestCase):
         )
         return temporary, target
 
+    def make_bare_target(self) -> tuple[tempfile.TemporaryDirectory[str], Path]:
+        temporary = tempfile.TemporaryDirectory()
+        target = Path(temporary.name)
+        subprocess.run(["git", "init", "-q", str(target)], check=True)
+        return temporary, target
+
     def install(
         self,
         target: Path,
@@ -642,6 +648,158 @@ class InstallerRuntimeTests(unittest.TestCase):
         self.assertEqual(launched.returncode, 0, launched.stderr)
         self.assertEqual(launched.stdout, '{"changes":[]}\n')
 
+    def test_bare_target_bootstraps_openspec_config(self) -> None:
+        temporary, target = self.make_bare_target()
+        self.addCleanup(temporary.cleanup)
+
+        result = self.install(target)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Result: update", result.stdout)
+        sys.path.insert(0, str(ROOT / ".cash-skills" / "lib"))
+        from cash_cli.config import parse_openspec_config
+        from cash_cli.installer import OPENSPEC_CONFIG_BASELINE
+
+        config = target / "openspec" / "config.yaml"
+        metadata = config.stat()
+        self.assertTrue(stat.S_ISREG(metadata.st_mode))
+        self.assertEqual(metadata.st_nlink, 1)
+        self.assertEqual(stat.S_IMODE(metadata.st_mode), 0o644)
+        self.assertEqual(config.read_bytes(), OPENSPEC_CONFIG_BASELINE)
+        parse_openspec_config(
+            config.read_text(encoding="utf-8"),
+            path="openspec/config.yaml",
+        )
+        self.assertEqual(
+            {entry.name for entry in (target / "openspec").iterdir()},
+            {"config.yaml"},
+        )
+        receipt = (target / ".cash-skills" / "receipt.tsv").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("openspec/config.yaml", receipt)
+
+    def test_bootstrapped_openspec_config_is_zero_write_and_current(self) -> None:
+        temporary, target = self.make_bare_target()
+        self.addCleanup(temporary.cleanup)
+        installed = self.install(target)
+        self.assertEqual(installed.returncode, 0, installed.stderr)
+        config = target / "openspec" / "config.yaml"
+        before = (config.read_bytes(), config.stat().st_ino)
+
+        repeated = self.install(target)
+
+        self.assertEqual(repeated.returncode, 0, repeated.stderr)
+        self.assertIn("Result: current", repeated.stdout)
+        self.assertEqual((config.read_bytes(), config.stat().st_ino), before)
+
+    def test_existing_valid_openspec_config_is_preserved_byte_for_byte(self) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        config = target / "openspec" / "config.yaml"
+        existing = (
+            b"schema: spec-driven\n"
+            b"context: |\n"
+            b"  Keep this project-owned context.\n"
+            b"rules:\n"
+            b"  proposal:\n"
+            b"    - Keep this project-owned rule.\n"
+        )
+        config.write_bytes(existing)
+        before_inode = config.stat().st_ino
+
+        result = self.install(target)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(config.read_bytes(), existing)
+        self.assertEqual(config.stat().st_ino, before_inode)
+
+    def test_openspec_config_unsafe_shapes_fail_closed_before_any_write(self) -> None:
+        for shape in ("symlink", "directory", "hardlink", "fifo"):
+            for arguments in ((), ("--force",)):
+                with self.subTest(shape=shape, arguments=arguments):
+                    temporary, target = self.make_bare_target()
+                    self.addCleanup(temporary.cleanup)
+                    openspec = target / "openspec"
+                    openspec.mkdir()
+                    config = openspec / "config.yaml"
+                    if shape == "symlink":
+                        outside = target / "outside-config.yaml"
+                        outside.write_bytes(b"schema: spec-driven\n")
+                        config.symlink_to(outside)
+                    elif shape == "directory":
+                        config.mkdir()
+                    elif shape == "hardlink":
+                        original = target / "original-config.yaml"
+                        original.write_bytes(b"schema: spec-driven\n")
+                        os.link(original, config)
+                    else:
+                        os.mkfifo(config)
+
+                    result = self.install(
+                        target,
+                        *arguments,
+                        timeout=5,
+                    )
+
+                    self.assertEqual(result.returncode, 1, result.stdout)
+                    self.assertFalse((target / ".cash-workspace.lock").exists())
+                    self.assertFalse((target / ".cash-skills").exists())
+                    self.assertFalse((target / ".cash.yaml").exists())
+                    metadata = os.lstat(config)
+                    if shape == "symlink":
+                        self.assertTrue(stat.S_ISLNK(metadata.st_mode))
+                    elif shape == "directory":
+                        self.assertTrue(stat.S_ISDIR(metadata.st_mode))
+                    elif shape == "hardlink":
+                        self.assertEqual(metadata.st_nlink, 2)
+                    else:
+                        self.assertTrue(stat.S_ISFIFO(metadata.st_mode))
+
+    def test_invalid_openspec_config_fails_closed_even_with_force(self) -> None:
+        for arguments in ((), ("--force",)):
+            with self.subTest(arguments=arguments):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                config = target / "openspec" / "config.yaml"
+                invalid = b"schema: unknown\n"
+                config.write_bytes(invalid)
+
+                result = self.install(target, *arguments, timeout=5)
+
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn("invalid target openspec/config.yaml", result.stderr)
+                self.assertEqual(config.read_bytes(), invalid)
+                self.assertFalse((target / ".cash-workspace.lock").exists())
+                self.assertFalse((target / ".cash-skills").exists())
+
+    def test_bare_target_dry_run_reports_update_without_writes(self) -> None:
+        temporary, target = self.make_bare_target()
+        self.addCleanup(temporary.cleanup)
+
+        result = self.install(target, "--dry-run", timeout=5)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Result: update", result.stdout)
+        self.assertFalse((target / "openspec").exists())
+        self.assertFalse((target / ".cash-workspace.lock").exists())
+        self.assertFalse((target / ".cash-skills").exists())
+
+    def test_source_self_does_not_bootstrap_missing_openspec_config(self) -> None:
+        for arguments in ((), ("--dry-run",)):
+            with self.subTest(arguments=arguments):
+                temporary, source = self.make_self_source()
+                self.addCleanup(temporary.cleanup)
+                config = source / "openspec" / "config.yaml"
+                config.unlink()
+                receipt = source / ".cash-skills" / "receipt.tsv"
+
+                result = self.self_install(source, *arguments)
+
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertFalse(config.exists())
+                self.assertFalse(receipt.exists())
+
     def test_fresh_target_receives_version_control_exclusions(self) -> None:
         temporary, target = self.make_target()
         self.addCleanup(temporary.cleanup)
@@ -832,6 +990,26 @@ class InstallerRuntimeTests(unittest.TestCase):
                     self.assertEqual(gitignore.read_bytes(), existing)
                 self.assertFalse((target / ".cash-skills" / "receipt.tsv").exists())
                 self.assertFalse((target / ".cash-skills" / "state").exists())
+
+    def test_publication_failure_rolls_back_bootstrapped_openspec_config(self) -> None:
+        temporary, target = self.make_bare_target()
+        self.addCleanup(temporary.cleanup)
+
+        result = self.install(
+            target,
+            env={
+                "TEST_CASH_INSTALL_TEST_HOOKS": "1",
+                "TEST_CASH_INSTALL_FAIL_AFTER_PATH": ".gitignore",
+            },
+        )
+
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn(
+            "injected publication failure after .gitignore",
+            result.stderr,
+        )
+        self.assertFalse((target / "openspec" / "config.yaml").exists())
+        self.assertFalse((target / ".cash-skills" / "receipt.tsv").exists())
 
     def test_version_controlled_receipt_is_reported_without_index_changes(self) -> None:
         temporary, target = self.make_target()
@@ -2096,6 +2274,65 @@ class InstallerRuntimeTests(unittest.TestCase):
         listed = self.run_installer(["--list"], home=Path(home.name))
         self.assertEqual(accepted.returncode, 0, accepted.stderr)
         self.assertEqual(listed.stdout, f"{target.resolve()}\n")
+
+    def test_register_accepts_missing_openspec_config_without_creating_it(self) -> None:
+        home = tempfile.TemporaryDirectory()
+        temporary, target = self.make_bare_target()
+        self.addCleanup(home.cleanup)
+        self.addCleanup(temporary.cleanup)
+
+        result = self.run_installer(
+            ["--register", str(target)],
+            home=Path(home.name),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((target / "openspec" / "config.yaml").exists())
+        registry = (
+            Path(home.name)
+            / ".config"
+            / "cash-skills"
+            / "projects.txt"
+        )
+        self.assertEqual(registry.read_text(encoding="utf-8"), f"{target.resolve()}\n")
+
+    def test_register_rejects_unsafe_or_invalid_openspec_config_without_write(
+        self,
+    ) -> None:
+        for shape in ("symlink", "invalid"):
+            with self.subTest(shape=shape):
+                home = tempfile.TemporaryDirectory()
+                temporary, target = self.make_bare_target()
+                self.addCleanup(home.cleanup)
+                self.addCleanup(temporary.cleanup)
+                openspec = target / "openspec"
+                openspec.mkdir()
+                config = openspec / "config.yaml"
+                if shape == "symlink":
+                    outside = target / "outside-config.yaml"
+                    outside.write_bytes(b"schema: spec-driven\n")
+                    config.symlink_to(outside)
+                else:
+                    config.write_bytes(b"schema: unknown\n")
+
+                result = self.run_installer(
+                    ["--register", str(target)],
+                    home=Path(home.name),
+                )
+
+                self.assertEqual(result.returncode, 1, result.stdout)
+                if shape == "invalid":
+                    self.assertIn(
+                        "invalid target openspec/config.yaml",
+                        result.stderr,
+                    )
+                registry = (
+                    Path(home.name)
+                    / ".config"
+                    / "cash-skills"
+                    / "projects.txt"
+                )
+                self.assertFalse(registry.exists())
 
     def test_register_rejects_source_without_registry_write(self) -> None:
         home = tempfile.TemporaryDirectory()

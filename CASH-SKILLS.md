@@ -41,6 +41,8 @@ Codex files 位於 `.agents/skills/`，Claude files 位於 `.claude/skills/`。C
 - `Result: conflict`：target 有 drift 或無 receipt 的內容不完整／不同；exit `2`。
 - argument、schema、I/O、hash 或 integrity error 不輸出 domain result；exit `1`。
 
+Target 缺少 `openspec/config.yaml` 時，installer 會在同一個 transaction 內建立 schema-valid 的預設檔，因此該 target 分類為 `update` 而非 `current`。既有檔案逐 byte 保留；symlink、hard link、FIFO 等 unsafe shape 或 invalid schema 仍在首次 target write 前 fail closed，`--force` 不會繞過。`--register` 接受缺少該檔的 target，但只更新 registry，不建立 `openspec/config.yaml`。
+
 ## Target 版控排除保護
 
 receipt 記錄 target 上 launcher 與 workspace lock 的 `st_dev`／`st_ino`，同一份 bytes 換到別的 inode 就會使 launcher 以 `receipt_invalid` fail closed。因此每次 `--target`、registry 與 `--all` 安裝都會在同一個 transaction 內確保 target 根目錄的 `.gitignore` 含這三項規則：
