@@ -2,7 +2,7 @@
 id: retained-contract-subset-loss
 type: recurring-finding
 status: open
-occurrences: 6
+occurrences: 7
 first_seen: 2026-07-18
 last_seen: 2026-07-26
 links:
@@ -12,6 +12,7 @@ links:
   - openspec/changes/rightsize-cash-skills/reviews/propose-r2.md
   - openspec/changes/rightsize-cash-skills/reviews/apply-r1.md
   - openspec/changes/harden-spec-trace-path-extraction/reviews/propose-r1.md
+  - openspec/changes/rightsize-cash-apply-tdd-discipline/reviews/apply-r1.md
 ---
 
 # Retained contract subset loss
@@ -27,3 +28,4 @@ A migration replaces an owned workflow or capability but carries forward only a 
 - 2026-07-26 — rightsize-cash-skills — cash-apply round 1 — 精簡 Rationalization Table 時，`cash-apply`、`cash-audit`、`cash-ingest` 遺失數項宣稱保留的 contract 子集；修正後將測試義務、不安全預設 migration、plan sufficiency、completed task scope 與 requirement/scenario 同步規範整合回具體流程。
 
 - 2026-07-26 — harden-spec-trace-path-extraction — cash-propose round 1 — delta 的 MODIFIED block 只重述 master requirement 的第一段（58 行），遺漏其餘段落與全部 8 個既有 Scenario（master 共 109 行）；`_merge` 以整塊取代，sync 會直接從 master spec 刪除它們。修法是以程式方式自 master 逐 byte 取出完整內容重建 delta，並以 `blk[:first] in delta` 與 `blk[first:] in delta` 機械驗證保留面。
+- 2026-07-26 — rightsize-cash-apply-tdd-discipline — cash-apply round 1 — canonical TDD bug-fix branch 只要求先建立 failing reproduction，遺漏修正後轉綠與保留 regression evidence 的完整生命週期；修正後由同一 branch 明定 minimal fix、pass 與 regression evidence。

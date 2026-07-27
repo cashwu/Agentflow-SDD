@@ -209,6 +209,35 @@ function assert_variant_parity
     end
 end
 
+function assert_tdd_discipline
+    for variant in .agents .claude
+        set -l relative "$variant/skills/cash-apply/SKILL.md"
+        set -l path "$root_dir/$relative"
+        set -l consumer_count (rg -Fo -- '"$cash_cli" instructions --skill tdd' "$path" | wc -l | string trim)
+        test "$consumer_count" = 1; or fail "$relative must contain exactly one conditional TDD instruction consumer; found $consumer_count"
+
+        assert_contains "$path" 'If `tdd: true` is set' "conditional TDD instruction consumer"
+        assert_contains "$path" 'follow the returned `instruction`' "canonical TDD instruction consumer"
+        assert_contains "$path" 'If `tdd: false` is set' "disabled-TDD ordering contract"
+        assert_contains "$path" 'do not apply TDD ordering' "disabled-TDD ordering contract"
+
+        set -l rgr_count (rg -Fo -- 'Red-Green-Refactor' "$path" | wc -l | string trim)
+        test "$rgr_count" = 0; or fail "$relative must contain zero Red-Green-Refactor literals; found $rgr_count"
+        assert_absent "$path" (string escape --style=regex 'For each task, write a failing test FIRST, then implement to make it pass') "retired per-task absolute fail-first rule"
+        assert_absent "$path" (string escape --style=regex 'Write or update the relevant test before marking the task done, even when TDD is disabled or the task is a small refactor') "retired test-for-every-task rule"
+
+        assert_contains "$path" 'verification evidence appropriate to the task' "shared verification-evidence gate"
+        assert_contains "$path" 'test, CLI, analyzer, or manual assertion' "named verification targets"
+        assert_contains "$path" 'Before calling `task done`' "task-done verification gate"
+
+        assert_contains "$path" 'high-fidelity acceptance references' "example-as-reference contract"
+        assert_contains "$path" "Cover every in-scope example's GIVEN/WHEN/THEN input and expected output, including every row of an example table, in the task's verification evidence." "example-table every-row contract"
+        assert_contains "$path" 'concrete risk or boundary reason' "reasoned extra-case contract"
+        assert_contains "$path" 'not a closed input set' "example input-set contract"
+        assert_absent "$path" (string escape --style=regex 'Do NOT invent additional test values beyond what the spec examples provide without reason. The examples ARE the agreed specification.') "retired closed-example rule"
+    end
+end
+
 function grader_hash --argument-names path
     awk '/<!-- GRADER-IMMUTABILITY -->/ { copy = 1 } copy { print } copy && /<!-- LOOP-LEDGER-STEP -->/ { exit }' "$path" | shasum -a 256 | awk '{ print $1 }'
 end
@@ -464,6 +493,8 @@ switch "$group"
         assert_command_matrix
     case variant-parity
         assert_variant_parity
+    case tdd-discipline
+        assert_tdd_discipline
     case grader-immutability
         assert_grader_immutability
     case guidance-cutover
@@ -480,6 +511,7 @@ switch "$group"
         assert_inventory
         assert_well_formedness
         assert_command_matrix
+        assert_tdd_discipline
         assert_variant_parity
         assert_grader_immutability
         assert_guidance_and_docs
