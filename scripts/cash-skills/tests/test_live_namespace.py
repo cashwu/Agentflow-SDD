@@ -29,13 +29,17 @@ def iter_live_files(root: Path) -> list[Path]:
         root / "AGENTS.md",
         root / "CLAUDE.md",
         root / "CASH-SKILLS.md",
+        root / "CASH-GLOSSARY.md",
         root / ".cash.yaml",
+        root / "scripts/cash-skills/generate.fish",
+        root / "scripts/cash-skills/variant-rules.yaml",
+        root / "scripts/cash-skills/SKILL-LINT.md",
     ]
     globbed: list[Path] = []
     for pattern in (
         ".agents/skills/cash-*/**/*",
         ".claude/skills/cash-*/**/*",
-        "scripts/cash-skills/variant-parity/**/*",
+        "scripts/cash-skills/blocks/**/*",
         "scripts/cash-skills/tests/**/*",
         ".cash-skills/**/*",
         "scripts/cash-cli/**/*",

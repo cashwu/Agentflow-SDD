@@ -1,6 +1,6 @@
 # Cash Skills
 
-本 repository 直接維護 cash workflow skills。它們是 source-controlled canonical files，不由 Spectra 產生，也沒有 base／plus 兩層。
+本 repository 自行維護 cash workflow skills，不由 Spectra 產生，也沒有 base／plus 兩層。`.claude/skills/` 的十二個 `SKILL.md` 與 `scripts/cash-skills/blocks/review-gate.md` 是人工維護的權威源頭；`.agents/skills/` 的十二個 `SKILL.md` 是由 `scripts/cash-skills/generate.fish` 產生的輸出。兩側都納入版本控制，詳見[生成模型](#生成模型)。
 
 ## Inventory
 
@@ -20,6 +20,25 @@
 - `cash-verify`
 
 Codex files 位於 `.agents/skills/`，Claude files 位於 `.claude/skills/`。Codex 以 `$cash-*` 呼叫，Claude 以 `/cash-*` 呼叫；兩者的 artifact operations 都由專案內 `.cash-skills/bin/cash` 執行，資料仍位於 `openspec/`。
+
+## 生成模型
+
+Cash skill 內容有兩個單一源頭，其餘檔案都是生成輸出：
+
+- **變體源頭**：`.claude/skills/cash-*/SKILL.md`。`.agents/skills/cash-*/SKILL.md` 由 `scripts/cash-skills/generate.fish` 依 `scripts/cash-skills/variant-rules.yaml` 生成，MUST NOT 以直接人工編輯維護。
+- **Review gate 源頭**：`scripts/cash-skills/blocks/review-gate.md`。`cash-propose` 與 `cash-apply` 兩個 skill 的 sub-agent review gate 區段由同一份 block 注入，區段邊界以 `<!-- REVIEW-GATE:BEGIN -->`／`<!-- REVIEW-GATE:END -->` 成對錨點標定，每個檔案恰一對。
+
+```fish
+fish scripts/cash-skills/generate.fish
+```
+
+生成器冪等：對已生成一致的工作樹連續執行兩次不產生任何檔案變更。它接受選用的 target-root 參數（預設 repository root），供回歸套件在暫存目錄重跑管線。
+
+`variant-rules.yaml` 宣告兩層規則。通用轉換套用於全部十二個 skill：invocation 前綴 `/cash-` 置換為 `$cash-`（帶 token 邊界，使路徑字面值不受影響）、移除 Claude Code 專屬的 `context`／`agent`／`disallowedTools` frontmatter、移除 fork 情境段落。通用規則之外的每個差異都在該檔以人可讀的具名 per-skill entry 宣告，目前有 `cash-audit`、`cash-ingest` 與 `cash-propose` 三個 entry。
+
+漂移防護是重新生成的 freshness 檢查而非事後 diff 比對：`scripts/cash-skills/tests/skill-checks.fish` 的 `generated-fresh` 群組把完整生成輸入集複製到暫存 root、重跑管線，再與工作樹中 committed 的目標檔案逐檔 byte-compare，任何差異都使套件以非零結束並指出該檔案。
+
+修訂 skill 內容時，以 [`CASH-GLOSSARY.md`](CASH-GLOSSARY.md) 的詞彙為準，並依 [`scripts/cash-skills/SKILL-LINT.md`](scripts/cash-skills/SKILL-LINT.md) 逐條走過六種失效模式；後者是人工檢核維度，不是阻斷性的自動化檢查。
 
 ## Bundle 版本與單一 installer 入口
 
@@ -107,7 +126,7 @@ Cash skills 沒有定期 repair、fingerprint freshness、LaunchAgent、daemon �
 
 ## Live namespace 與歷史邊界
 
-精確 live scan 只涵蓋 canonical Cash skills、variant parity manifests、installer、Cash runtime source、CLI/skill contract tests、`AGENTS.md`、`CLAUDE.md`、本文件、`.cash.yaml` 與 `openspec/specs/` master specs。Gitignored、target-specific 的 `.cash-skills/state/` 是 source tracking provenance，不是 source namespace；它另由 state schema與allowlist tests治理。source scan會拒絕任何可執行的 legacy CLI command、compatibility declaration、canonical legacy skill directory或未治理的 legacy runtime state read。
+精確 live scan 只涵蓋 canonical Cash skills、`scripts/cash-skills/blocks/`、`scripts/cash-skills/generate.fish`、`scripts/cash-skills/variant-rules.yaml`、`scripts/cash-skills/SKILL-LINT.md`、`CASH-GLOSSARY.md`、installer、Cash runtime source、CLI/skill contract tests、`AGENTS.md`、`CLAUDE.md`、本文件、`.cash.yaml` 與 `openspec/specs/` master specs。Gitignored、target-specific 的 `.cash-skills/state/` 是 source tracking provenance，不是 source namespace；它另由 state schema與allowlist tests治理。source scan會拒絕任何可執行的 legacy CLI command、compatibility declaration、canonical legacy skill directory或未治理的 legacy runtime state read。
 
 Apply 階段 master spec 尚未合併 active delta 是預期狀態。Scanner只對 active delta 中明確列於 `MODIFIED`、`REMOVED` 或 `RENAMED FROM` 的同 capability requirement title套用暫時覆蓋；未被精確 title涵蓋的 master residue仍會失敗。這不是全 change 或全 non-archive 豁免，archive完成後對應舊 requirement自然消失。
 

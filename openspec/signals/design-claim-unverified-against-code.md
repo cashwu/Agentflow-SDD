@@ -2,9 +2,9 @@
 id: design-claim-unverified-against-code
 type: recurring-finding
 status: open
-occurrences: 8
+occurrences: 10
 first_seen: 2026-07-25
-last_seen: 2026-07-26
+last_seen: 2026-07-27
 links:
   - openspec/changes/align-cli-skill-contracts/reviews/propose-r1.md
   - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r1.md
@@ -20,6 +20,9 @@ links:
   - openspec/changes/harden-spec-trace-path-extraction/reviews/propose-r7.md
   - openspec/changes/harden-spec-trace-path-extraction/reviews/propose-r9.md
   - openspec/changes/harden-trace-path-containment-and-label-shape/reviews/propose-r1.md
+  - openspec/changes/cash-skill-maintainability/reviews/propose-r1.md
+  - openspec/changes/cash-skill-maintainability/reviews/propose-r2.md
+  - openspec/changes/cash-skill-maintainability/reviews/apply-r1.md
 ---
 
 # Design claim unverified against code
@@ -40,3 +43,6 @@ A design or proposal states a fact about the existing codebase as the premise of
 - 2026-07-26 — harden-spec-trace-path-extraction — cash-propose rounds 1／2／6 — 三次修正建立在對程式碼的錯誤事實之上，且每次都在下一輪被實測推翻：round 1 宣稱「ASCII 限定後零偽陽性」（實際殘留 `runtime/install`）與「23 個空 tests 代表合法無測試」（實際全來自同一 change 的 clause 定位缺陷）；round 2 為補救機制宣稱「merge 對相同輸入是冪等的」（實際只對 MODIFIED-only 冪等，ADDED 撞 `requirement_collision`）；round 6 發現 round 4 寫入的「`workspace.spec_files` 順序來自未排序的 `os.listdir`」是錯的（`list_directory` 最後一行即 `sorted(...)`），而 round 5 據該錯誤事實設計的驗證 case 因此空轉。
 - 2026-07-26 — harden-spec-trace-path-extraction — cash-propose rounds 7–9（re-run）—— 同型於重跑中復發兩次，皆為修正動作寫入未經量測的語料宣稱：round 7 的修正把 round 3 已判定不可重現並移除的「73／72」總數重新寫回兩處（R7-W2）；round 7 對 R7-S7 的修正在 design Risks 寫入「實測⋯損失為 0」的未量測宣稱（R8-W1），round 8 修正其計數後同句又寫入錯誤的出處歸屬「皆來自同一份已封存 proposal」（實為兩份，R9-W1），至 round 9 修正、round 10 兩位檢查點 reviewer 獨立量測後才確認收斂。教訓：fix action 中的每一個「實測」字樣都必須附帶當下真的執行過的量測。
 - 2026-07-26 — harden-trace-path-containment-and-label-shape — cash-propose round 1 — design 的 Risks 與 tasks 的版本提升任務都以「`cash-skills.version` 在工作區已被前一個 change 提升過且尚未提交」為前提，但該 change 已封存並提交，工作區值與 `git show HEAD:` 相同。指示本身（取兩者最大值後嚴格遞增）安全且結果不變，但錯誤的前提會讓實作者預期一個不存在的 dirty working tree 而誤判環境異常。
+
+- 2026-07-27 — cash-skill-maintainability — cash-propose rounds 1–2 — 兩個變體：round 1 發現 design 宣稱「四份 gate 現行文字為同一規格」未經比對即寫入（實測 apply 兩檔含 `## What Changes` or `## Proposed Solution` 漂移，且原統一方向會違反 master spec 對 propose 檔的全檔禁令）；round 2 發現 round 1 的修正把 reviewer finding 原文中的錯誤測試檔路徑（`scripts/cash-cli/tests/`，實為 `scripts/cash-skills/tests/`）未經 ls 核對即寫入五處——reviewer 敘述與自身記憶同樣都不是程式碼，寫進 artifact 前都必須實檔核對。
+- 2026-07-27 — cash-skill-maintainability — cash-apply round 1 — `implementation-notes.md` 的 deviation 條目宣稱新寫的受限 YAML 讀取器「任何其他形狀一律 `die()` 而非猜測」，但實測 `'value'`、`{a: b}`、`[a, b]`、`&anchor value` 都被當成普通字串接受；作者對自己剛寫的驗證器所下的嚴格性宣稱同樣必須以實際執行核對，否則受保護的規則檔可被誤編而無明確錯誤。

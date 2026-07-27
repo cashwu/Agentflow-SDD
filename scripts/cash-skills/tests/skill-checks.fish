@@ -2,7 +2,6 @@
 
 set -g root_dir (path resolve (dirname (status filename))/../../..)
 set -g cash_skills analyze apply archive ask audit commit debug discuss drift ingest propose verify
-set -g divergent_skills analyze ask audit discuss drift ingest propose verify
 
 function fail
     echo "FAIL: $argv" >&2
@@ -175,37 +174,59 @@ function assert_command_matrix
     end
 end
 
-function normalized_variant_diff --argument-names skill output
-    set -l codex (mktemp "/tmp/cash-$skill-codex.XXXXXX")
-    set -l claude (mktemp "/tmp/cash-$skill-claude.XXXXXX")
-    perl -pe 's/(?<![A-Za-z0-9_.-])\$cash-/\@cash-/g' "$root_dir/.agents/skills/cash-$skill/SKILL.md" >"$codex"
-    perl -pe 's#(?<![A-Za-z0-9_.-])/cash-#\@cash-#g' "$root_dir/.claude/skills/cash-$skill/SKILL.md" >"$claude"
-    diff --label "codex/cash-$skill" --label "claude/cash-$skill" -U0 "$codex" "$claude" >"$output"
-    set -l result $status
-    command rm -f -- "$codex" "$claude"
-    test $result -le 1; or fail "variant comparison failed for cash-$skill"
+function staging_failed --argument-names staging message
+    command rm -rf -- "$staging"
+    fail "$message"
 end
 
-function assert_variant_parity
+function normalized_gate_hash --argument-names path
+    awk '/^<!-- REVIEW-GATE:BEGIN -->$/ { copy = 1; next } /^<!-- REVIEW-GATE:END -->$/ { copy = 0 } copy { print }' "$path" \
+        | perl -pe 's/(?<![A-Za-z0-9_.-])(?:\$|\/)cash-/\@cash-/g' \
+        | shasum -a 256 | awk '{ print $1 }'
+end
+
+function assert_generated_fresh
+    set -l staging (mktemp -d /tmp/cash-generated.XXXXXX)
+    mkdir -p "$staging/scripts/cash-skills/blocks"; or staging_failed "$staging" "could not stage the generation input set"
+    for relative in scripts/cash-skills/blocks/review-gate.md scripts/cash-skills/variant-rules.yaml
+        cp "$root_dir/$relative" "$staging/$relative"; or staging_failed "$staging" "could not stage $relative"
+    end
     for skill in $cash_skills
-        set -l actual (mktemp "/tmp/cash-$skill-parity.XXXXXX")
-        normalized_variant_diff "$skill" "$actual"
-        if contains "$skill" $divergent_skills
-            set -l expected "$root_dir/scripts/cash-skills/variant-parity/cash-$skill.diff"
-            test -f "$expected"; or fail "missing parity manifest for cash-$skill"
-            cmp -s "$expected" "$actual"; or begin
-                diff -u "$expected" "$actual" >&2
-                command rm -f -- "$actual"
-                fail "variant drift outside manifest for cash-$skill"
-            end
-        else
-            test ! -s "$actual"; or begin
-                diff -u /dev/null "$actual" >&2
-                command rm -f -- "$actual"
-                fail "cash-$skill variants differ after invocation normalization"
-            end
+        set -l relative ".claude/skills/cash-$skill/SKILL.md"
+        mkdir -p "$staging/.claude/skills/cash-$skill"; or staging_failed "$staging" "could not stage $relative"
+        cp "$root_dir/$relative" "$staging/$relative"; or staging_failed "$staging" "could not stage $relative"
+    end
+
+    fish "$root_dir/scripts/cash-skills/generate.fish" "$staging" >/dev/null; or staging_failed "$staging" "generation pipeline failed"
+
+    set -l generated .claude/skills/cash-propose/SKILL.md .claude/skills/cash-apply/SKILL.md
+    for skill in $cash_skills
+        set -a generated ".agents/skills/cash-$skill/SKILL.md"
+    end
+    for relative in $generated
+        cmp -s "$staging/$relative" "$root_dir/$relative"; or begin
+            diff -u "$root_dir/$relative" "$staging/$relative" >&2
+            command rm -rf -- "$staging"
+            fail "$relative is stale; rerun scripts/cash-skills/generate.fish"
         end
-        command rm -f -- "$actual"
+    end
+    command rm -rf -- "$staging"
+
+    set -l gate_hash
+    for relative in \
+        .claude/skills/cash-propose/SKILL.md \
+        .claude/skills/cash-apply/SKILL.md \
+        .agents/skills/cash-propose/SKILL.md \
+        .agents/skills/cash-apply/SKILL.md
+        set -l path "$root_dir/$relative"
+        test (rg -Fxc '<!-- REVIEW-GATE:BEGIN -->' "$path" | string trim) = 1; or fail "$relative must have one review-gate begin anchor"
+        test (rg -Fxc '<!-- REVIEW-GATE:END -->' "$path" | string trim) = 1; or fail "$relative must have one review-gate end anchor"
+        set -l actual (normalized_gate_hash "$path")
+        if test -z "$gate_hash"
+            set gate_hash "$actual"
+        else
+            test "$actual" = "$gate_hash"; or fail "$relative gate region differs after invocation normalization"
+        end
     end
 end
 
@@ -253,6 +274,9 @@ function assert_grader_immutability
         test (rg -Fc '<!-- GRADER-IMMUTABILITY -->' "$path" | string trim) = 1; or fail "$relative must have one grader sentinel"
         for literal in \
             '.cash.yaml' \
+            'scripts/cash-skills/blocks/review-gate.md' \
+            'scripts/cash-skills/generate.fish' \
+            'scripts/cash-skills/variant-rules.yaml' \
             'scripts/cash-skills/tests/skill-checks.fish' \
             'scripts/cash-cli/tests/cli-checks.fish' \
             'openspec/specs/' \
@@ -491,8 +515,8 @@ switch "$group"
     case codex-command-matrix
         assert_inventory
         assert_command_matrix
-    case variant-parity
-        assert_variant_parity
+    case generated-fresh
+        assert_generated_fresh
     case tdd-discipline
         assert_tdd_discipline
     case grader-immutability
@@ -512,7 +536,7 @@ switch "$group"
         assert_well_formedness
         assert_command_matrix
         assert_tdd_discipline
-        assert_variant_parity
+        assert_generated_fresh
         assert_grader_immutability
         assert_guidance_and_docs
         assert_installer

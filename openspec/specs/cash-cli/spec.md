@@ -1419,7 +1419,7 @@ tests:
 
 ### Requirement: Live namespace 與歷史邊界
 
-live scan SHALL只包含`.agents/skills/cash-*/`、`.claude/skills/cash-*/`、`scripts/cash-skills/variant-parity/`、`install-cash-skills.fish`、`scripts/cash-skills/tests/`、`.cash-skills/`、`scripts/cash-cli/`、`AGENTS.md`、`CLAUDE.md`、`CASH-SKILLS.md`、`.cash.yaml`與`openspec/specs/`。這些surface SHALL NOT包含可執行的Spectra CLI command、`Requires spectra CLI`或未治理的`.spectra/`runtime read。active migration change/reviews、`openspec/changes/archive/`與signal occurrence history SHALL保留provenance原文。Legacy migration code SHALL只在下列明列paths辨識`SPECTRA` markers、`.spectra.yaml`、`.spectra/touched`、`.spectra/snapshots`與`spectra-*`directories：`install-cash-skills.fish`、`uninstall-spectra-plus-repair.fish`、`scripts/cash-skills/legacy-spectra-digests.tsv`，以及`.cash-skills/lib/cash_cli/`中負責`touched ensure` legacy import的module；`.spectra.yaml`→`.cash.yaml` config migration亦限於`install-cash-skills.fish`。這些paths之外的live surface MUST NOT出現legacy literal，且以上任何path MUST NOT執行Spectra binary或讀取其他Spectra state。
+live scan SHALL只包含`.agents/skills/cash-*/`、`.claude/skills/cash-*/`、`scripts/cash-skills/blocks/`、`scripts/cash-skills/generate.fish`、`scripts/cash-skills/variant-rules.yaml`、`scripts/cash-skills/SKILL-LINT.md`、`CASH-GLOSSARY.md`、`install-cash-skills.fish`、`scripts/cash-skills/tests/`、`.cash-skills/`、`scripts/cash-cli/`、`AGENTS.md`、`CLAUDE.md`、`CASH-SKILLS.md`、`.cash.yaml`與`openspec/specs/`。這些surface SHALL NOT包含可執行的Spectra CLI command、`Requires spectra CLI`或未治理的`.spectra/`runtime read。active migration change/reviews、`openspec/changes/archive/`與signal occurrence history SHALL保留provenance原文。Legacy migration code SHALL只在下列明列paths辨識`SPECTRA` markers、`.spectra.yaml`、`.spectra/touched`、`.spectra/snapshots`與`spectra-*`directories：`install-cash-skills.fish`、`uninstall-spectra-plus-repair.fish`、`scripts/cash-skills/legacy-spectra-digests.tsv`，以及`.cash-skills/lib/cash_cli/`中負責`touched ensure` legacy import的module；`.spectra.yaml`→`.cash.yaml` config migration亦限於`install-cash-skills.fish`。這些paths之外的live surface MUST NOT出現legacy literal，且以上任何path MUST NOT執行Spectra binary或讀取其他Spectra state。
 
 #### Scenario: Live namespace residue scan
 
@@ -1433,47 +1433,29 @@ live scan SHALL只包含`.agents/skills/cash-*/`、`.claude/skills/cash-*/`、`s
 - **THEN**`openspec/changes/archive/`內既有files維持逐byte不變
 - **AND**signal occurrence中的歷史provenance不被重新命名
 
+#### Scenario: 生成源頭檔納入 scan surface
+
+- **WHEN** `scripts/cash-skills/variant-parity/` 自工作樹移除且生成管線檔案（`scripts/cash-skills/blocks/`、`scripts/cash-skills/generate.fish`、`scripts/cash-skills/variant-rules.yaml`）建立後
+- **THEN** live scan 的枚舉不含 `scripts/cash-skills/variant-parity/`
+- **AND** 生成管線檔案與 `scripts/cash-skills/SKILL-LINT.md`、`CASH-GLOSSARY.md` 皆在 scan surface 內
+
 <!-- @trace
-source: replace-spectra-cli-with-cash-cli
-updated: 2026-07-24
+source: cash-skill-maintainability
+updated: 2026-07-27
 code:
-  - .agents/skills/
-  - .agents/skills/spectra-analyze/
-  - .agents/skills/spectra-apply/
-  - .agents/skills/spectra-archive/
-  - .agents/skills/spectra-ask/
-  - .agents/skills/spectra-audit/
-  - .agents/skills/spectra-commit/
-  - .agents/skills/spectra-debug/
-  - .agents/skills/spectra-discuss/
-  - .agents/skills/spectra-drift/
-  - .agents/skills/spectra-ingest/
-  - .agents/skills/spectra-propose/
-  - .agents/skills/spectra-verify/
-  - .cash-skills/bin/cash
-  - .cash-skills/lib/cash_cli/
+  - .agents/skills
+  - .agents/skills/cash-apply/SKILL.md
+  - .agents/skills/cash-propose/SKILL.md
   - .cash-skills/receipt.tsv
-  - .cash-skills/state/
-  - .cash-skills/state/snapshots/
-  - .cash-skills/state/touched/
-  - .claude/skills/
-  - .claude/skills/spectra-analyze/
-  - .claude/skills/spectra-apply/
-  - .claude/skills/spectra-archive/
-  - .claude/skills/spectra-ask/
-  - .claude/skills/spectra-audit/
-  - .claude/skills/spectra-commit/
-  - .claude/skills/spectra-debug/
-  - .claude/skills/spectra-discuss/
-  - .claude/skills/spectra-drift/
-  - .claude/skills/spectra-ingest/
-  - .claude/skills/spectra-propose/
-  - .claude/skills/spectra-verify/
-  - .spectra/
-  - scripts/cash-cli/fixtures/
-  - scripts/cash-cli/tests/
-  - scripts/cash-skills/legacy-spectra-digests.tsv
+  - .claude/skills/cash-apply/SKILL.md
+  - .claude/skills/cash-propose/SKILL.md
+  - scripts/cash-skills/SKILL-LINT.md
+  - scripts/cash-skills/blocks/review-gate.md
+  - scripts/cash-skills/generate.fish
   - scripts/cash-skills/tests/skill-checks.fish
+  - scripts/cash-skills/tests/test_live_namespace.py
+  - scripts/cash-skills/variant-parity
+  - scripts/cash-skills/variant-rules.yaml
 tests:
 -->
 
