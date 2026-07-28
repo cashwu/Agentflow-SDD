@@ -2,9 +2,9 @@
 id: acceptance-criterion-unreachable-at-specified-point
 type: recurring-finding
 status: open
-occurrences: 6
+occurrences: 7
 first_seen: 2026-07-25
-last_seen: 2026-07-25
+last_seen: 2026-07-28
 links:
   - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r1.md
   - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r7.md
@@ -14,7 +14,7 @@ links:
   - openspec/changes/tolerate-versioned-legacy-guidance-marker/reviews/propose-r4.md
   - openspec/changes/guard-post-archive-commit-allowlist/reviews/propose-r1.md
   - openspec/changes/track-review-loop-outputs-in-allowlist/reviews/propose-r1.md
-
+  - openspec/changes/target-receipt-bootstrap/reviews/apply-r4.md
 ---
 
 # 驗收條件在指定位置不可能成立
@@ -34,3 +34,4 @@ scenario 的 THEN 指定了一個時間點（例如「首次 write 之前」）�
 - 2026-07-25 — guard-post-archive-commit-allowlist — cash-propose round 1 與 round 2 — 任務的驗證目標引用整組 `skill-checks.fish codex-command-matrix`，但該組同時檢查尚未被該任務修改的其他 SKILL 檔字面句，驗收在該任務的時點必然失敗；round 1 修好任務 3.1 後，同型缺陷在 round 2 被發現只是搬到任務 3.2，最終把「四個檔全部改完之前，以通過為驗收的 task 一律改用單一檔案 `rg -F`」升級為 design 通則。
 
 - 2026-07-25 — track-review-loop-outputs-in-allowlist — cash-propose round 1 — TDD 紅燈任務宣稱七個新測試都會以 `invalid_arguments` 失敗，但其中一個案例斷言的正是該 code，現行 fallback 已回它，該案例在紅燈階段必然通過；同時該檔既有 helper 只回傳 `Workspace.discover(root)`，而 argument 解析行為只存在於 `execute()`，需要 chdir 進 temp root 才能驅動。
+- 2026-07-28 — target-receipt-bootstrap — cash-apply round 4 — `--init-receipt` 新增 runtime 期望集合檢核後，spec Scenario 以全稱宣稱「少了任一 canonical runtime 模組即以 `init_inventory_invalid` fail closed」，但 19 個成員中有 4 個是 `cash_cli.installer` 的 import-time 相依（`installer.py` 自身、它直接匯入的 `config.py`、套件 `__init__` 鏈上的 `main.py` 與 `errors.py`），缺席時 `-m` 載入即以 `No module named` 死亡，位置遠早於該檢核，條件在字面上不可能成立。測試之所以全綠，是因為兩個 runtime 案例恰好都挑了非 import-time 成員；更嚴重的是同批新增的排錯文件把 `config.py` 列為最可能被 `.gitignore` 誤吞的檔名，指向一條對它永不觸發的路徑。修法是收斂全稱敘述、於 Non-Goals 明載此類 import-time 失敗，並以參數化測試逐一斷言全部成員落在具名 error code 或 import-time 失敗何者，使不對稱在套件內可見。相關：[[expected-set-derived-from-observed-state]]。

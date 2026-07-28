@@ -82,6 +82,18 @@ __pycache__/
 git rm --cached .cash-skills/receipt.tsv
 ```
 
+## 團隊 onboarding：clone 後初始化 receipt
+
+receipt 不進版控，所以 target 專案的隊友 clone 之後 skills、runtime、launcher 與 `.cash-workspace.lock` 都在，唯獨 `.cash-skills/receipt.tsv` 缺席，launcher 會以 `bootstrap_invalid` fail closed。隊友不需要取得本 repository 的存取權，在該專案根執行一次即可簽發本機 receipt：
+
+```fish
+PYTHONPATH=.cash-skills/lib python3 -s -P -B -m cash_cli.installer --init-receipt
+```
+
+前提是 Python 3.11+；更舊的直譯器在 `-m` 載入期就會失敗，不會產生具名錯誤。模式回報 `initialized`（已簽發）或 `current`（既有 receipt 已等價，零寫入），失敗時以 `init_python_version`、`init_outside_worktree`、`init_source_repo`、`init_config_invalid`、`init_inventory_invalid` 或 `init_write_failed` 輸出 JSON 錯誤並 exit `1`，且不寫入任何檔案內容。它必須在 Git worktree top-level 執行，不會建立缺少的 stable 檔案，也不會擴充 bundle inventory；managed inventory 的 mode 會被正規化為 contract modes（launcher `0755`、其餘 `0644`），因此不同 umask 的 clone 都能一次成功。
+
+信任模型與 installer 安裝路徑不同：init 簽發的 receipt 以 git clone 的現地內容為信任根，執行它等於使用者主動宣告信任版控內容，provenance 由 git 歷史承擔；receipt 仍維持既有職責，偵測簽發之後的本機 drift 與竄改。因此 launcher 不會在 receipt 缺失或無效時自動觸發初始化，對已 drift 的 target 重跑 init 會把該 drift 合法化。本 repository 是 canonical source repository，`--init-receipt` 會以 `init_source_repo` 拒絕它，改用 `./install-cash-skills.fish --self`。
+
 ## Cash project guidance migration
 
 Repository root 的 `AGENTS.md` 與 `CLAUDE.md` 是兩個 canonical guidance sources：前者使用 `$cash-*`，後者使用 `/cash-*`。每份 source 都恰好包含一個 `<!-- CASH:START -->`／`<!-- CASH:END -->` managed block；installer 從這兩份 live files 擷取對應 block，不另外維護 template。Source 的 Cash start 與 end marker 都不得帶字尾；任一側帶字尾時會在首次 target write 前 fail closed，且不會把該字尾寫入任何 target。Source guidance 的任何位置也不得出現形似 legacy marker 的文字，包括散文中的舉例，否則 canonical guidance 擷取會在首次 target write 前 fail closed，並阻擋全部 registered targets。

@@ -619,6 +619,33 @@ class InstallerRuntimeTests(unittest.TestCase):
         )
         os.chmod(shim, 0o755)
 
+    def test_bundle_version_constant_matches_the_version_file(self) -> None:
+        sys.path.insert(0, str(ROOT / ".cash-skills" / "lib"))
+        from cash_cli.installer import BUNDLE_VERSION
+
+        file_version = (ROOT / "cash-skills.version").read_text(encoding="ascii")
+        self.assertEqual(
+            BUNDLE_VERSION,
+            file_version.removesuffix("\n"),
+            f"BUNDLE_VERSION={BUNDLE_VERSION!r} but cash-skills.version={file_version!r}",
+        )
+
+    def test_bundle_runtime_paths_matches_the_source_inventory(self) -> None:
+        sys.path.insert(0, str(ROOT / ".cash-skills" / "lib"))
+        from cash_cli.installer import BUNDLE_RUNTIME_PATHS, source_inventory
+
+        _, records, _ = source_inventory(ROOT)
+        derived = tuple(
+            record.path for record in records if record.kind == "runtime"
+        )
+        self.assertEqual(
+            BUNDLE_RUNTIME_PATHS,
+            derived,
+            "BUNDLE_RUNTIME_PATHS is out of step with the source runtime inventory: "
+            f"missing={sorted(set(derived) - set(BUNDLE_RUNTIME_PATHS))} "
+            f"extra={sorted(set(BUNDLE_RUNTIME_PATHS) - set(derived))}",
+        )
+
     def test_fresh_install_receipt_and_direct_launcher(self) -> None:
         temporary, target = self.make_target()
         self.addCleanup(temporary.cleanup)

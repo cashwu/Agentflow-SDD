@@ -2,7 +2,7 @@
 id: design-claim-unverified-against-code
 type: recurring-finding
 status: open
-occurrences: 10
+occurrences: 11
 first_seen: 2026-07-25
 last_seen: 2026-07-27
 links:
@@ -23,6 +23,8 @@ links:
   - openspec/changes/cash-skill-maintainability/reviews/propose-r1.md
   - openspec/changes/cash-skill-maintainability/reviews/propose-r2.md
   - openspec/changes/cash-skill-maintainability/reviews/apply-r1.md
+  - openspec/changes/target-receipt-bootstrap/reviews/propose-r1.md
+  - openspec/changes/target-receipt-bootstrap/reviews/propose-r2.md
 ---
 
 # Design claim unverified against code
@@ -46,3 +48,4 @@ A design or proposal states a fact about the existing codebase as the premise of
 
 - 2026-07-27 — cash-skill-maintainability — cash-propose rounds 1–2 — 兩個變體：round 1 發現 design 宣稱「四份 gate 現行文字為同一規格」未經比對即寫入（實測 apply 兩檔含 `## What Changes` or `## Proposed Solution` 漂移，且原統一方向會違反 master spec 對 propose 檔的全檔禁令）；round 2 發現 round 1 的修正把 reviewer finding 原文中的錯誤測試檔路徑（`scripts/cash-cli/tests/`，實為 `scripts/cash-skills/tests/`）未經 ls 核對即寫入五處——reviewer 敘述與自身記憶同樣都不是程式碼，寫進 artifact 前都必須實檔核對。
 - 2026-07-27 — cash-skill-maintainability — cash-apply round 1 — `implementation-notes.md` 的 deviation 條目宣稱新寫的受限 YAML 讀取器「任何其他形狀一律 `die()` 而非猜測」，但實測 `'value'`、`{a: b}`、`[a, b]`、`&anchor value` 都被當成普通字串接受；作者對自己剛寫的驗證器所下的嚴格性宣稱同樣必須以實際執行核對，否則受保護的規則檔可被誤編而無明確錯誤。
+- 2026-07-27 — target-receipt-bootstrap — cash-propose rounds 1–2 — 兩個實例：round 1 proposal 宣稱 receipt 缺失時 launcher 以 `receipt_invalid` 失敗（實為 `open_regular` 的 `bootstrap_invalid`，`receipt_invalid` 只涵蓋內容無效）；round 2 修正把引導管道改為 `CASH-SKILLS.md` 時宣稱它「隨 bundle guidance 部署在各 target 可讀」，實際 `GUIDANCE_PATHS` 僅 `AGENTS.md`／`CLAUDE.md`，該檔為 source-only 且是 `is_source_layout` 判定 marker——替代方案的部署範圍與原方案的錯誤 code 同樣需要實檔核對。

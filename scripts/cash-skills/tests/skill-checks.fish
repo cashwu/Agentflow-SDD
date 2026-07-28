@@ -317,7 +317,7 @@ function assert_guidance_and_docs
     awk '/^<!-- CASH:START -->$/ { copy = 1; next } /^<!-- CASH:END -->$/ { copy = 0 } copy { print }' "$root_dir/AGENTS.md" >"$agents"
     awk '/^<!-- CASH:START -->$/ { copy = 1; next } /^<!-- CASH:END -->$/ { copy = 0 } copy { print }' "$root_dir/CLAUDE.md" >"$claude"
     cmp -s "$agents" "$claude"; or fail "AGENTS.md and CLAUDE.md Cash blocks differ"
-    test (shasum -a 256 "$agents" | awk '{ print $1 }') = 71cc139e2e69027e6e2d23edef83ad3fbb1e17154b932e8c2f923c0043b177b2; or fail "canonical Cash guidance baseline drifted"
+    test (shasum -a 256 "$agents" | awk '{ print $1 }') = cc0215a42078a94ecc587f05518a11cb4c1eed2dbf4e91bdca6b4e4cd8ed658e; or fail "canonical Cash guidance baseline drifted"
     command rm -f -- "$agents" "$claude"
 
     set -l docs "$root_dir/CASH-SKILLS.md"
@@ -337,6 +337,19 @@ function assert_guidance_and_docs
         '只附加、不重排' \
         'git rm --cached .cash-skills/receipt.tsv'
         assert_contains "$docs" "$literal" "current Cash documentation"
+    end
+
+    set -l init_docs "$root_dir/CASH-INIT-RECEIPT.md"
+    for literal in \
+        'init_python_version' \
+        'init_outside_worktree' \
+        'init_source_repo' \
+        'init_config_invalid' \
+        'init_inventory_invalid' \
+        'init_write_failed' \
+        'PYTHONPATH=.cash-skills/lib python3 -s -P -B -m cash_cli.installer --init-receipt' \
+        './install-cash-skills.fish --self'
+        assert_contains "$init_docs" "$literal" "current Cash init-receipt documentation"
     end
 end
 
