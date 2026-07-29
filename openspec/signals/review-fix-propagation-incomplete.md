@@ -2,9 +2,9 @@
 id: review-fix-propagation-incomplete
 type: recurring-finding
 status: open
-occurrences: 15
+occurrences: 16
 first_seen: 2026-07-07
-last_seen: 2026-07-28
+last_seen: 2026-07-29
 links:
   - openspec/changes/add-micro-verification-round/reviews/propose-r3.md
   - openspec/changes/converge-plus-review-loop/reviews/propose-r5.md
@@ -32,6 +32,7 @@ links:
   - openspec/changes/support-multi-file-skill-payload/reviews/propose-r3.md
   - openspec/changes/harden-spec-trace-path-extraction/reviews/propose-r6.md
   - openspec/changes/target-receipt-bootstrap/reviews/apply-r5.md
+  - openspec/changes/add-global-cash-shim/reviews/propose-r2.md
 ---
 
 # Review fix propagation incomplete
@@ -61,3 +62,5 @@ A review-round fix introduces or changes a rule, but claims about that rule else
 
 - 2026-07-26 — harden-spec-trace-path-extraction — cash-propose rounds 3／4／5／6 — 同一個 loop 內連續四輪出現同型缺陷，且全部發生在主 agent 自己的修正上：round 3 發現前兩輪的修正集中在 delta／design／tasks 而 proposal 被落下到互相矛盾；round 4 發現被 D6 否定的因果句只從 design 移除、仍逐字留在 proposal 與會併入 master spec 的 delta；round 5 發現第 4 輪的 tasks 側修正全部未落地；round 6 發現新增 case 時未同步該 task 的 case 計數、下游 task 的驗證句與追溯表。教訓是「修正的傳播面」本身要當成 checklist 機械檢查，而非依賴撰寫當下的記憶。
 - 2026-07-28 — target-receipt-bootstrap — cash-apply rounds 4–6 — 同一 change 內連續三輪復發。round 4 的 Fix Actions 明文宣稱「`design.md` D2、Contract 第 7 項、部署時序規則段與 `proposal.md` 的部署敘述皆同步為 2.11.0」，實際上 `proposal.md` 未被更新，其 `## Impact` Deployment surface 仍記「最終部署版本為 2.10.0」——而該欄位正是「targets 目前綁定哪個版本」的權威記錄，誤信它會導致下一次 `--all` 撞上 equal-version source integrity drift 而全數失敗。同輪的 post-fix self-check 宣稱「版本三處一致」，但那三處只涵蓋版本檔／常數／receipt，未 grep artifacts。round 5 同時暴露步驟編號交叉引用只同步了 design 與文件而漏掉 tasks 與 signals。止血作法有二：self-check 改為對每個被 fix 觸及的**概念**做跨全部 artifact／文件／測試／signals 的 grep 再比對地面事實，而非只 grep 被 finding 指名的檔案；以及把易漂移的交叉引用（步驟編號）改寫為不耦合編號的指稱。即便如此 round 6 仍找出一處未收斂的全稱 Scenario，顯示概念層級的掃描清單本身也需要逐輪擴充。
+
+- 2026-07-29 — add-global-cash-shim — cash-propose round 2 — r1 對 dry-run 順序與 init 操作順序的修復只同步 design／spec／tasks 三份，漏掉 proposal.md 的 Proposed Solution 敘述，形成 fix-introduced 的跨 artifact 矛盾。

@@ -2,9 +2,9 @@
 id: filesystem-boundary-validation-missing
 type: recurring-finding
 status: open
-occurrences: 13
+occurrences: 15
 first_seen: 2026-07-18
-last_seen: 2026-07-25
+last_seen: 2026-07-29
 links:
   - openspec/changes/fork-spectra-skills-to-cash/reviews/propose-r1.md
   - openspec/changes/add-versioned-cash-skill-batch-update/reviews/apply-r1.md
@@ -19,6 +19,8 @@ links:
   - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/apply-r3.md
   - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/apply-r6.md
   - openspec/changes/harden-installer-mode-and-recovery/reviews/apply-r1.md
+  - openspec/changes/add-global-cash-shim/reviews/apply-r1.md
+  - openspec/changes/add-global-cash-shim/reviews/apply-r2.md
 ---
 
 # Filesystem boundary validation missing
@@ -40,3 +42,5 @@ A mutating installer or cleanup accepts a caller-controlled root without first c
 - 2026-07-24 — replace-spectra-cli-with-cash-cli — cash-apply rounds 3–5 — Registry 曾接受 canonical source repository 作為 project target；補上 source/target boundary rejection 與零 registry write regression。
 - 2026-07-24 — replace-spectra-cli-with-cash-cli — cash-apply rounds 6–8 — Registry parser 曾將 dangling registry boundary 與 missing child 下的 symlink ancestor 視為缺失，且未完整拒絕 noncanonical records；補上逐component no-follow validation、全records preflight及四模式零寫入 regressions。
 - 2026-07-25 — harden-installer-mode-and-recovery — cash-apply round 1 — Hold hook 只以原始字串判斷兩路徑互異，等價 alias 可避開 preflight；改為正規化 absolute path 後判重並補 alias regression。
+- 2026-07-29 — add-global-cash-shim — cash-apply round 1 — `install-cash-shim.fish` 先以 pathname 驗證 `$HOME/.local/bin`，再分離執行 `mkdir`、`mktemp` 與 `mv`；parent 在檢查後被換成 symlink 時可把 temp／publication 帶出宣告的實體寫入邊界，修復需要先在 design 定義 directory identity／handle 機制。
+- 2026-07-29 — add-global-cash-shim — cash-apply seeded re-run round 1 — held `.local/bin` identity 已封閉 publication swap，但 initial `lstat(HOME)` 與 held HOME FD 尚未比較 identity；補上 pre-open／post-open identity fail-closed 與 HOME leaf-swap 零外部寫入 regression。

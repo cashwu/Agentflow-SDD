@@ -21,6 +21,28 @@
 
 Codex files 位於 `.agents/skills/`，Claude files 位於 `.claude/skills/`。Codex 以 `$cash-*` 呼叫，Claude 以 `/cash-*` 呼叫；兩者的 artifact operations 都由專案內 `.cash-skills/bin/cash` 執行，資料仍位於 `openspec/`。
 
+## 全域 cash shim
+
+在 source repository 執行下列命令，會以 Python 3.11+ safe-path helper 將 POSIX sh shim 安裝到 `$HOME/.local/bin/cash`；Python 3.11+ 不可用時會在任何 filesystem write 前 fail closed。若該目錄不在 `PATH`，installer 會顯示不影響 exit code 的警告：
+
+```fish
+./install-cash-shim.fish
+```
+
+安裝後，在已安裝 Cash bundle 的 Git worktree 內執行 `cash <指令>`，shim 會把全部引數原樣交給該 worktree top-level 的 `.cash-skills/bin/cash`。在未安裝的 worktree 或非 Git 目錄執行一般指令會 fail closed，並提示使用 `cash init`。
+
+`cash init` 會以目前 worktree top-level 為 target；若目前目錄尚非 worktree，則先在目前目錄執行一次 `git init`。預設委派為 `install-cash-skills.fish --vendor <target>`，也可使用 `cash init --target` 選擇 receipt-based 安裝，並可搭配 `--force`。`cash init --dry-run` 不會執行 git 初始化，因此只能在既有 worktree 內預覽。位於 `.git/` 內部或 bare repository 時，init 會 fail closed。
+
+shim 以 `CASH_SOURCE_ROOT` 定位 source repository；未設定時預設為 `$HOME/Github/Agentflow-SDD`。若 checkout 位於其他位置，先在該次呼叫設定：
+
+```fish
+CASH_SOURCE_ROOT=/path/to/Agentflow-SDD cash init
+```
+
+shim 是 machine-local 便利層，不是 trust-bearing runtime：它不進 portable manifest 或 receipt 的 managed inventory，不改變 project-local launcher 的驗證，也不觸發 `cash-skills.version` 調升。shim 無獨立版本、自我更新或背景同步；source repository 更新後，必須明確重跑 `install-cash-shim.fish` 才會更新本機 shim，bundle 更新仍由 `cash init` 所委派的既有 installer 語意決定。
+
+Git submodule 依 Git 本身的 top-level 解析視為獨立專案：在 submodule 內 dispatch 會使用 submodule 自己的 launcher；未安裝時執行 `cash init`，bundle 也會安裝到該 submodule，而非外層 repository。
+
 ## 生成模型
 
 Cash skill 內容有兩個單一源頭，其餘檔案都是生成輸出：
