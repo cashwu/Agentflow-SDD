@@ -5,9 +5,12 @@ import json
 import os
 import fcntl
 import hashlib
+import importlib.util
+import marshal
 import shlex
 import shutil
 import stat
+import struct
 import subprocess
 import sys
 import tempfile
@@ -176,6 +179,7 @@ class InstallerRuntimeTests(unittest.TestCase):
     ) -> tuple[tempfile.TemporaryDirectory[str], Path]:
         temporary, source, _ = self.make_source_bundle()
         (source / ".cash-skills" / "receipt.tsv").unlink(missing_ok=True)
+        (source / ".cash-skills" / "manifest.tsv").unlink(missing_ok=True)
         shutil.rmtree(source / ".cash-skills" / "state", ignore_errors=True)
         (source / "openspec").mkdir()
         (source / "openspec" / "config.yaml").write_text(
@@ -203,6 +207,109 @@ class InstallerRuntimeTests(unittest.TestCase):
             cwd=source,
             text=True,
             capture_output=True,
+        )
+
+    def vendor(
+        self,
+        target: Path,
+        *arguments: str,
+        source: Path = ROOT,
+        env: dict[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        environment = {
+            name: value
+            for name, value in os.environ.items()
+            if not name.startswith("CASH_INSTALL_")
+            and not name.startswith("TEST_CASH_INSTALL_")
+        }
+        requested = dict(env or {})
+        for name in tuple(requested):
+            if name.startswith("TEST_CASH_INSTALL_"):
+                requested[name.removeprefix("TEST_")] = requested.pop(name)
+        environment.update(requested)
+        return subprocess.run(
+            [
+                "fish",
+                "--no-config",
+                str(source / "install-cash-skills.fish"),
+                "--vendor",
+                str(target),
+                *arguments,
+            ],
+            cwd=source,
+            text=True,
+            capture_output=True,
+            env=environment,
+            timeout=timeout,
+        )
+
+    def assert_vendored(
+        self,
+        target: Path,
+        *arguments: str,
+        source: Path = ROOT,
+    ) -> subprocess.CompletedProcess[str]:
+        result = self.vendor(target, *arguments, source=source)
+        self.assertEqual(
+            result.returncode,
+            0,
+            "repo-vendored publication contract is missing:\n"
+            f"stdout={result.stdout}\nstderr={result.stderr}",
+        )
+        self.assertTrue(
+            (target / ".cash-skills" / "manifest.tsv").is_file(),
+            "successful --vendor must publish .cash-skills/manifest.tsv",
+        )
+        self.assertFalse(
+            (target / ".cash-skills" / "receipt.tsv").exists(),
+            "successful --vendor must not leave a machine-local receipt",
+        )
+        return result
+
+    def workspace_snapshot(
+        self,
+        target: Path,
+    ) -> dict[str, tuple[str, int, int, bytes | None]]:
+        snapshot: dict[str, tuple[str, int, int, bytes | None]] = {}
+        for path in sorted(
+            (candidate for candidate in target.rglob("*") if ".git" not in candidate.parts),
+            key=lambda candidate: os.fsencode(candidate.relative_to(target)),
+        ):
+            metadata = os.lstat(path)
+            relative = path.relative_to(target).as_posix()
+            if stat.S_ISREG(metadata.st_mode):
+                content: bytes | None = path.read_bytes()
+                kind = "file"
+            elif stat.S_ISDIR(metadata.st_mode):
+                content = None
+                kind = "directory"
+            elif stat.S_ISLNK(metadata.st_mode):
+                content = os.readlink(path).encode()
+                kind = "symlink"
+            else:
+                content = None
+                kind = "other"
+            snapshot[relative] = (
+                kind,
+                stat.S_IMODE(metadata.st_mode),
+                metadata.st_mtime_ns,
+                content,
+            )
+        return snapshot
+
+    def run_target_cash(
+        self,
+        target: Path,
+        *arguments: str,
+        timeout: float | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [str(target / ".cash-skills" / "bin" / "cash"), *arguments],
+            cwd=target,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
         )
 
     def seed_legacy_baselines(self, target: Path, bodies: dict[str, bytes]) -> None:
@@ -645,6 +752,633 @@ class InstallerRuntimeTests(unittest.TestCase):
             f"missing={sorted(set(derived) - set(BUNDLE_RUNTIME_PATHS))} "
             f"extra={sorted(set(BUNDLE_RUNTIME_PATHS) - set(derived))}",
         )
+
+    def test_vendor_fresh_reports_update_and_portable_launcher_ignores_stale_receipt(
+        self,
+    ) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+
+        result = self.assert_vendored(target)
+        self.assertIn("Result: update", result.stdout)
+        receipt = target / ".cash-skills" / "receipt.tsv"
+        receipt.write_bytes(b"version\tstale\n")
+        os.chmod(receipt, 0o600)
+        before = self.workspace_snapshot(target)
+
+        launched = self.run_target_cash(target, "list", "--json")
+
+        self.assertEqual(launched.returncode, 0, launched.stdout + launched.stderr)
+        self.assertEqual(launched.stdout, '{"changes":[]}\n')
+        self.assertEqual(self.workspace_snapshot(target), before)
+
+    def test_portable_help_and_generation_share_the_stable_lock(self) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        self.assert_vendored(target)
+        lock = target / ".cash-workspace.lock"
+
+        with lock.open("rb") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            process = subprocess.Popen(
+                [str(target / ".cash-skills" / "bin" / "cash"), "--help"],
+                cwd=target,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            self.addCleanup(lambda: process.poll() is None and process.kill())
+            time.sleep(0.2)
+            self.assertIsNone(
+                process.poll(),
+                "portable help must wait for the stable generation lock",
+            )
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+        stdout, stderr = process.communicate(timeout=20)
+        self.assertEqual(process.returncode, 0, stdout + stderr)
+        invalid = target / ".cash-skills" / "manifest.tsv"
+        invalid.write_bytes(b"format\tbroken\n")
+        failed_help = self.run_target_cash(target, "--help")
+        self.assertEqual(failed_help.returncode, 1)
+        self.assertIn("error[manifest_invalid]", failed_help.stderr)
+
+    def test_portable_import_ignores_valid_timestamp_pyc_and_writes_nothing(
+        self,
+    ) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        self.assert_vendored(target)
+        runtime = target / ".cash-skills" / "lib" / "cash_cli" / "errors.py"
+        marker = target / "malicious-pyc-ran"
+        metadata = runtime.stat()
+        payload = (
+            "from pathlib import Path\n"
+            f"Path({str(marker)!r}).write_text('ran')\n"
+        )
+        self.assertLess(len(payload.encode()), metadata.st_size)
+        payload += "#" + ("x" * (metadata.st_size - len(payload.encode()) - 1))
+        code = compile(payload, str(runtime), "exec")
+        pyc = Path(importlib.util.cache_from_source(str(runtime)))
+        pyc.parent.mkdir(parents=True, exist_ok=True)
+        pyc.write_bytes(
+            importlib.util.MAGIC_NUMBER
+            + struct.pack(
+                "<III",
+                0,
+                int(metadata.st_mtime),
+                metadata.st_size,
+            )
+            + marshal.dumps(code)
+        )
+        before = self.workspace_snapshot(target)
+
+        launched = self.run_target_cash(target, "list", "--json")
+
+        self.assertEqual(launched.returncode, 0, launched.stdout + launched.stderr)
+        self.assertFalse(marker.exists(), "portable import executed unverified .pyc bytes")
+        self.assertEqual(self.workspace_snapshot(target), before)
+
+    def test_manifest_present_unsafe_shapes_fail_before_open_without_receipt_fallback(
+        self,
+    ) -> None:
+        for shape in ("fifo", "broken-symlink", "directory", "hard-link"):
+            with self.subTest(shape=shape):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                self.assert_vendored(target)
+                manifest = target / ".cash-skills" / "manifest.tsv"
+                receipt = target / ".cash-skills" / "receipt.tsv"
+                receipt.write_bytes(b"version\tvalid-looking-residue\n")
+                manifest.unlink()
+                if shape == "fifo":
+                    os.mkfifo(manifest)
+                elif shape == "broken-symlink":
+                    manifest.symlink_to(target / "missing-manifest")
+                elif shape == "directory":
+                    manifest.mkdir()
+                else:
+                    outside = target / "manifest-hardlink-source"
+                    outside.write_bytes(b"format\tcash-portable-manifest-v1\n")
+                    os.link(outside, manifest)
+
+                launched = self.run_target_cash(target, "list", "--json", timeout=2)
+
+                self.assertEqual(launched.returncode, 1)
+                self.assertIn('"code":"manifest_invalid"', launched.stdout)
+                self.assertNotIn('"code":"receipt_invalid"', launched.stdout)
+
+    def test_executable_manifest_and_manifest_schema_drift_fail_closed(self) -> None:
+        mutations = ("executable", "schema", "duplicate", "unknown-kind")
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                self.assert_vendored(target)
+                manifest = target / ".cash-skills" / "manifest.tsv"
+                if mutation == "executable":
+                    os.chmod(manifest, 0o755)
+                else:
+                    lines = manifest.read_text(encoding="utf-8").splitlines()
+                    if mutation == "schema":
+                        lines[0] = "format\tcash-portable-manifest-v999"
+                    elif mutation == "duplicate":
+                        lines.append(lines[-1])
+                    else:
+                        fields = lines[-1].split("\t")
+                        fields[0] = "unknown"
+                        lines[-1] = "\t".join(fields)
+                    manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+                launched = self.run_target_cash(target, "list", "--json")
+
+                self.assertEqual(launched.returncode, 1)
+                self.assertIn('"code":"manifest_invalid"', launched.stdout)
+
+    def test_portable_runtime_expected_set_rejects_missing_and_extra_python(
+        self,
+    ) -> None:
+        for mutation in ("missing", "extra"):
+            with self.subTest(mutation=mutation):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                self.assert_vendored(target)
+                runtime_root = target / ".cash-skills" / "lib" / "cash_cli"
+                if mutation == "missing":
+                    (runtime_root / "errors.py").unlink()
+                else:
+                    (runtime_root / "unexpected.py").write_text(
+                        "VALUE = 1\n",
+                        encoding="utf-8",
+                    )
+
+                launched = self.run_target_cash(target, "list", "--json")
+
+                self.assertEqual(launched.returncode, 1)
+                self.assertIn('"code":"manifest_invalid"', launched.stdout)
+                expected_path = "errors.py" if mutation == "missing" else "unexpected.py"
+                self.assertIn(expected_path, launched.stdout)
+
+    def test_portable_stable_drift_uses_manifest_error_contract(self) -> None:
+        for path, mutation in (
+            (".cash-skills/bin/cash", "non-executable"),
+            (".cash-workspace.lock", "executable"),
+            (".cash-workspace.lock", "hard-link"),
+        ):
+            with self.subTest(path=path, mutation=mutation):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                self.assert_vendored(target)
+                managed = target / path
+                if mutation == "non-executable":
+                    os.chmod(managed, 0o644)
+                elif mutation == "executable":
+                    os.chmod(managed, 0o755)
+                else:
+                    content = managed.read_bytes()
+                    managed.unlink()
+                    source = target / "lock-hardlink-source"
+                    source.write_bytes(content)
+                    os.chmod(source, 0o644)
+                    os.link(source, managed)
+                command = [str(target / ".cash-skills" / "bin" / "cash")]
+                if path.endswith("/cash") and mutation == "non-executable":
+                    command.insert(0, sys.executable)
+                launched = subprocess.run(
+                    [*command, "list", "--json"],
+                    cwd=target,
+                    text=True,
+                    capture_output=True,
+                )
+
+                self.assertEqual(launched.returncode, 1)
+                self.assertIn('"code":"manifest_invalid"', launched.stdout)
+                self.assertNotIn('"code":"bootstrap_invalid"', launched.stdout)
+
+    def test_portable_git_logical_modes_accept_umask_classes_and_zero_write(
+        self,
+    ) -> None:
+        for group_writable in (False, True):
+            with self.subTest(group_writable=group_writable):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                self.assert_vendored(target)
+                for path in target.rglob("*"):
+                    if ".git" in path.parts or not path.is_file():
+                        continue
+                    mode = stat.S_IMODE(path.stat().st_mode)
+                    if group_writable:
+                        os.chmod(path, mode | stat.S_IWGRP)
+                    else:
+                        os.chmod(path, mode & ~stat.S_IWGRP)
+                before = self.workspace_snapshot(target)
+
+                launched = self.run_target_cash(target, "list", "--json")
+
+                self.assertEqual(launched.returncode, 0, launched.stdout + launched.stderr)
+                self.assertEqual(self.workspace_snapshot(target), before)
+
+    def test_vendor_preflight_reports_all_git_excluded_planned_paths_before_write(
+        self,
+    ) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        (target / ".gitignore").write_text(
+            ".cash-skills/\n.agents/\n.claude/\nAGENTS.md\nCLAUDE.md\n",
+            encoding="utf-8",
+        )
+
+        result = self.vendor(target, "--force")
+
+        self.assertEqual(result.returncode, 1)
+        for expected in (
+            ".cash-skills/bin/cash",
+            ".agents/skills/cash-apply/SKILL.md",
+            ".claude/skills/cash-apply/SKILL.md",
+            "AGENTS.md",
+            "CLAUDE.md",
+        ):
+            self.assertIn(expected, result.stderr)
+        self.assertFalse((target / ".cash-skills" / "manifest.tsv").exists())
+        self.assertFalse((target / ".cash-workspace.lock").exists())
+
+    def test_vendor_git_queries_disable_fsmonitor_and_fail_closed_on_index_error(
+        self,
+    ) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        marker = target / "fsmonitor-ran"
+        monitor = target / "fsmonitor.sh"
+        monitor.write_text(
+            "#!/bin/sh\n"
+            f"printf ran > {shlex.quote(str(marker))}\n",
+            encoding="utf-8",
+        )
+        os.chmod(monitor, 0o755)
+        subprocess.run(
+            ["git", "-C", str(target), "config", "core.fsmonitor", str(monitor)],
+            check=True,
+        )
+
+        result = self.vendor(target)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(marker.exists(), "vendor preflight executed core.fsmonitor")
+
+        broken_temp, broken = self.make_target()
+        self.addCleanup(broken_temp.cleanup)
+        (broken / ".git" / "index").write_bytes(b"invalid index\n")
+        rejected = self.vendor(broken)
+        self.assertEqual(rejected.returncode, 1)
+        self.assertIn("cannot query Git index", rejected.stderr)
+
+    def test_vendor_receiptless_exact_partial_force_and_unknown_extra_adoption(
+        self,
+    ) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        installed = self.install(target)
+        self.assertEqual(installed.returncode, 0, installed.stderr)
+        receipt = target / ".cash-skills" / "receipt.tsv"
+        receipt.unlink()
+        launcher_inode = (target / ".cash-skills" / "bin" / "cash").stat().st_ino
+
+        adopted = self.assert_vendored(target)
+
+        self.assertIn("Result: update", adopted.stdout)
+        self.assertEqual(
+            (target / ".cash-skills" / "bin" / "cash").stat().st_ino,
+            launcher_inode,
+        )
+
+        partial_temp, partial = self.make_target()
+        self.addCleanup(partial_temp.cleanup)
+        installed = self.install(partial)
+        self.assertEqual(installed.returncode, 0, installed.stderr)
+        (partial / ".cash-skills" / "receipt.tsv").unlink()
+        (partial / ".cash-skills" / "lib" / "cash_cli" / "errors.py").unlink()
+        conflict = self.vendor(partial)
+        self.assertEqual(conflict.returncode, 0, conflict.stderr)
+        self.assertIn("Result: conflict", conflict.stdout)
+        forced = self.assert_vendored(partial, "--force")
+        self.assertIn("Result: update", forced.stdout)
+
+        extra_temp, extra = self.make_target()
+        self.addCleanup(extra_temp.cleanup)
+        installed = self.install(extra)
+        self.assertEqual(installed.returncode, 0, installed.stderr)
+        (extra / ".cash-skills" / "receipt.tsv").unlink()
+        (extra / ".cash-skills" / "lib" / "cash_cli" / "extra.py").write_text(
+            "VALUE = 1\n",
+            encoding="utf-8",
+        )
+        rejected = self.vendor(extra, "--force")
+        self.assertEqual(rejected.returncode, 1)
+        self.assertIn("extra.py", rejected.stderr)
+
+    def test_vendor_current_update_receipt_conversion_and_direct_mode_rejection(
+        self,
+    ) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        self.assert_vendored(target)
+        before = self.workspace_snapshot(target)
+        current = self.assert_vendored(target)
+        self.assertIn("Result: current", current.stdout)
+        self.assertEqual(self.workspace_snapshot(target), before)
+
+        receipt_temp, receipt_target = self.make_target()
+        self.addCleanup(receipt_temp.cleanup)
+        direct = self.install(receipt_target)
+        self.assertEqual(direct.returncode, 0, direct.stderr)
+        self.assert_vendored(receipt_target)
+        self.assertFalse((receipt_target / ".cash-skills" / "receipt.tsv").exists())
+
+        rejected = self.install(target)
+        self.assertEqual(rejected.returncode, 1)
+        self.assertIn("--vendor", rejected.stderr)
+
+    def test_vendor_updates_across_runtime_inventory_changes(self) -> None:
+        for mutation in ("source-added", "source-removed"):
+            with self.subTest(mutation=mutation):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                self.assert_vendored(target)
+                manifest = target / ".cash-skills" / "manifest.tsv"
+                lines = manifest.read_text(encoding="utf-8").splitlines()
+                runtime_rows = [
+                    line for line in lines[3:] if line.startswith("runtime\t")
+                ]
+                if mutation == "source-added":
+                    removed = runtime_rows[-1]
+                    relative = removed.split("\t")[1]
+                    lines.remove(removed)
+                    (target / relative).unlink()
+                else:
+                    relative = ".cash-skills/lib/cash_cli/retired.py"
+                    content = b"RETIRED = True\n"
+                    (target / relative).write_bytes(content)
+                    added = (
+                        f"runtime\t{relative}\t{hashlib.sha256(content).hexdigest()}"
+                        "\t100644"
+                    )
+                    skill_index = next(
+                        index
+                        for index, line in enumerate(lines)
+                        if line.startswith("skill\t")
+                    )
+                    lines.insert(skill_index, added)
+                headers = lines[:3]
+                stable = [
+                    line for line in lines[3:] if line.startswith("stable\t")
+                ]
+                runtime = sorted(
+                    (
+                        line
+                        for line in lines[3:]
+                        if line.startswith("runtime\t")
+                    ),
+                    key=lambda line: line.split("\t")[1].encode("utf-8"),
+                )
+                skills = [
+                    line for line in lines[3:] if line.startswith("skill\t")
+                ]
+                lines = [*headers, *stable, *runtime, *skills]
+                lines[1] = "bundle_version\t2.11.0"
+                runtime_rows = sorted(
+                    (
+                        line.split("\t")
+                        for line in lines[3:]
+                        if line.startswith("runtime\t")
+                    ),
+                    key=lambda row: row[1].encode("utf-8"),
+                )
+                stream = "".join(
+                    f"{row[1]}\t{row[2]}\t0644\n" for row in runtime_rows
+                ).encode("utf-8")
+                lines[2] = (
+                    "runtime_generation\t" + hashlib.sha256(stream).hexdigest()
+                )
+                manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+                updated = self.vendor(target)
+
+                self.assertEqual(updated.returncode, 0, updated.stderr)
+                self.assertIn("Result: update", updated.stdout)
+                expected = mutation == "source-added"
+                self.assertEqual((target / relative).exists(), expected)
+                launched = self.run_target_cash(target, "list", "--json")
+                self.assertEqual(
+                    launched.returncode,
+                    0,
+                    launched.stdout + launched.stderr,
+                )
+
+    def test_vendor_rejects_runtime_symlink_directory_instead_of_current(
+        self,
+    ) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        self.assert_vendored(target)
+        outside = target / "outside-runtime"
+        outside.mkdir()
+        symlink = target / ".cash-skills" / "lib" / "cash_cli" / "linked"
+        symlink.symlink_to(outside, target_is_directory=True)
+
+        result = self.vendor(target)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("runtime directory is a symlink", result.stderr)
+
+    def test_vendor_revalidates_source_and_target_plans_after_lock_wait(
+        self,
+    ) -> None:
+        for mutation in ("source-runtime", "target-guidance"):
+            with self.subTest(mutation=mutation):
+                source_temp, source, _ = self.make_source_bundle()
+                self.addCleanup(source_temp.cleanup)
+                target_temp, target = self.make_target()
+                self.addCleanup(target_temp.cleanup)
+                barrier = Path(target_temp.name) / "git-preflight"
+                ready = barrier.with_suffix(".ready")
+                release = barrier.with_suffix(".release")
+                shim_directory = Path(target_temp.name) / "git-shim"
+                shim_directory.mkdir()
+                git = shutil.which("git")
+                self.assertIsNotNone(git)
+                shim = shim_directory / "git"
+                shim.write_text(
+                    "#!/bin/sh\n"
+                    "pause=0\n"
+                    'for argument in "$@"; do\n'
+                    '  if [ "$argument" = "ls-files" ]; then pause=1; fi\n'
+                    "done\n"
+                    f"if [ \"$pause\" = 1 ] && [ ! -e {shlex.quote(str(ready))} ]; then\n"
+                    f"  printf 'ready\\n' > {shlex.quote(str(ready))}\n"
+                    f"  while [ ! -e {shlex.quote(str(release))} ]; do sleep 0.01; done\n"
+                    "fi\n"
+                    f"exec {shlex.quote(str(git))} \"$@\"\n",
+                    encoding="utf-8",
+                )
+                os.chmod(shim, 0o755)
+                environment = {
+                    name: value
+                    for name, value in os.environ.items()
+                    if not name.startswith("CASH_INSTALL_")
+                    and not name.startswith("TEST_CASH_INSTALL_")
+                }
+                environment["PATH"] = (
+                    str(shim_directory)
+                    + os.pathsep
+                    + environment.get("PATH", "")
+                )
+                process = subprocess.Popen(
+                    [
+                        "fish",
+                        "--no-config",
+                        str(source / "install-cash-skills.fish"),
+                        "--vendor",
+                        str(target),
+                    ],
+                    cwd=source,
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    env=environment,
+                )
+                self.addCleanup(
+                    lambda process=process: (
+                        process.poll() is None and process.kill()
+                    )
+                )
+                deadline = time.monotonic() + 10
+                while (
+                    not ready.exists()
+                    and process.poll() is None
+                    and time.monotonic() < deadline
+                ):
+                    time.sleep(0.01)
+                self.assertTrue(ready.exists(), "Git preflight barrier was not reached")
+                self.assertIsNone(process.poll())
+                if mutation == "source-runtime":
+                    changed = (
+                        source
+                        / ".cash-skills"
+                        / "lib"
+                        / "cash_cli"
+                        / "errors.py"
+                    )
+                    changed.write_bytes(changed.read_bytes() + b"\n")
+                else:
+                    (target / "AGENTS.md").write_text(
+                        "concurrent project guidance\n",
+                        encoding="utf-8",
+                    )
+                release.write_text("release\n", encoding="utf-8")
+
+                stdout, stderr = process.communicate(timeout=20)
+                self.assertEqual(process.returncode, 1, stdout + stderr)
+                self.assertIn("changed before lock acquisition", stderr)
+                self.assertFalse(
+                    (target / ".cash-skills" / "manifest.tsv").exists()
+                )
+                if mutation == "target-guidance":
+                    self.assertEqual(
+                        (target / "AGENTS.md").read_text(encoding="utf-8"),
+                        "concurrent project guidance\n",
+                    )
+
+    def test_launcher_transition_and_journal_v3_contract_surface_is_explicit(
+        self,
+    ) -> None:
+        sys.path.insert(0, str(ROOT / ".cash-skills" / "lib"))
+        from cash_cli import installer
+
+        self.assertTrue(
+            hasattr(installer, "APPROVED_LAUNCHER_TRANSITIONS"),
+            "skipped-version launcher migration requires "
+            "APPROVED_LAUNCHER_TRANSITIONS",
+        )
+        transitions = installer.APPROVED_LAUNCHER_TRANSITIONS
+        self.assertTrue(transitions)
+        for transition in transitions:
+            self.assertEqual(len(transition), 3)
+            old_digest, new_digest, introduced_version = transition
+            self.assertRegex(old_digest, r"^[0-9a-f]{64}$")
+            self.assertRegex(new_digest, r"^[0-9a-f]{64}$")
+            self.assertRegex(introduced_version, r"^[0-9]+\.[0-9]+\.[0-9]+$")
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        journal = json.loads(
+            installer.InstallTransaction(target)._journal(0).decode("utf-8")
+        )
+        self.assertEqual(
+            journal["version"],
+            3,
+            "launcher/receipt/cutover recovery requires journal schema v3",
+        )
+
+    def test_schema_v2_recovery_remains_supported_before_vendor_classification(
+        self,
+    ) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        published = b"half-published\n"
+        (target / ".cash-workspace.lock").touch(mode=0o644)
+        journal = self.seed_publishing_journal(
+            target,
+            [(".gitignore", None, 0o644, published)],
+            version=2,
+        )
+
+        result = self.vendor(target)
+
+        self.assertEqual(
+            result.returncode,
+            0,
+            "schema v2 recovery must run before vendored target classification: "
+            + result.stderr,
+        )
+        self.assertFalse(journal.exists())
+        self.assertTrue((target / ".cash-skills" / "manifest.tsv").is_file())
+
+    def test_vendor_faults_before_and_after_manifest_recover_to_one_complete_gate(
+        self,
+    ) -> None:
+        for path, expected_gate in (
+            (".cash-skills/lib/cash_cli/errors.py", "receipt-or-bootstrap"),
+            (".cash-skills/manifest.tsv", "portable"),
+            (".cash-skills/receipt.tsv", "portable"),
+        ):
+            with self.subTest(path=path):
+                temporary, target = self.make_target()
+                self.addCleanup(temporary.cleanup)
+                if path == ".cash-skills/receipt.tsv":
+                    installed = self.install(target)
+                    self.assertEqual(installed.returncode, 0, installed.stderr)
+                result = self.vendor(
+                    target,
+                    env={
+                        "TEST_CASH_INSTALL_TEST_HOOKS": "1",
+                        "TEST_CASH_INSTALL_FAIL_AFTER_PATH": path,
+                    },
+                )
+                self.assertEqual(result.returncode, 1)
+                recovered = self.vendor(target)
+                self.assertEqual(recovered.returncode, 0, recovered.stderr)
+                manifest = target / ".cash-skills" / "manifest.tsv"
+                receipt = target / ".cash-skills" / "receipt.tsv"
+                if expected_gate == "portable":
+                    self.assertTrue(manifest.is_file())
+                    self.assertFalse(receipt.exists())
+                    launched = self.run_target_cash(target, "list", "--json")
+                    self.assertEqual(
+                        launched.returncode,
+                        0,
+                        launched.stdout + launched.stderr,
+                    )
+                else:
+                    self.assertTrue(manifest.is_file())
 
     def test_fresh_install_receipt_and_direct_launcher(self) -> None:
         temporary, target = self.make_target()
@@ -1172,6 +1906,7 @@ class InstallerRuntimeTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         launcher = source / ".cash-skills" / "bin" / "cash"
         receipt = source / ".cash-skills" / "receipt.tsv"
+        manifest = source / ".cash-skills" / "manifest.tsv"
         managed = (
             source / ".cash-workspace.lock",
             launcher,
@@ -1205,13 +1940,15 @@ class InstallerRuntimeTests(unittest.TestCase):
         self.assertEqual(dry_run.returncode, 0, dry_run.stderr)
         self.assertIn("Result: would-bootstrap", dry_run.stdout)
         self.assertFalse(receipt.exists())
+        self.assertFalse(manifest.exists())
 
         bootstrapped = self.self_install(source)
         self.assertEqual(bootstrapped.returncode, 0, bootstrapped.stderr)
         self.assertIn("Result: bootstrap", bootstrapped.stdout)
-        self.assertTrue(receipt.is_file())
-        expected_receipt = receipt.read_bytes()
-        receipt.write_text("version\tbroken\n", encoding="utf-8")
+        self.assertTrue(manifest.is_file())
+        self.assertFalse(receipt.exists())
+        expected_manifest = manifest.read_bytes()
+        manifest.write_text("format\tbroken\n", encoding="utf-8")
         invalid = subprocess.run(
             [str(launcher), "list", "--json"],
             cwd=source,
@@ -1219,16 +1956,16 @@ class InstallerRuntimeTests(unittest.TestCase):
             capture_output=True,
         )
         self.assertEqual(invalid.returncode, 1)
-        self.assertIn('"code":"receipt_invalid"', invalid.stdout)
-        self.assertIn("./install-cash-skills.fish --self", invalid.stdout)
+        self.assertIn('"code":"manifest_invalid"', invalid.stdout)
         repaired = self.self_install(source)
         self.assertEqual(repaired.returncode, 0, repaired.stderr)
         self.assertIn("Result: bootstrap", repaired.stdout)
-        self.assertEqual(receipt.read_bytes(), expected_receipt)
-        first_receipt = (
-            receipt.read_bytes(),
-            stat.S_IMODE(receipt.stat().st_mode),
-            receipt.stat().st_ino,
+        self.assertEqual(manifest.read_bytes(), expected_manifest)
+        self.assertFalse(receipt.exists())
+        first_manifest = (
+            manifest.read_bytes(),
+            stat.S_IMODE(manifest.stat().st_mode),
+            manifest.stat().st_ino,
         )
         validated = subprocess.run(
             [str(launcher), "validate", "--all", "--json"],
@@ -1247,11 +1984,11 @@ class InstallerRuntimeTests(unittest.TestCase):
         self.assertIn("Result: current", current.stdout)
         self.assertEqual(
             (
-                receipt.read_bytes(),
-                stat.S_IMODE(receipt.stat().st_mode),
-                receipt.stat().st_ino,
+                manifest.read_bytes(),
+                stat.S_IMODE(manifest.stat().st_mode),
+                manifest.stat().st_ino,
             ),
-            first_receipt,
+            first_manifest,
         )
         for path, snapshot in before.items():
             self.assertEqual(
@@ -1259,7 +1996,6 @@ class InstallerRuntimeTests(unittest.TestCase):
                 snapshot,
             )
         self.assertFalse((source / ".cash-skills" / "state").exists())
-        receipt.unlink()
         self.assertFalse(receipt.exists())
 
     def test_source_self_rejects_unsafe_boundary_and_incompatible_modes(self) -> None:

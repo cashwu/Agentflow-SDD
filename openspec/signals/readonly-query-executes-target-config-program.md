@@ -2,11 +2,12 @@
 id: readonly-query-executes-target-config-program
 type: recurring-finding
 status: open
-occurrences: 1
+occurrences: 2
 first_seen: 2026-07-24
-last_seen: 2026-07-24
+last_seen: 2026-07-29
 links:
   - openspec/changes/guard-target-receipt-version-control/reviews/apply-r1.md
+  - openspec/changes/add-repo-vendored-cash-bundle/reviews/apply-r1.md
 ---
 
 # Read-only query executes target-config program
@@ -16,3 +17,4 @@ A workflow inspects an untrusted target by shelling out to a tool that honours t
 ## Occurrences
 
 - 2026-07-24 — guard-target-receipt-version-control — cash-apply round 1 — installer 新增以 `git ls-files` 偵測 receipt 是否已被納入版控，該查詢會執行 target repository `.git/config` 的 `core.fsmonitor` 程式（既有的 `git rev-parse --show-toplevel` 不會）；改為在該 invocation 加上 `-c core.fsmonitor=`，並加入驗證 hook 不被執行的 contract test。
+- 2026-07-29 — add-repo-vendored-cash-bundle — cash-apply round 1 — vendor planned-path preflight新增的 `git ls-files`會採用target `core.fsmonitor`且把query failure當untracked；改為清除該exec-capable設定並對非明確tracked／untracked結果fail closed。

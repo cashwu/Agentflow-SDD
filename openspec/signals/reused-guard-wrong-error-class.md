@@ -2,11 +2,12 @@
 id: reused-guard-wrong-error-class
 type: recurring-finding
 status: open
-occurrences: 1
+occurrences: 2
 first_seen: 2026-07-25
-last_seen: 2026-07-25
+last_seen: 2026-07-29
 links:
   - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r1.md
+  - openspec/changes/add-repo-vendored-cash-bundle/reviews/apply-r1.md
 ---
 
 # 重用既有守衛而落入錯誤的 error class
@@ -16,3 +17,4 @@ links:
 ## Occurrences
 
 - 2026-07-25 — harden-installer-mode-and-recovery — cash-propose round 1 — delta spec 要求空字串 mode 參數以 caller-input error 失敗（本 repo 契約為 exit 2），但 design 指定沿用的 `install_target` 與 `canonical_target` 既有守衛都走 `InstallerError` 預設 exit 1，且同時服務被歸類為 execution error 的 boundary scenario；修正為新增專屬守衛並明訂不得改動既有守衛的退出碼。
+- 2026-07-29 — add-repo-vendored-cash-bundle — cash-apply round 1 — portable mode重用固定回報 `bootstrap_invalid` 的stable-file opener，使launcher／lock manifest drift落入receipt bootstrap錯誤類；改由選定trust mode傳入 `manifest_invalid`或既有 `bootstrap_invalid`。

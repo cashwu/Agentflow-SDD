@@ -1,33 +1,33 @@
 # Cash receipt 初始化（`--init-receipt`）
 
-本文件說明 `cash_cli.installer` 的 target-side 模式 `--init-receipt`：它讓一個已安裝 Cash 的專案在 `git clone` 之後，不需要取得 canonical source repository 的存取權，就能在本機簽發 `.cash-skills/receipt.tsv` 並開始使用 `.cash-skills/bin/cash`。
+本文件說明 `cash_cli.installer` 的 target-side 模式 `--init-receipt`。它只適用於沒有 `.cash-skills/manifest.tsv` 的 receipt-only direct／legacy target：使用者不需要取得 canonical source repository 的存取權，即可在本機簽發 `.cash-skills/receipt.tsv`。
 
 讀者是本 repository 的維護者，以及需要替隊友排除 `bootstrap_invalid` 的人。target 端的 agent 引導另由部署到每個 target 的 `AGENTS.md`／`CLAUDE.md` managed block 承擔。
 
-## 什麼時候需要它
+## 先判斷信任模式
 
-`.cash-skills/receipt.tsv` 記錄 target 上 launcher 與 workspace lock 的 `st_dev`／`st_ino`，是機器特定的資料，因此被 `.gitignore` 排除（見 [`CASH-SKILLS.md`](CASH-SKILLS.md) 的「Target 版控排除保護」）。結果是：
+launcher 依 `.cash-skills/manifest.tsv` path 是否存在選擇互斥的信任 gate：
 
-| 隨 git clone 取得 | 不隨 git clone 取得 |
+| target 狀態 | launcher 行為 | 操作 |
 | --- | --- |
-| `.cash-skills/bin/cash`（launcher） | `.cash-skills/receipt.tsv` |
-| `.cash-skills/lib/cash_cli/`（runtime） | |
-| `.cash-workspace.lock` | |
-| 24 個 canonical `SKILL.md` | |
+| `.cash-skills/manifest.tsv` 存在 | 只走 portable manifest gate；ignored 的舊 receipt 不會遮蔽 manifest | clone／pull 後直接使用 `.cash-skills/bin/cash`，不要執行 `--init-receipt` |
+| manifest 缺失、receipt 存在 | 走 receipt gate | receipt 有效時直接使用；無效時由 canonical source 的 direct／registry workflow 更新 |
+| manifest 與 receipt 都缺失 | 以 `bootstrap_invalid` fail closed | 只有已確認為 receipt-based direct／legacy target 時才執行 `--init-receipt` |
 
-launcher 的主流程無條件執行 `validate_receipt`，receipt 缺席時以 `bootstrap_invalid` fail closed：
+manifest path 只要存在就選擇 portable gate；broken symlink、FIFO、directory 或其他 unsafe shape 也算存在，會以 `manifest_invalid` fail closed，絕不 fallback 到 receipt。
 
-```
-error[bootstrap_invalid]: /path/to/project/.cash-skills/receipt.tsv: [Errno 2] No such file or directory
-```
+`.cash-skills/receipt.tsv` 記錄 target 上 launcher 與 workspace lock 的 `st_dev`／`st_ino`，是機器特定資料，因此被 `.gitignore` 排除。這只影響 receipt-based target；repo-vendored target 透過提交到 Git 的 portable manifest 攜帶信任資料。
 
-`--init-receipt` 就是用來補上這一步的。它適用於：
+`--init-receipt` 適用於：
 
-- 隊友 clone 了一個已安裝 Cash 的專案，第一次要使用 `cash`。
-- CI 或 sandbox 每次都從乾淨 clone 開始。
-- 同一份 checkout 被複製到別的機器或別的 inode（receipt 記錄的 identity 因此失效）。
+- 隊友 clone 了一個 receipt-only direct／legacy target，且 checkout 沒有 receipt。
+- receipt-based CI 或 sandbox 每次都從乾淨 clone 開始。
+- receipt-based checkout 被複製到別的機器或別的 inode，舊 receipt identity 因此失效。
 
-它**不**適用於 canonical source repository（也就是本 repo）——那裡請用 `./install-cash-skills.fish --self`，`--init-receipt` 會主動拒絕。
+它不適用於：
+
+- repo-vendored target：改由 canonical source 執行 `./install-cash-skills.fish --vendor <project>` 安裝或更新；target 端的 `--init-receipt` 會以 `init_vendored_bundle` 拒絕。
+- canonical source repository（也就是本 repo）：執行 `./install-cash-skills.fish --self` 同步 canonical portable manifest 並清除 source receipt residue；`--init-receipt` 會以 `init_source_repo` 拒絕。
 
 ## 指令與前提
 
@@ -48,7 +48,7 @@ PYTHONPATH=.cash-skills/lib python3 -s -P -B -m cash_cli.installer --init-receip
 - **Python 3.11+**。更舊的直譯器會在 `-m` 載入期就以 `SyntaxError` traceback 失敗，不會產生具名錯誤——這是已知且刻意接受的限制。可達 `__main__` 的情形由 `init_python_version` 涵蓋。
 - **`cash_cli.installer` 的 import-time 相依必須存在**：`installer.py`（`-m` 的目標模組）、`config.py`（`installer.py` 直接匯入），以及 `main.py` 與 `errors.py`（套件 `__init__` 的匯入鏈）。這四個缺席時，`-m` 載入在任何檢核之前就以 `No module named` 失敗（stderr，無 stdout JSON），**不會**有具名 error code，也不會走到下面的 `init_inventory_invalid` 對照表——處置方式是修好 checkout 讓該檔存在。其餘 15 個 canonical runtime 模組的增減則由 `init_inventory` 以 `init_inventory_invalid` 具名回報。
 - **必須在 Git worktree top-level 執行**。`PYTHONPATH=.cash-skills/lib` 是相對路徑，從子目錄執行會先撞到 `ModuleNotFoundError: No module named 'cash_cli'` 而不是具名錯誤。
-- `--init-receipt` 與 `--self`、`--target`、`--register`、`--unregister`、`--list`、`--all`、`--force`、`--dry-run` 互斥，同時給會以 exit `2` 拒絕。
+- `--init-receipt` 與 `--self`、`--target`、`--vendor`、`--register`、`--unregister`、`--list`、`--all`、`--force`、`--dry-run` 互斥，同時給會以 exit `2` 拒絕。
 
 ## 輸出與結果碼
 
@@ -104,6 +104,16 @@ this is the canonical Cash source repository; run ./install-cash-skills.fish --s
 偵測到 canonical source layout。改用 `./install-cash-skills.fish --self`。
 
 判定條件是 source-only marker（`install-cash-skills.fish`、`cash-skills.version`、`.cash.yaml`、`openspec/config.yaml`、`CASH-SKILLS.md`、`scripts/cash-skills/legacy-spectra-digests.tsv`）、runtime core 四個檔案與 24 個 canonical skill 的**存在與 regular-file 形狀**，加上可解析的 `cash-skills.version`。它刻意**不**比對 contract mode——這些 marker 都不在 mode 正規化的涵蓋範圍內，若比對 mode，umask `002` clone 的 source repo 會被誤判成一般 target 而被簽發 receipt。
+
+### `init_vendored_bundle`
+
+```
+target is managed by a portable manifest; --init-receipt is not allowed
+```
+
+非source target 的 portable manifest path 已存在。無論 manifest 是 valid 或 unsafe shape，`--init-receipt` 都不讀取、不建立、不修改也不刪除 receipt，並以 exit `1` fail closed。請直接使用 valid vendored bundle；若 manifest 或受管內容無效，請由 canonical source 明示執行 `./install-cash-skills.fish --vendor <project>` 處理，不得用 receipt fallback 掩蓋問題。
+
+此檢查會做兩次：第一次在 target preflight，第二次在取得 `.cash-workspace.lock` 的 exclusive flock 後、任何 mode 正規化、inventory open 或 receipt publication 之前。若併發 publisher 在兩次檢查間建立 manifest，第二次檢查仍以 `init_vendored_bundle` 零內容寫入拒絕。
 
 ### `init_config_invalid`
 
@@ -161,20 +171,22 @@ unsafe regular file identity: .cash-skills/receipt.tsv
 1. 檢查 Python 3.11+。
 2. 驗證 cwd 是 Git worktree top-level。
 3. 拒絕 canonical source repository。
-4. 驗證 `openspec/config.yaml` 安全可讀且 schema-valid。
-5. 確認 `.cash-workspace.lock` 是既存、空的 regular file，取 **exclusive flock 並全程持有**。
-6. 檢核 runtime inventory 完整性：期望集合取自內嵌的 `BUNDLE_RUNTIME_PATHS`，與現地集合不符即 fail closed，並在診斷列出 `missing` 與 `extra` 兩個差集。這一步排在 mode 正規化之前，所以 runtime 集合不符時連一次 `chmod` 都不會發生。stable 與 24 個 skill 的存在性與形狀檢核則與下一步同趟進行。
-7. 把 managed inventory 的 mode 正規化為 contract modes。
-8. 從現地 bytes 計算 digests、以本機 no-follow `lstat` 取 stable identity，組出 receipt。
-9. 與既有 receipt 比對：bytes 與 mode 皆一致則回報 `current` 零寫入；否則以 same-directory temporary 加 atomic rename 簽發，回報 `initialized`。
+4. 以 no-follow `lstat` 拒絕任何 portable manifest present shape。
+5. 驗證 `openspec/config.yaml` 安全可讀且 schema-valid。
+6. 確認 `.cash-workspace.lock` 是既存、空的 regular file，取 **exclusive flock 並全程持有**。
+7. 取鎖後再次以 no-follow `lstat` 確認 portable manifest 仍缺失。
+8. 檢核 runtime inventory 完整性：期望集合取自內嵌的 `BUNDLE_RUNTIME_PATHS`，與現地集合不符即 fail closed，並在診斷列出 `missing` 與 `extra` 兩個差集。這一步排在 mode 正規化之前，所以 runtime 集合不符時連一次 `chmod` 都不會發生。stable 與 24 個 skill 的存在性與形狀檢核則與下一步同趟進行。
+9. 把 managed inventory 的 mode 正規化為 contract modes。
+10. 從現地 bytes 計算 digests、以本機 no-follow `lstat` 取 stable identity，組出 receipt。
+11. 與既有 receipt 比對：bytes 與 mode 皆一致則回報 `current` 零寫入；否則以 same-directory temporary 加 atomic rename 簽發，回報 `initialized`。
 
-**mode 正規化**是「clone 即用」不依賴特定 umask 的關鍵。git checkout 產生的 mode 是 `0666/0777 & ~umask`，在 umask `002` 的群組協作環境會 checkout 出 launcher `0775`、其餘 `0664`，而 launcher 的自檢與 receipt 的 contract mode 都要求精確值。步驟 7 用 no-follow 開檔加 `fchmod` 把它們收斂回契約值，只改 metadata、不動任何 bytes。
+**mode 正規化**讓 receipt-only clone 不依賴特定 umask。git checkout 產生的 mode 是 `0666/0777 & ~umask`，在 umask `002` 的群組協作環境會 checkout 出 launcher `0775`、其餘 `0664`，而 receipt gate 的 contract mode 要求精確值。步驟 9 用 no-follow 開檔加 `fchmod` 把它們收斂回契約值，只改 metadata、不動任何 bytes。portable gate 則比較 Git logical mode（`100755`／`100644`），不要求完整 POSIX mode 精確相等。
 
-**寫入面保證**：所有失敗路徑零檔案內容寫入；成功路徑唯一的內容寫入是 receipt 本身。步驟 7 的 `chmod` 是唯一的 metadata 修改，且僅及 managed inventory。（若 `chmod` syscall 本身在中途失敗——唯讀掛載、他人擁有的檔案——可能留下部分正規化的 metadata；內容零寫入的保證不受影響。）
+**寫入面保證**：所有失敗路徑零檔案內容寫入；成功路徑唯一的內容寫入是 receipt 本身。步驟 9 的 `chmod` 是唯一的 metadata 修改，且僅及 managed inventory。（若 `chmod` syscall 本身在中途失敗——唯讀掛載、他人擁有的檔案——可能留下部分正規化的 metadata；內容零寫入的保證不受影響。）
 
 ## 信任模型
 
-這是 `--init-receipt` 與 installer 安裝路徑最重要的差別，值得明確理解。
+這是 receipt-only `--init-receipt` 與 portable manifest 最重要的差別，值得明確理解。
 
 installer 簽發的 receipt 證明「這份安裝來自 canonical installer」。`--init-receipt` 簽發的 receipt **不證明這件事**——它的信任根是 git clone 的現地內容。執行它等同於使用者主動宣告「我信任版控裡的這份內容」，provenance 由 git 歷史承擔。
 
@@ -191,17 +203,20 @@ installer 簽發的 receipt 證明「這份安裝來自 canonical installer」�
 
 簽發之後，receipt 維持它既有的職責：偵測簽發後的本機 drift 與竄改。
 
+repo-vendored target 不使用 machine-local stable identity作為啟動 gate。portable manifest 記錄受管 inventory 的 digest 與 Git logical mode，provenance 由 repository commit／review history承擔；能同時改寫 manifest 與受管檔案的 working-tree writer 仍可建立新的自洽狀態，因此 portable manifest 不是簽章。
+
 ## 與 `install-cash-skills.fish` 各模式的關係
 
-| 模式 | 在哪裡執行 | 需要 source repo | 用途 |
-| --- | --- | --- | --- |
-| `--self` | canonical source repo | — | 重建 source repo 自己的 receipt |
-| `--target <project>` | source repo | 是 | 安裝或升級一個 target |
-| `--register` / `--unregister` / `--list` | source repo | 是 | 維護 `$HOME/.config/cash-skills/projects.txt` |
-| `--all` | source repo | 是 | 對 registry 中全部 target 批次安裝／升級 |
-| `--init-receipt` | **target 專案根** | **否** | 在本機簽發 target 的 receipt |
+| 模式 | 執行位置 | 管理的信任模式 | `--dry-run` | `--force` | 用途 |
+| --- | --- | --- | --- | --- | --- |
+| `--self` | canonical source repo | portable source | 支援 | 不支援 | 在同一 stable lock transaction 同步 canonical manifest、清除 source receipt residue；不發布 launcher、runtime、skills、config 或 guidance |
+| `--vendor <project>` | canonical source repo | portable target | 支援 | 支援 | 發布／更新 repo-vendored bundle，或明示把 valid receipt target 轉為 portable mode |
+| `--target <project>` | canonical source repo | receipt target | 支援 | 支援 | direct 安裝／升級 receipt-based target；遇到 portable manifest 時拒絕並指向 `--vendor` |
+| `--register <project>` / `--unregister <project>` / `--list` | canonical source repo | receipt registry | 不支援 | 不支援 | 維護 `$HOME/.config/cash-skills/projects.txt`；不得把 vendored target 納入 receipt workflow |
+| `--all` | canonical source repo | receipt registry targets | 支援 | 支援 | 對 registry 中全部 receipt-based target 批次安裝／升級 |
+| `--init-receipt` | receipt-only target 專案根 | receipt target | 不支援 | 不支援 | 從現地已安裝 inventory 簽發 machine-local receipt |
 
-`--init-receipt` 是唯一不需要 source repo 的模式，也是唯一從 target 端執行的模式。它**不會**安裝、升級或修復任何 managed 檔案內容——那始終是 `--target` 的職責。
+`--init-receipt` 是唯一不需要 source repo 且從 target 端執行的模式。它不會安裝、升級或修復任何 managed 檔案內容；receipt target 的內容更新由 `--target`／`--all` 負責，vendored target 則由 `--vendor` 負責。
 
 receipt 首行的 `version` 取自 installer module 內嵌的 `BUNDLE_VERSION` 常數，因為 `cash-skills.version` 是 source-only 檔、target 上並不存在。`scripts/cash-skills/tests/test_installer_runtime.py` 以 contract test 斷言該常數恆等於 `cash-skills.version` 的內容，避免雙真相來源漂移。
 
@@ -209,7 +224,7 @@ receipt 首行的 `version` 取自 installer module 內嵌的 `BUNDLE_VERSION` �
 
 **Q：init 簽發的 receipt 和 installer 寫的一樣嗎？**
 
-一模一樣。在同版本的 target 上，`--init-receipt` 產生的 `.cash-skills/receipt.tsv` 與 `install-cash-skills.fish --target` 寫出的檔案逐 byte 相同，之後再跑 installer 會回報 `Result: current`。
+在同版本、同一現地 identity 的 receipt target 上，兩條路徑使用相同 schema 與 record inventory。`--init-receipt` 由現地 bytes、contract mode 與 stable identity重算 receipt；之後 direct installer 會依完整 baseline 分類。
 
 **Q：可以重複執行嗎？**
 
@@ -221,11 +236,11 @@ receipt 首行的 `version` 取自 installer module 內嵌的 `BUNDLE_VERSION` �
 
 **Q：和別人同時跑會衝突嗎？**
 
-不會。它在 mode 正規化、inventory 檢核與簽發之前取得 `.cash-workspace.lock` 的 exclusive flock 並全程持有（見上面步驟表的第 5 步），與 launcher 和 installer 使用同一個 inode 上的同一套協定。取鎖之前的四個步驟——Python 版本檢查、worktree top-level 驗證、source-repo 偵測、`openspec/config.yaml` 驗證——都是唯讀的，且在無鎖狀態下執行。receipt 的發佈是 atomic rename，併發讀取者只會看到舊的或新的完整內容。
+不會。它在 mode 正規化、inventory 檢核與簽發之前取得 `.cash-workspace.lock` 的 exclusive flock 並全程持有（見上面步驟表的第 6 步），與 launcher 和 installer 使用同一個 inode 上的同一套協定。取鎖之前的五個步驟——Python 版本檢查、worktree top-level 驗證、source-repo 偵測、portable manifest preflight、`openspec/config.yaml` 驗證——都是唯讀的，且在無鎖狀態下執行。取鎖後會先重驗 manifest 仍缺失；receipt 的發佈是 atomic rename，併發讀取者只會看到舊的或新的完整內容。
 
 **Q：需要新增檔案或改 launcher 嗎？**
 
-都不需要。init 邏輯嵌在既有的 runtime record `.cash-skills/lib/cash_cli/installer.py` 裡，隨既有的安裝與升級路徑部署到所有 target。bundle inventory 沒有擴充，receipt 的 record 集合與 schema 沒有改變，`.cash-skills/bin/cash` 逐 byte 不變。
+`--init-receipt` 只會簽發 receipt，並在需要時正規化既有 managed inventory 的 mode；它不會改寫 launcher 或其他 managed 檔案內容。launcher 的版本更新屬於 canonical installer 的受控 migration，可能由 `--target` 或 `--vendor` 在 exact transition、exclusive lock 與 recoverable journal 契約下進行。portable manifest 不加入 receipt inventory，receipt 的 record 集合與 schema 維持不變。
 
 **Q：`--dry-run` 呢？**
 

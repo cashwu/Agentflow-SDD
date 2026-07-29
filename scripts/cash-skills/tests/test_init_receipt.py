@@ -35,6 +35,7 @@ SKILL_PATHS = tuple(
     for skill in SKILLS
 )
 RECEIPT_PATH = ".cash-skills/receipt.tsv"
+MANIFEST_PATH = ".cash-skills/manifest.tsv"
 INTERPRETER_FLAGS = ("-s", "-P", "-B")
 
 
@@ -122,6 +123,24 @@ class InitReceiptTests(unittest.TestCase):
             capture_output=True,
         )
 
+    def self_install(
+        self,
+        source: Path,
+        *arguments: str,
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [
+                "fish",
+                "--no-config",
+                str(source / "install-cash-skills.fish"),
+                "--self",
+                *arguments,
+            ],
+            cwd=str(source),
+            text=True,
+            capture_output=True,
+        )
+
     def receipt_state(self, root: Path) -> tuple[bytes, int, int, int]:
         receipt = root / RECEIPT_PATH
         metadata = receipt.stat()
@@ -182,6 +201,7 @@ class InitReceiptTests(unittest.TestCase):
     def test_installed_receipt_is_reproduced_byte_for_byte(self) -> None:
         temporary, target = self.make_installed_target()
         self.addCleanup(temporary.cleanup)
+        self.assertFalse((target / MANIFEST_PATH).exists())
         installed = self.receipt_state(target)
 
         result = self.init(target)
@@ -189,6 +209,7 @@ class InitReceiptTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "current\n")
         self.assertEqual(self.receipt_state(target), installed)
+        self.assertFalse((target / MANIFEST_PATH).exists())
 
     def test_repeated_initialization_is_current_and_zero_write(self) -> None:
         temporary, target = self.make_installed_target()
@@ -254,6 +275,115 @@ class InitReceiptTests(unittest.TestCase):
         error = self.assert_failure(result, "init_source_repo")
         self.assertIn("./install-cash-skills.fish --self", error["message"])
         self.assertFalse((source / RECEIPT_PATH).exists())
+
+    def test_vendored_target_rejects_receipt_initialization_without_writes(self) -> None:
+        for receipt_residue in (False, True):
+            with self.subTest(receipt_residue=receipt_residue):
+                temporary, target = self.make_installed_target()
+                self.addCleanup(temporary.cleanup)
+                receipt = target / RECEIPT_PATH
+                if not receipt_residue:
+                    receipt.unlink()
+                    receipt_before = None
+                else:
+                    receipt_before = self.receipt_state(target)
+                manifest = target / MANIFEST_PATH
+                manifest.write_bytes(b"portable manifest marker\n")
+                os.chmod(manifest, 0o644)
+                manifest_before = (
+                    manifest.read_bytes(),
+                    stat.S_IMODE(manifest.stat().st_mode),
+                    manifest.stat().st_ino,
+                    manifest.stat().st_mtime_ns,
+                )
+
+                result = self.init(target)
+
+                self.assert_failure(result, "init_vendored_bundle")
+                self.assertEqual(
+                    (
+                        manifest.read_bytes(),
+                        stat.S_IMODE(manifest.stat().st_mode),
+                        manifest.stat().st_ino,
+                        manifest.stat().st_mtime_ns,
+                    ),
+                    manifest_before,
+                )
+                if receipt_before is None:
+                    self.assertFalse(receipt.exists())
+                else:
+                    self.assertEqual(self.receipt_state(target), receipt_before)
+                self.assert_no_temporaries(target)
+
+    def test_source_self_publishes_manifest_and_removes_receipt_residue(self) -> None:
+        temporary, source = self.make_source_copy()
+        self.addCleanup(temporary.cleanup)
+        manifest = source / MANIFEST_PATH
+        receipt = source / RECEIPT_PATH
+        manifest.unlink()
+        receipt.write_bytes(b"source receipt residue\n")
+        os.chmod(receipt, 0o644)
+        receipt_before = self.receipt_state(source)
+        stable_paths = (
+            source / ".cash-workspace.lock",
+            source / ".cash-skills" / "bin" / "cash",
+            source / ".agents" / "skills" / "cash-apply" / "SKILL.md",
+        )
+        stable_before = {
+            path: (
+                path.read_bytes(),
+                stat.S_IMODE(path.stat().st_mode),
+                path.stat().st_ino,
+                path.stat().st_mtime_ns,
+            )
+            for path in stable_paths
+        }
+
+        dry_run = self.self_install(source, "--dry-run")
+
+        self.assertEqual(dry_run.returncode, 0, dry_run.stderr)
+        self.assertIn("Result: would-bootstrap", dry_run.stdout)
+        self.assertFalse(manifest.exists())
+        self.assertEqual(self.receipt_state(source), receipt_before)
+
+        bootstrapped = self.self_install(source)
+
+        self.assertEqual(bootstrapped.returncode, 0, bootstrapped.stderr)
+        self.assertIn("Result: bootstrap", bootstrapped.stdout)
+        self.assertTrue(manifest.is_file())
+        self.assertEqual(stat.S_IMODE(manifest.stat().st_mode), 0o644)
+        self.assertFalse(receipt.exists())
+        manifest_before = (
+            manifest.read_bytes(),
+            stat.S_IMODE(manifest.stat().st_mode),
+            manifest.stat().st_ino,
+            manifest.stat().st_mtime_ns,
+        )
+
+        current = self.self_install(source)
+
+        self.assertEqual(current.returncode, 0, current.stderr)
+        self.assertIn("Result: current", current.stdout)
+        self.assertEqual(
+            (
+                manifest.read_bytes(),
+                stat.S_IMODE(manifest.stat().st_mode),
+                manifest.stat().st_ino,
+                manifest.stat().st_mtime_ns,
+            ),
+            manifest_before,
+        )
+        self.assertFalse(receipt.exists())
+        for path, before in stable_before.items():
+            self.assertEqual(
+                (
+                    path.read_bytes(),
+                    stat.S_IMODE(path.stat().st_mode),
+                    path.stat().st_ino,
+                    path.stat().st_mtime_ns,
+                ),
+                before,
+            )
 
     def test_missing_or_invalid_openspec_config_fails_closed(self) -> None:
         for case in ("missing", "invalid"):
@@ -505,6 +635,43 @@ class InitReceiptTests(unittest.TestCase):
         self.assertEqual(process.returncode, 0, stderr)
         self.assertEqual(stdout, "initialized\n")
         self.assertTrue((target / RECEIPT_PATH).is_file())
+        self.assert_no_temporaries(target)
+
+    def test_manifest_published_while_waiting_for_lock_rejects_without_writes(self) -> None:
+        temporary, target = self.make_installed_target()
+        self.addCleanup(temporary.cleanup)
+        receipt = target / RECEIPT_PATH
+        receipt.unlink()
+        skewed = target / SKILL_PATHS[0]
+        os.chmod(skewed, 0o664)
+        environment = os.environ.copy()
+        environment.pop("PYTHONDONTWRITEBYTECODE", None)
+        environment["PYTHONPATH"] = str(target / ".cash-skills" / "lib")
+        descriptor = os.open(target / ".cash-workspace.lock", os.O_RDWR)
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        process = subprocess.Popen(
+            [sys.executable, *INTERPRETER_FLAGS, "-m", "cash_cli.installer", "--init-receipt"],
+            cwd=str(target),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=environment,
+        )
+        try:
+            time.sleep(1.0)
+            self.assertIsNone(process.poll())
+            manifest = target / MANIFEST_PATH
+            manifest.write_bytes(b"concurrently published manifest\n")
+            os.chmod(manifest, 0o644)
+        finally:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
+        stdout, stderr = process.communicate(timeout=30)
+        result = subprocess.CompletedProcess(process.args, process.returncode, stdout, stderr)
+
+        self.assert_failure(result, "init_vendored_bundle")
+        self.assertFalse(receipt.exists())
+        self.assertEqual(stat.S_IMODE(skewed.stat().st_mode), 0o664)
         self.assert_no_temporaries(target)
 
     def test_init_receipt_is_mutually_exclusive_with_other_modes(self) -> None:

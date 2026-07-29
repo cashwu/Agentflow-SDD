@@ -310,14 +310,18 @@ function assert_guidance_and_docs
             '### Requirement: cash-apply 任務迴圈的阻塞分類' \
             '## Cash-owned artifact fallback' \
             '.cash-skills/bin/cash list --parked --json' \
-            '.cash-skills/bin/cash search "<query>" --limit 10 --json'
+            '.cash-skills/bin/cash search "<query>" --limit 10 --json' \
+            '.cash-skills/manifest.tsv' \
+            'clone／pull 後直接使用' \
+            'invalid manifest' \
+            '不得執行 `--init-receipt`'
             assert_contains "$path" "$literal" "canonical Cash guidance"
         end
     end
     awk '/^<!-- CASH:START -->$/ { copy = 1; next } /^<!-- CASH:END -->$/ { copy = 0 } copy { print }' "$root_dir/AGENTS.md" >"$agents"
     awk '/^<!-- CASH:START -->$/ { copy = 1; next } /^<!-- CASH:END -->$/ { copy = 0 } copy { print }' "$root_dir/CLAUDE.md" >"$claude"
     cmp -s "$agents" "$claude"; or fail "AGENTS.md and CLAUDE.md Cash blocks differ"
-    test (shasum -a 256 "$agents" | awk '{ print $1 }') = cc0215a42078a94ecc587f05518a11cb4c1eed2dbf4e91bdca6b4e4cd8ed658e; or fail "canonical Cash guidance baseline drifted"
+    test (shasum -a 256 "$agents" | awk '{ print $1 }') = f967700e330d3566879476f81e3129cb27312a982d199dbe65f404af8c3095f3; or fail "canonical Cash guidance baseline drifted"
     command rm -f -- "$agents" "$claude"
 
     set -l docs "$root_dir/CASH-SKILLS.md"
@@ -335,7 +339,15 @@ function assert_guidance_and_docs
         '__pycache__/' \
         '不視為已滿足' \
         '只附加、不重排' \
-        'git rm --cached .cash-skills/receipt.tsv'
+        'git rm --cached .cash-skills/receipt.tsv' \
+        '--vendor <project>' \
+        '--vendor --dry-run' \
+        '--vendor --force' \
+        'portable manifest' \
+        'Git logical mode' \
+        'manifest-presence' \
+        'receiptless' \
+        'launcher rebind'
         assert_contains "$docs" "$literal" "current Cash documentation"
     end
 
@@ -344,19 +356,39 @@ function assert_guidance_and_docs
         'init_python_version' \
         'init_outside_worktree' \
         'init_source_repo' \
+        'init_vendored_bundle' \
         'init_config_invalid' \
         'init_inventory_invalid' \
         'init_write_failed' \
         'PYTHONPATH=.cash-skills/lib python3 -s -P -B -m cash_cli.installer --init-receipt' \
-        './install-cash-skills.fish --self'
+        './install-cash-skills.fish --self' \
+        'portable manifest' \
+        '--vendor'
         assert_contains "$init_docs" "$literal" "current Cash init-receipt documentation"
     end
+    assert_absent "$init_docs" 'launcher 的主流程無條件執行 `validate_receipt`' "portable/receipt trust-mode split"
+    assert_absent "$init_docs" '重建 source repo 自己的 receipt' "source self manifest ownership"
+    assert_absent "$init_docs" '\\.cash-skills/bin/cash` 逐 byte不變|\\.cash-skills/bin/cash` 逐 byte 不變' "controlled launcher migration"
+
+    python3 -c '
+import sys
+from pathlib import Path
+
+sys.path.insert(0, sys.argv[1])
+from cash_cli.installer import PORTABLE_MANIFEST_PATH, source_inventory
+
+root = Path(sys.argv[2])
+_, records, _ = source_inventory(root)
+paths = {record.path for record in records}
+if PORTABLE_MANIFEST_PATH in paths:
+    raise SystemExit("portable manifest must not enter receipt inventory")
+' "$root_dir/.cash-skills/lib" "$root_dir"; or fail "portable manifest receipt-inventory separation failed"
 end
 
 function assert_installer
     fish -n "$root_dir/install-cash-skills.fish"; or fail "installer wrapper syntax is invalid"
     set -l help (fish --no-config "$root_dir/install-cash-skills.fish" --help | string collect)
-    for option in '--target <project>' '--self' '--register <project>' '--unregister <project>' '--list' '--all' '--dry-run' '--force'
+    for option in '--target <project>' '--vendor <project>' '--self' '--register <project>' '--unregister <project>' '--list' '--all' '--dry-run' '--force'
         string match -q "*$option*" "$help"; or fail "installer help missing $option"
     end
     if string match -rq -- '--repair|launch-agent|fingerprint' "$help"

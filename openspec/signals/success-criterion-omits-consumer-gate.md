@@ -2,11 +2,12 @@
 id: success-criterion-omits-consumer-gate
 type: recurring-finding
 status: open
-occurrences: 1
+occurrences: 2
 first_seen: 2026-07-28
-last_seen: 2026-07-28
+last_seen: 2026-07-29
 links:
   - openspec/changes/target-receipt-bootstrap/reviews/apply-r1.md
+  - openspec/changes/add-repo-vendored-cash-bundle/reviews/apply-r1.md
 ---
 
 # Success criterion omits a gate the consumer enforces
@@ -20,3 +21,4 @@ links:
 ## Occurrences
 
 - 2026-07-28 — target-receipt-bootstrap — cash-apply round 1 — `--init-receipt` 的 spec 把零寫入條件寫成「既有 receipt 與重算結果逐 byte 等價時 MUST 回報 `current`」，但 launcher 以 `open_regular(receipt_path, 0o644)` 對 receipt 另設 mode 閘門。bytes 相同而 mode 漂移為 `0664` 時，照字面實作會回報 `current` 並跳過寫入，隨後 `cash` 仍以 `bootstrap_invalid` 失敗。實作原本多加了 `snapshot.mode == 0o644` 條件並以 `deviation` 記錄；review 判定實作正確而 contract 有缺口，改為把 spec、design 與 Implementation Contract 的等價條件同步為「bytes 與 contract mode 皆一致」。相關：[[umask-dependent-mode-contract]]。
+- 2026-07-29 — add-repo-vendored-cash-bundle — cash-apply round 1 — installer的portable current判準只枚舉 `.py`，忽略runtime tree中的symlink directory；producer回報current後launcher consumer仍以 `manifest_invalid`拒絕。修正為兩邊共享同一symlink-directory拒絕維度。
