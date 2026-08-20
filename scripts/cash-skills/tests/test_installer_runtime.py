@@ -9,6 +9,7 @@ import importlib.util
 import marshal
 import shlex
 import shutil
+import signal
 import stat
 import struct
 import subprocess
@@ -21,6 +22,21 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 INSTALLER = ROOT / "install-cash-skills.fish"
+VERSION_CONTROL_PREMISE = (
+    "if .cash-skills/receipt.tsv is tracked by version control, untrack it first because it is machine-local identity"
+)
+LAUNCHER_INIT_RECEIPT_COMMAND = (
+    "Run PYTHONPATH=.cash-skills/lib python3 -s -P -B -m cash_cli.installer"
+    " --init-receipt from the project root; " + VERSION_CONTROL_PREMISE
+)
+INSTALLER_INIT_RECEIPT_COMMAND = (
+    "Run PYTHONPATH=.cash-skills/lib python3 -s -P -B -m cash_cli.installer"
+    " --init-receipt in that project; " + VERSION_CONTROL_PREMISE
+)
+DRIFTED_RECORD_NEXT_STEP = (
+    "Restore that record to the content the receipt records, or reinstall"
+    " from a trusted source, then retry"
+)
 
 
 class InstallerRuntimeTests(unittest.TestCase):
@@ -1796,6 +1812,8 @@ class InstallerRuntimeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Result: current", result.stdout)
         self.assertIn(".cash-skills/receipt.tsv is tracked by version control", result.stderr)
+        self.assertIn("target-specific inode identity", result.stderr)
+        self.assertNotIn("device", result.stderr)
         self.assertIn("git rm --cached .cash-skills/receipt.tsv", result.stderr)
         self.assertNotIn("tracked by version control", result.stdout)
         self.assertEqual(index.read_bytes(), before)
@@ -4085,6 +4103,554 @@ class InstallerRuntimeTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 1)
                 self.assertFalse((target / ".cash-workspace.lock").exists())
                 self.assertFalse((target / ".cash.yaml").exists())
+
+    # --- Stable receipt identity 比對條件與 gate 診斷 -------------------------
+
+    def digest_of(self, path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def edit_receipt(self, receipt: Path, edit) -> None:
+        rows = receipt.read_text(encoding="utf-8").splitlines()
+        for index, row in enumerate(rows):
+            fields = row.split("\t")
+            replacement = edit(fields)
+            if replacement is not None:
+                rows[index] = "\t".join(replacement)
+        receipt.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+    def renumber_stable_devices(self, receipt: Path) -> None:
+        def edit(fields: list[str]) -> list[str] | None:
+            if fields[0] != "stable":
+                return None
+            fields[4] = str(int(fields[4]) + 2)
+            return fields
+
+        self.edit_receipt(receipt, edit)
+
+    def set_stable_device(self, receipt: Path, relative: str, value: str) -> None:
+        def edit(fields: list[str]) -> list[str] | None:
+            if fields[0] != "stable" or fields[1] != relative:
+                return None
+            fields[4] = value
+            return fields
+
+        self.edit_receipt(receipt, edit)
+
+    def drift_stable_inode(self, receipt: Path, relative: str) -> None:
+        def edit(fields: list[str]) -> list[str] | None:
+            if fields[0] != "stable" or fields[1] != relative:
+                return None
+            fields[5] = str(int(fields[5]) + 1)
+            return fields
+
+        self.edit_receipt(receipt, edit)
+
+    def launcher_receipt_error(self, target: Path) -> str:
+        launched = self.run_target_cash(target, "list", "--json")
+        self.assertEqual(
+            launched.returncode,
+            1,
+            f"launcher was expected to fail:\nstdout={launched.stdout}",
+        )
+        self.assertIn('"code":"receipt_invalid"', launched.stdout)
+        return json.loads(launched.stdout)["error"]["message"]
+
+    def installer_error_message(
+        self,
+        result: subprocess.CompletedProcess[str],
+    ) -> str:
+        for line in result.stderr.splitlines():
+            if line.startswith("Error: "):
+                return line.removeprefix("Error: ")
+        self.fail(
+            "installer did not report an error line:\n"
+            f"stdout={result.stdout}\nstderr={result.stderr}"
+        )
+
+    def synthesize_receipt(self, root: Path) -> Path:
+        runtime = sorted(
+            (
+                path.relative_to(root).as_posix()
+                for path in (root / ".cash-skills" / "lib" / "cash_cli").rglob("*.py")
+            ),
+            key=lambda value: value.encode("utf-8"),
+        )
+        skills = [
+            f"{variant}/skills/{skill.name}/SKILL.md"
+            for variant in (".agents", ".claude")
+            for skill in sorted((root / variant / "skills").glob("cash-*"))
+        ]
+        version = (root / "cash-skills.version").read_text(encoding="utf-8").strip()
+        runtime_stream = "".join(
+            f"{relative}\t{self.digest_of(root / relative)}\t0644\n"
+            for relative in runtime
+        )
+        rows = [
+            f"version\t{version}",
+            "runtime_generation\t"
+            + hashlib.sha256(runtime_stream.encode("utf-8")).hexdigest(),
+        ]
+        for relative in (".cash-skills/bin/cash", ".cash-workspace.lock"):
+            metadata = os.lstat(root / relative)
+            mode = "0755" if relative == ".cash-skills/bin/cash" else "0644"
+            rows.append(
+                f"stable\t{relative}\t{self.digest_of(root / relative)}\t{mode}"
+                f"\t{metadata.st_dev}\t{metadata.st_ino}"
+            )
+        rows.extend(
+            f"runtime\t{relative}\t{self.digest_of(root / relative)}\t0644"
+            for relative in runtime
+        )
+        rows.extend(
+            f"skill\t{relative}\t{self.digest_of(root / relative)}\t0644"
+            for relative in skills
+        )
+        receipt = root / ".cash-skills" / "receipt.tsv"
+        receipt.write_text("\n".join(rows) + "\n", encoding="utf-8")
+        os.chmod(receipt, 0o644)
+        return receipt
+
+    def installed_receipt_target(self) -> tuple[tempfile.TemporaryDirectory[str], Path, Path]:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        self.assertEqual(self.install(target).returncode, 0)
+        return temporary, target, target / ".cash-skills" / "receipt.tsv"
+
+    def test_stable_device_renumbering_passes_the_launcher_gate(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        self.renumber_stable_devices(receipt)
+
+        launched = self.run_target_cash(target, "list", "--json")
+
+        self.assertEqual(
+            launched.returncode,
+            0,
+            "a stable record whose device alone differs must not be rejected:\n"
+            f"stdout={launched.stdout}\nstderr={launched.stderr}",
+        )
+        self.assertNotIn("receipt_invalid", launched.stdout)
+
+    def test_stable_device_renumbering_passes_direct_dry_run_preflight(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        self.renumber_stable_devices(receipt)
+
+        result = self.install(target, "--dry-run")
+
+        self.assertEqual(
+            result.returncode,
+            0,
+            "direct preflight must not reject a device-only stable difference:\n"
+            f"stdout={result.stdout}\nstderr={result.stderr}",
+        )
+        self.assertNotIn("drift", result.stderr)
+
+    def test_stable_device_renumbering_passes_vendor_dry_run_preflight(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        self.renumber_stable_devices(receipt)
+
+        result = self.vendor(target, "--dry-run")
+
+        self.assertEqual(
+            result.returncode,
+            0,
+            "--vendor preflight must not reject a device-only stable difference:\n"
+            f"stdout={result.stdout}\nstderr={result.stderr}",
+        )
+        self.assertNotIn("drift", result.stderr)
+
+    def test_stable_device_renumbering_completes_a_vendor_migration(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        self.renumber_stable_devices(receipt)
+
+        result = self.assert_vendored(target)
+
+        self.assertIn(
+            "Result: ",
+            result.stdout,
+            "the migration must complete under its existing classification",
+        )
+
+    def test_launcher_stable_content_drift_is_not_offered_reissue(self) -> None:
+        _, target, _ = self.installed_receipt_target()
+        (target / ".cash-workspace.lock").write_bytes(b"drift\n")
+
+        message = self.launcher_receipt_error(target)
+
+        self.assertIn(
+            "content drift",
+            message,
+            f"digest mismatch must be classified as content drift: {message}",
+        )
+        self.assertIn(".cash-workspace.lock", message)
+        self.assertNotIn("--init-receipt", message)
+
+    def test_installer_stable_content_drift_is_not_offered_reissue(self) -> None:
+        _, target, _ = self.installed_receipt_target()
+        (target / ".cash-workspace.lock").write_bytes(b"drift\n")
+
+        result = self.install(target)
+        message = self.installer_error_message(result)
+
+        self.assertIn(
+            "stable receipt content drift",
+            message,
+            f"digest mismatch must be classified as content drift: {message}",
+        )
+        self.assertIn(".cash-workspace.lock", message)
+        self.assertNotIn("--init-receipt", message)
+
+    def test_launcher_stable_identity_drift_offers_the_full_command(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        self.drift_stable_inode(receipt, ".cash-skills/bin/cash")
+
+        message = self.launcher_receipt_error(target)
+
+        self.assertIn("stable record identity drift", message)
+        self.assertIn(".cash-skills/bin/cash", message)
+        self.assertIn(
+            LAUNCHER_INIT_RECEIPT_COMMAND,
+            message,
+            f"identity drift must carry the full recovery command: {message}",
+        )
+
+    def test_installer_stable_identity_drift_offers_the_full_command(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        self.drift_stable_inode(receipt, ".cash-skills/bin/cash")
+
+        result = self.install(target)
+        message = self.installer_error_message(result)
+
+        self.assertIn("stable receipt identity drift", message)
+        self.assertIn(".cash-skills/bin/cash", message)
+        self.assertIn(
+            INSTALLER_INIT_RECEIPT_COMMAND,
+            message,
+            f"identity drift must carry the full recovery command: {message}",
+        )
+
+    def test_launcher_identity_guidance_states_the_version_control_premise(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        self.drift_stable_inode(receipt, ".cash-skills/bin/cash")
+
+        message = self.launcher_receipt_error(target)
+
+        self.assertIn(
+            "tracked by version control",
+            message,
+            f"guidance must state the version-control premise: {message}",
+        )
+        self.assertIn("machine-local", message)
+        self.assertNotIn("fresh clone", message)
+
+    def test_installer_identity_guidance_states_the_version_control_premise(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        self.drift_stable_inode(receipt, ".cash-skills/bin/cash")
+
+        for label, result in (
+            ("direct", self.install(target)),
+            ("vendor", self.vendor(target)),
+        ):
+            with self.subTest(path=label):
+                message = self.installer_error_message(result)
+                self.assertIn(
+                    "tracked by version control",
+                    message,
+                    f"guidance must state the version-control premise: {message}",
+                )
+                self.assertIn("machine-local", message)
+                self.assertNotIn("fresh clone", message)
+
+    def test_stable_mode_drift_is_classified_as_identity_drift(self) -> None:
+        _, target, _ = self.installed_receipt_target()
+        os.chmod(target / ".cash-workspace.lock", 0o600)
+
+        result = self.install(target)
+        message = self.installer_error_message(result)
+
+        self.assertIn("stable receipt identity drift", message)
+        self.assertIn(
+            INSTALLER_INIT_RECEIPT_COMMAND,
+            message,
+            f"mode drift is the authorized reissue entry point: {message}",
+        )
+
+    def test_launcher_content_and_identity_drift_is_content_drift(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        (target / ".cash-workspace.lock").write_bytes(b"drift\n")
+        self.drift_stable_inode(receipt, ".cash-workspace.lock")
+
+        message = self.launcher_receipt_error(target)
+
+        self.assertIn(
+            "content drift",
+            message,
+            f"digest is the sole classification axis: {message}",
+        )
+        self.assertNotIn("--init-receipt", message)
+
+    def test_installer_content_and_identity_drift_is_content_drift(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        (target / ".cash-workspace.lock").write_bytes(b"drift\n")
+        self.drift_stable_inode(receipt, ".cash-workspace.lock")
+
+        result = self.install(target)
+        message = self.installer_error_message(result)
+
+        self.assertIn(
+            "stable receipt content drift",
+            message,
+            f"digest is the sole classification axis: {message}",
+        )
+        self.assertNotIn("--init-receipt", message)
+
+    def test_launcher_runtime_drift_supersedes_identity_drift(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        self.drift_stable_inode(receipt, ".cash-skills/bin/cash")
+        drifted = ".cash-skills/lib/cash_cli/errors.py"
+        (target / drifted).write_bytes(
+            (target / drifted).read_bytes() + b"# drift\n"
+        )
+
+        message = self.launcher_receipt_error(target)
+
+        self.assertIn("stable record identity drift: .cash-skills/bin/cash", message)
+        self.assertIn(f"runtime record drift: {drifted}", message)
+        self.assertIn(
+            DRIFTED_RECORD_NEXT_STEP,
+            message,
+            f"an unmet premise must still name a next step: {message}",
+        )
+        self.assertNotIn("--init-receipt", message)
+
+    def test_installer_runtime_drift_supersedes_identity_drift(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        self.drift_stable_inode(receipt, ".cash-skills/bin/cash")
+        drifted = ".cash-skills/lib/cash_cli/errors.py"
+        (target / drifted).write_bytes(
+            (target / drifted).read_bytes() + b"# drift\n"
+        )
+
+        result = self.install(target)
+        message = self.installer_error_message(result)
+
+        self.assertIn(
+            "stable receipt identity drift: .cash-skills/bin/cash in "
+            f"{Path(target).resolve()}",
+            message,
+        )
+        self.assertIn(f"runtime record drift: {drifted}", message)
+        self.assertIn(
+            DRIFTED_RECORD_NEXT_STEP,
+            message,
+            f"an unmet premise must still name a next step: {message}",
+        )
+        self.assertNotIn("--init-receipt", message)
+
+    def test_deferred_identity_drift_defers_to_the_existing_exit(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        self.drift_stable_inode(receipt, ".cash-skills/bin/cash")
+        linked = ".cash-skills/lib/cash_cli/errors.py"
+        os.link(target / linked, target / "errors-hard-link.py")
+
+        launched = self.run_target_cash(target, "list", "--json")
+
+        self.assertEqual(launched.returncode, 1)
+        self.assertIn('"code":"receipt_invalid"', launched.stdout)
+        message = json.loads(launched.stdout)["error"]["message"]
+        self.assertIn(
+            linked,
+            message,
+            f"the existing exit must name the record it rejected: {message}",
+        )
+        self.assertNotIn("--init-receipt", message)
+
+    def test_installer_identity_guidance_names_the_target_not_the_source(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        self.drift_stable_inode(receipt, ".cash-skills/bin/cash")
+        resolved = str(Path(target).resolve())
+
+        result = self.install(target)
+        message = self.installer_error_message(result)
+
+        self.assertIn(
+            "Run ",
+            message,
+            f"identity guidance must carry a command: {message}",
+        )
+        prose, command = message.split("Run ", 1)
+        self.assertIn(
+            resolved,
+            prose,
+            f"the prose must name the target project: {message}",
+        )
+        self.assertNotIn(
+            resolved,
+            command,
+            f"the command must not embed the absolute target path: {message}",
+        )
+        self.assertFalse(message.startswith(f"{target}: "))
+        self.assertFalse(message.startswith(f"{resolved}: "))
+        self.assertNotIn("from the project root", message)
+
+    def test_source_repository_hint_precedes_the_identity_drift_hint(self) -> None:
+        temporary, source = self.make_self_source()
+        self.addCleanup(temporary.cleanup)
+        receipt = self.synthesize_receipt(source)
+        self.drift_stable_inode(receipt, ".cash-skills/bin/cash")
+
+        launched = self.run_target_cash(source, "list", "--json")
+
+        self.assertEqual(launched.returncode, 1, launched.stdout)
+        self.assertIn('"code":"receipt_invalid"', launched.stdout)
+        message = json.loads(launched.stdout)["error"]["message"]
+        self.assertIn(
+            "./install-cash-skills.fish --self",
+            message,
+            f"the source-layout hint must keep precedence: {message}",
+        )
+        self.assertNotIn("--init-receipt", message)
+
+    def test_launcher_rejects_a_negative_stable_device_by_shape(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        self.set_stable_device(receipt, ".cash-skills/bin/cash", "-1")
+
+        message = self.launcher_receipt_error(target)
+
+        self.assertIn(
+            "receipt identity is invalid",
+            message,
+            f"a negative device must fail the shape gate, not a comparison: {message}",
+        )
+        self.assertNotIn("drift", message)
+
+    def test_installer_rejects_a_negative_stable_device_by_shape(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        self.set_stable_device(receipt, ".cash-skills/bin/cash", "-1")
+
+        result = self.install(target)
+        message = self.installer_error_message(result)
+
+        self.assertIn("receipt stable identity is invalid", message)
+
+    def test_identity_drift_fails_before_acquiring_the_exclusive_lock(self) -> None:
+        _, target, receipt = self.installed_receipt_target()
+        self.drift_stable_inode(receipt, ".cash-skills/bin/cash")
+        before = receipt.read_bytes()
+        holds = tempfile.TemporaryDirectory()
+        self.addCleanup(holds.cleanup)
+        hold = Path(holds.name).resolve() / "hold"
+        ready = Path(f"{hold}.ready")
+        release = Path(f"{hold}.release")
+        environment = {
+            name: value
+            for name, value in os.environ.items()
+            if not name.startswith("CASH_INSTALL_")
+            and not name.startswith("TEST_CASH_INSTALL_")
+        }
+        environment["CASH_INSTALL_TEST_HOOKS"] = "1"
+        environment["CASH_INSTALL_HOLD_FILE"] = str(hold)
+        child = subprocess.Popen(
+            ["fish", "--no-config", str(INSTALLER), "--target", str(target)],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=environment,
+            start_new_session=True,
+        )
+        crossed = False
+        unfinished = False
+        release_failed = False
+        communicated = False
+        cleanup_errors: list[str] = []
+        stdout = stderr = ""
+        try:
+            deadline = time.monotonic() + 60
+            while child.poll() is None:
+                if ready.exists():
+                    crossed = True
+                    break
+                if time.monotonic() >= deadline:
+                    unfinished = True
+                    break
+                time.sleep(0.01)
+            if crossed and not release.exists():
+                try:
+                    release.write_bytes(b"release\n")
+                except OSError as error:
+                    release_failed = True
+                    cleanup_errors.append(f"release: {type(error).__name__}: {error}")
+            if not release_failed:
+                try:
+                    stdout, stderr = child.communicate(timeout=2 if crossed else 60)
+                    communicated = True
+                except subprocess.TimeoutExpired:
+                    unfinished = True
+        finally:
+            # install-cash-skills.fish `exec`s python3, so child.pid is the
+            # installer itself and its process group is its own session. Signal
+            # the group rather than the pid so a wrapper that ever stops using
+            # `exec` cannot leave a descendant holding the workspace lock.
+            # Cleanup failures are captured independently so that one failed step
+            # cannot skip process-group reclamation or replace the primary failure.
+            if not communicated:
+                if not release.exists():
+                    try:
+                        release.write_bytes(b"release\n")
+                        release_failed = False
+                    except OSError as error:
+                        release_failed = True
+                        cleanup_errors.append(
+                            f"release: {type(error).__name__}: {error}"
+                        )
+                if not release_failed and not unfinished:
+                    try:
+                        stdout, stderr = child.communicate(timeout=2 if crossed else 20)
+                        communicated = True
+                    except subprocess.TimeoutExpired:
+                        pass
+                if not communicated:
+                    try:
+                        os.killpg(child.pid, signal.SIGTERM)
+                    except ProcessLookupError:
+                        pass
+                    except OSError as error:
+                        cleanup_errors.append(
+                            f"SIGTERM: {type(error).__name__}: {error}"
+                        )
+                    try:
+                        stdout, stderr = child.communicate(timeout=10)
+                        communicated = True
+                    except subprocess.TimeoutExpired:
+                        try:
+                            os.killpg(child.pid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+                        except OSError as error:
+                            cleanup_errors.append(
+                                f"SIGKILL: {type(error).__name__}: {error}"
+                            )
+                        try:
+                            stdout, stderr = child.communicate(timeout=10)
+                            communicated = True
+                        except subprocess.TimeoutExpired as error:
+                            cleanup_errors.append(
+                                f"communicate: {type(error).__name__}: {error}"
+                            )
+
+        self.assertFalse(
+            crossed,
+            "identity drift must fail before the exclusive lock boundary",
+        )
+        self.assertFalse(unfinished, "the installer did not finish within the deadline")
+        self.assertFalse(
+            cleanup_errors,
+            f"the child session was not reclaimed: {'; '.join(cleanup_errors)}",
+        )
+        self.assertEqual(child.returncode, 1, f"stdout={stdout}\nstderr={stderr}")
+        self.assertIn("stable receipt identity drift", stderr)
+        self.assertEqual(receipt.read_bytes(), before)
+
 
 
 if __name__ == "__main__":

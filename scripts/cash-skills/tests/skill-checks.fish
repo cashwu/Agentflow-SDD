@@ -314,15 +314,25 @@ function assert_guidance_and_docs
             '.cash-skills/manifest.tsv' \
             'clone／pull 後直接使用' \
             'invalid manifest' \
-            '不得執行 `--init-receipt`'
+            '不得執行 `--init-receipt`' \
+            '或以 `receipt_invalid` 回報 stable record identity drift 時' \
+            'stable record content drift 不得以重新簽發處理' \
+            'MUST 先執行 `git rm --cached .cash-skills/receipt.tsv` 解除追蹤，再重新簽發' \
+            'identity drift 這個入口只在診斷「僅」指名該 stable record 時適用' \
+            '診斷同時指名 `runtime record drift:` 或 `skill record drift:` 時，MUST 改為把該筆 record 還原成 receipt 記錄的內容或從可信 source 重新安裝，MUST NOT 重新簽發'
             assert_contains "$path" "$literal" "canonical Cash guidance"
         end
     end
     awk '/^<!-- CASH:START -->$/ { copy = 1; next } /^<!-- CASH:END -->$/ { copy = 0 } copy { print }' "$root_dir/AGENTS.md" >"$agents"
     awk '/^<!-- CASH:START -->$/ { copy = 1; next } /^<!-- CASH:END -->$/ { copy = 0 } copy { print }' "$root_dir/CLAUDE.md" >"$claude"
     cmp -s "$agents" "$claude"; or fail "AGENTS.md and CLAUDE.md Cash blocks differ"
-    test (shasum -a 256 "$agents" | awk '{ print $1 }') = f967700e330d3566879476f81e3129cb27312a982d199dbe65f404af8c3095f3; or fail "canonical Cash guidance baseline drifted"
+    test (shasum -a 256 "$agents" | awk '{ print $1 }') = 5f4b9f4b94bd39a7e262a1e12dea901bcd35c10fc2c32d925c39e00515b193bc; or fail "canonical Cash guidance baseline drifted"
     command rm -f -- "$agents" "$claude"
+
+    set -l premise 'if .cash-skills/receipt.tsv is tracked by version control, untrack it first because it is machine-local identity'
+    for relative in .cash-skills/bin/cash .cash-skills/lib/cash_cli/installer.py
+        assert_contains "$root_dir/$relative" "$premise" "shared identity-drift version-control premise"
+    end
 
     set -l docs "$root_dir/CASH-SKILLS.md"
     for literal in \

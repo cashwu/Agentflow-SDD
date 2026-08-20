@@ -2,9 +2,9 @@
 id: design-claim-unverified-against-code
 type: recurring-finding
 status: open
-occurrences: 11
+occurrences: 13
 first_seen: 2026-07-25
-last_seen: 2026-07-27
+last_seen: 2026-08-20
 links:
   - openspec/changes/align-cli-skill-contracts/reviews/propose-r1.md
   - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r1.md
@@ -25,6 +25,8 @@ links:
   - openspec/changes/cash-skill-maintainability/reviews/apply-r1.md
   - openspec/changes/target-receipt-bootstrap/reviews/propose-r1.md
   - openspec/changes/target-receipt-bootstrap/reviews/propose-r2.md
+  - openspec/changes/tolerate-remount-device-renumbering/reviews/propose-r1.md
+  - openspec/changes/tolerate-remount-device-renumbering/reviews/propose-r7.md
 ---
 
 # Design claim unverified against code
@@ -49,3 +51,7 @@ A design or proposal states a fact about the existing codebase as the premise of
 - 2026-07-27 — cash-skill-maintainability — cash-propose rounds 1–2 — 兩個變體：round 1 發現 design 宣稱「四份 gate 現行文字為同一規格」未經比對即寫入（實測 apply 兩檔含 `## What Changes` or `## Proposed Solution` 漂移，且原統一方向會違反 master spec 對 propose 檔的全檔禁令）；round 2 發現 round 1 的修正把 reviewer finding 原文中的錯誤測試檔路徑（`scripts/cash-cli/tests/`，實為 `scripts/cash-skills/tests/`）未經 ls 核對即寫入五處——reviewer 敘述與自身記憶同樣都不是程式碼，寫進 artifact 前都必須實檔核對。
 - 2026-07-27 — cash-skill-maintainability — cash-apply round 1 — `implementation-notes.md` 的 deviation 條目宣稱新寫的受限 YAML 讀取器「任何其他形狀一律 `die()` 而非猜測」，但實測 `'value'`、`{a: b}`、`[a, b]`、`&anchor value` 都被當成普通字串接受；作者對自己剛寫的驗證器所下的嚴格性宣稱同樣必須以實際執行核對，否則受保護的規則檔可被誤編而無明確錯誤。
 - 2026-07-27 — target-receipt-bootstrap — cash-propose rounds 1–2 — 兩個實例：round 1 proposal 宣稱 receipt 缺失時 launcher 以 `receipt_invalid` 失敗（實為 `open_regular` 的 `bootstrap_invalid`，`receipt_invalid` 只涵蓋內容無效）；round 2 修正把引導管道改為 `CASH-SKILLS.md` 時宣稱它「隨 bundle guidance 部署在各 target 可讀」，實際 `GUIDANCE_PATHS` 僅 `AGENTS.md`／`CLAUDE.md`，該檔為 source-only 且是 `is_source_layout` 判定 marker——替代方案的部署範圍與原方案的錯誤 code 同樣需要實檔核對。
+
+- 2026-08-20 — tolerate-remount-device-renumbering — cash-propose round 1 — task 的驗收條件引用了「既有的 launcher migration rollback 測試」，但整個測試目錄裡沒有任何測試涵蓋 rollback 或 `rebind_receipt_stable_identity`，該驗收因此無法機械執行。修法是把驗收改為指名實際存在的測試函式，並補上可執行的 `git diff` 判準。
+
+- 2026-08-20 — tolerate-remount-device-renumbering — cash-propose round 7 — 為了解決「指令內嵌 target 路徑未規範 quoting」而改採前綴方案，理由寫成「以 target 絕對路徑作為訊息前綴是 installer 全部使用者可見訊息的既有慣例」。該宣稱是選擇該方案而非 quoting 規則的正當化基礎，但不成立：前綴只存在於直接 `print` 的 target-scoped diagnostic，`InstallerError` 的二十餘處 raise 全部不帶前綴，direct 與 vendor 路徑由 `main()` 印為 `Error: <message>`，批次模式的前綴是呼叫端加的。後果是前綴的產生位置未定義，且唯一能同時滿足 vendor 路徑的作法會讓批次模式出現重複前綴。教訓是：當一個設計選擇的正當化理由是「沿用既有慣例」，那句話本身就是必須逐一對照 call site 查證的 claim，而不是背景敘述。

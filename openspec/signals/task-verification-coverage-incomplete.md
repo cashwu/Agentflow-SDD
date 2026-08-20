@@ -2,9 +2,9 @@
 id: task-verification-coverage-incomplete
 type: recurring-finding
 status: open
-occurrences: 13
+occurrences: 14
 first_seen: 2026-07-14
-last_seen: 2026-07-26
+last_seen: 2026-08-20
 links:
   - openspec/changes/repair-all-uses-pinned-commit-inputs/reviews/apply-r1.md
   - openspec/changes/converge-plus-review-loop/reviews/apply-r2.md
@@ -20,6 +20,7 @@ links:
   - openspec/changes/harden-installer-mode-and-recovery/reviews/apply-r1.md
   - openspec/changes/bootstrap-openspec-config-on-install/reviews/propose-r1.md
   - openspec/changes/rightsize-cash-apply-tdd-discipline/reviews/apply-r1.md
+  - openspec/changes/tolerate-remount-device-renumbering/reviews/propose-r1.md
 ---
 
 # Task verification coverage incomplete
@@ -41,3 +42,5 @@ A task is marked complete after testing the primary outcome but omits one or mor
 - 2026-07-25 — harden-installer-mode-and-recovery — cash-apply round 1 — Journal diagnostic matrix 未斷言最終 `Result:`、current/update fixture 相同且缺少 real-run 四分類；改為 dry-run／real-run 各自覆蓋四個可辨分類與 recovery 狀態。
 - 2026-07-26 — bootstrap-openspec-config-on-install — cash-propose round 1 — delta spec 的 unsafe shape scenario 列舉 symlink、hard link、非 regular file 三種形狀，但 task 只斷言 symlink；hard link 是三者中唯一依賴 `read_regular` 的 `st_nlink != 1` 而非 `ensure_contained` 的形狀，實作若在新的缺檔分支改用較寬鬆的 `lstat`-only 判定就會靜默通過。「invalid + `--force` 不繞過」與「MUST NOT 進入 receipt」同樣有條文無斷言。
 - 2026-07-26 — rightsize-cash-apply-tdd-discipline — cash-apply round 1 — precedence 與 catch-all boundary cases 只靠 instruction 全文中的靜態 marker 通過，未證明無可行測試邊界的 bug fix 與文件／metadata／checker-only task 實際落在第四分支；修正後解析四個編號分支並以 branch-scoped assertions 驗證 routing。
+
+- 2026-08-20 — tolerate-remount-device-renumbering — cash-propose round 1 — ADDED requirement 的兩個診斷 scenario 的 WHEN 明寫涵蓋 launcher 與 installer preflight 兩個面，Implementation Contract 也對 installer 規定了訊息契約，但測試對照表列出的四個案例全部只針對 launcher，對應 task 的驗收也只寫「preflight 不失敗」。實作者把 installer 的失敗訊息原樣留著也會全綠。修法是建立逐 scenario 的測試對照表，並讓每個跨 gate 的 scenario 在兩個 gate 各有一個測試函式。

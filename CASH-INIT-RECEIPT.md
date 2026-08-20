@@ -9,23 +9,25 @@
 launcher 依 `.cash-skills/manifest.tsv` path 是否存在選擇互斥的信任 gate：
 
 | target 狀態 | launcher 行為 | 操作 |
-| --- | --- |
+| --- | --- | --- |
 | `.cash-skills/manifest.tsv` 存在 | 只走 portable manifest gate；ignored 的舊 receipt 不會遮蔽 manifest | clone／pull 後直接使用 `.cash-skills/bin/cash`，不要執行 `--init-receipt` |
-| manifest 缺失、receipt 存在 | 走 receipt gate | receipt 有效時直接使用；無效時由 canonical source 的 direct／registry workflow 更新 |
+| manifest 缺失、receipt 存在 | 走 receipt gate | receipt 有效時直接使用；出現 stable record identity drift 的 `receipt_invalid` 時執行 `--init-receipt`，其他無效狀態由 canonical source 的 direct／registry workflow 更新 |
 | manifest 與 receipt 都缺失 | 以 `bootstrap_invalid` fail closed | 只有已確認為 receipt-based direct／legacy target 時才執行 `--init-receipt` |
 
 manifest path 只要存在就選擇 portable gate；broken symlink、FIFO、directory 或其他 unsafe shape 也算存在，會以 `manifest_invalid` fail closed，絕不 fallback 到 receipt。
 
-`.cash-skills/receipt.tsv` 記錄 target 上 launcher 與 workspace lock 的 `st_dev`／`st_ino`，是機器特定資料，因此被 `.gitignore` 排除。這只影響 receipt-based target；repo-vendored target 透過提交到 Git 的 portable manifest 攜帶信任資料。
+`.cash-skills/receipt.tsv` 記錄 target 上 launcher 與 workspace lock 的 `st_dev`／`st_ino`，是機器特定資料，因此被 `.gitignore` 排除。identity 比對只用 digest、mode 與 `st_ino` 三項；`st_dev` 是 mount 時配發的 volume 編號而非檔案屬性，不參與比對，只作為 machine-local provenance 保留並受形狀閘門（device 非負、inode 為正）約束。這只影響 receipt-based target；repo-vendored target 透過提交到 Git 的 portable manifest 攜帶信任資料。
 
-`--init-receipt` 適用於：
+`--init-receipt` 適用於下列情形，且**每一項都以同一個前提為條件**：`.cash-skills/receipt.tsv` 是 machine-local identity，被納入版控時必須先執行 `git rm --cached .cash-skills/receipt.tsv` 解除追蹤，再重新簽發。取得方式本身不構成可以重新簽發的理由。
 
 - 隊友 clone 了一個 receipt-only direct／legacy target，且 checkout 沒有 receipt。
 - receipt-based CI 或 sandbox 每次都從乾淨 clone 開始。
 - receipt-based checkout 被複製到別的機器或別的 inode，舊 receipt identity 因此失效。
+- launcher 以 `receipt_invalid` 回報 `stable record identity drift:`，或 installer 以 `Error: stable receipt identity drift:` 失敗（installer 不輸出 error code）：digest 相符而 mode 或 `st_ino` 不符，檔案內容可證明仍是 receipt 記錄的那份，重新簽發不引入新的信任。指引只在同一份 receipt 中該 gate 本來就會驗證的其餘 records 全數相符時才出現；否則診斷會同時指名該 stable path 與漂移的 record，下一步是把該筆 record 還原成 receipt 記錄的內容後重試，或從可信 source 重新安裝。
 
 它不適用於：
 
+- stable record content drift：digest 與記錄值不符代表內容本身已改變，重新簽發會以現地 bytes 覆寫 receipt，等同把漂移合法化。診斷不會建議 `--init-receipt`；處置是還原該筆 record 或從可信 source 重新安裝。
 - repo-vendored target：改由 canonical source 執行 `./install-cash-skills.fish --vendor <project>` 安裝或更新；target 端的 `--init-receipt` 會以 `init_vendored_bundle` 拒絕。
 - canonical source repository（也就是本 repo）：執行 `./install-cash-skills.fish --self` 同步 canonical portable manifest 並清除 source receipt residue；`--init-receipt` 會以 `init_source_repo` 拒絕。
 

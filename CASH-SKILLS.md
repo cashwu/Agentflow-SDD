@@ -110,7 +110,7 @@ target 的分類與處置如下：
 ./install-cash-skills.fish --target /path/to/project --force
 ```
 
-成功安裝後，target 會保存 `.cash-skills/receipt.tsv`，以 strict versioned record stream 記錄 bundle 版本、runtime generation、stable launcher/lock 的 target `st_dev`／`st_ino`、runtime 與 24 個 canonical skill 的 path、SHA-256 與 mode。這些 target-specific identity records 不進版控。installer 先用 receipt 判斷版本、mode 與 target drift，再決定結果：
+成功安裝後，target 會保存 `.cash-skills/receipt.tsv`，以 strict versioned record stream 記錄 bundle 版本、runtime generation、stable launcher/lock 的 target `st_dev`／`st_ino`、runtime 與 24 個 canonical skill 的 path、SHA-256 與 mode。這些 target-specific identity records 不進版控。stable record 的 identity 比對條件只有 digest、mode 與 `st_ino` 三項；`st_dev` 是 kernel 在 mount 時配發給 volume 的編號而非檔案屬性，因此不參與比對，只作為 machine-local provenance 保留，並受「device 為非負整數、inode 為正整數」的形狀閘門約束。installer 先用 receipt 判斷版本、mode 與 target drift，再決定結果：
 
 - `Result: update`：完成首次安裝、接管或升級；exit `0`。
 - `Result: current`：target 已是相同版本且內容一致，不寫入；exit `0`。
@@ -124,7 +124,7 @@ canonical source repository 使用 source-only `./install-cash-skills.fish --sel
 
 ## Target 版控排除保護
 
-receipt 記錄 target 上 launcher 與 workspace lock 的 `st_dev`／`st_ino`，同一份 bytes 換到別的 inode 就會使 launcher 以 `receipt_invalid` fail closed。因此每次 `--target`、registry 與 `--all` 安裝都會在同一個 transaction 內確保 target 根目錄的 `.gitignore` 含這三項規則：
+receipt 記錄 target 上 launcher 與 workspace lock 的 `st_dev`／`st_ino`，其中只有 `st_ino` 參與 identity 比對，因此本保護的鑑別力完全由 `st_ino` 承擔：同一份 bytes 換到別的 inode 就會使 launcher 以 `receipt_invalid` fail closed。因此每次 `--target`、registry 與 `--all` 安裝都會在同一個 transaction 內確保 target 根目錄的 `.gitignore` 含這三項規則：
 
 ```
 .cash-skills/receipt.tsv
@@ -154,7 +154,7 @@ PYTHONPATH=.cash-skills/lib python3 -s -P -B -m cash_cli.installer --init-receip
 
 前提是 Python 3.11+；更舊的直譯器在 `-m` 載入期就會失敗，不會產生具名錯誤。模式回報 `initialized`（已簽發）或 `current`（既有 receipt 已等價，零寫入），失敗時以 `init_python_version`、`init_outside_worktree`、`init_source_repo`、`init_vendored_bundle`、`init_config_invalid`、`init_inventory_invalid` 或 `init_write_failed` 輸出 JSON 錯誤並 exit `1`，且不寫入任何檔案內容。它必須在 Git worktree top-level 執行，不會建立缺少的 stable 檔案，也不會擴充 bundle inventory；managed inventory 的 mode 會被正規化為 contract modes（launcher `0755`、其餘 `0644`），因此不同 umask 的 receipt-only clone 都能一次成功。
 
-receipt 簽發的是 target-local launcher／lock inode identity與 inventory狀態，不可提交或跨 clone 共用；它在簽發後偵測本機 drift 與竄改。launcher 不會在 receipt 缺失或無效時自動觸發初始化，對已 drift 的 receipt-only target重跑 init 會把該 drift 合法化。本 repository 是 canonical source repository，`--init-receipt` 會以 `init_source_repo` 拒絕它，改用 `./install-cash-skills.fish --self`。
+receipt 簽發的是 target-local launcher／lock inode identity與 inventory狀態，不可提交或跨 clone 共用；它在簽發後偵測本機 drift 與竄改。launcher 不會在 receipt 缺失或無效時自動觸發初始化，對已出現 content drift 的 receipt-only target重跑 init 會把該 drift 合法化——digest 不符代表內容本身已改變，此時應還原該筆 record 或從可信 source 重新安裝。stable record identity drift（digest 相符、只有 mode 或 `st_ino` 不符）則相反，是允許重新簽發的入口。本 repository 是 canonical source repository，`--init-receipt` 會以 `init_source_repo` 拒絕它，改用 `./install-cash-skills.fish --self`。
 
 ## Cash project guidance migration
 
