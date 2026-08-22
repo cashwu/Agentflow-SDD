@@ -2,11 +2,12 @@
 id: version-bump-sequenced-after-guarded-edits
 type: recurring-finding
 status: open
-occurrences: 1
+occurrences: 2
 first_seen: 2026-07-27
-last_seen: 2026-07-27
+last_seen: 2026-08-22
 links:
   - openspec/changes/cash-skill-maintainability/reviews/propose-r1.md
+  - openspec/changes/default-spec-sync-on-archive/reviews/apply-r1.md
 ---
 
 # Version bump sequenced after guarded edits
@@ -16,3 +17,4 @@ links:
 ## Occurrences
 
 - 2026-07-27 — cash-skill-maintainability — cash-propose round 1 — tasks 原把 `cash-skills.version` bump 排在 4.4（所有 SKILL.md 修改與測試切換之後），reviewer 實測對任一 SKILL.md 附加一行即重現 `changed without a strictly greater cash-skills.version`；修正為提前為 task 1.1 並在 design D6 記載序位約束。
+- 2026-08-22 — default-spec-sync-on-archive — cash-apply round 1 — tasks 完全沒有 bump 任務，實作在 task 2.1 執行 `./scripts/cash-skills/tests/skill-checks.fish` 失敗（`changed without a strictly greater cash-skills.version`）後才補做；修正為新增排在 1.1 之前的 task 1.0 並在 D7 記載序位前置條件。與前次不同的是這次連 bump 任務本身都不存在。

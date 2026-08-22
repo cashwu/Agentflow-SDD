@@ -2,9 +2,9 @@
 id: design-claim-unverified-against-code
 type: recurring-finding
 status: open
-occurrences: 13
+occurrences: 15
 first_seen: 2026-07-25
-last_seen: 2026-08-20
+last_seen: 2026-08-22
 links:
   - openspec/changes/align-cli-skill-contracts/reviews/propose-r1.md
   - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r1.md
@@ -27,6 +27,8 @@ links:
   - openspec/changes/target-receipt-bootstrap/reviews/propose-r2.md
   - openspec/changes/tolerate-remount-device-renumbering/reviews/propose-r1.md
   - openspec/changes/tolerate-remount-device-renumbering/reviews/propose-r7.md
+  - openspec/changes/default-spec-sync-on-archive/reviews/apply-r1.md
+  - openspec/changes/guard-task-state-integrity/reviews/propose-r1.md
 ---
 
 # Design claim unverified against code
@@ -55,3 +57,5 @@ A design or proposal states a fact about the existing codebase as the premise of
 - 2026-08-20 — tolerate-remount-device-renumbering — cash-propose round 1 — task 的驗收條件引用了「既有的 launcher migration rollback 測試」，但整個測試目錄裡沒有任何測試涵蓋 rollback 或 `rebind_receipt_stable_identity`，該驗收因此無法機械執行。修法是把驗收改為指名實際存在的測試函式，並補上可執行的 `git diff` 判準。
 
 - 2026-08-20 — tolerate-remount-device-renumbering — cash-propose round 7 — 為了解決「指令內嵌 target 路徑未規範 quoting」而改採前綴方案，理由寫成「以 target 絕對路徑作為訊息前綴是 installer 全部使用者可見訊息的既有慣例」。該宣稱是選擇該方案而非 quoting 規則的正當化基礎，但不成立：前綴只存在於直接 `print` 的 target-scoped diagnostic，`InstallerError` 的二十餘處 raise 全部不帶前綴，direct 與 vendor 路徑由 `main()` 印為 `Error: <message>`，批次模式的前綴是呼叫端加的。後果是前綴的產生位置未定義，且唯一能同時滿足 vendor 路徑的作法會讓批次模式出現重複前綴。教訓是：當一個設計選擇的正當化理由是「沿用既有慣例」，那句話本身就是必須逐一對照 call site 查證的 claim，而不是背景敘述。
+- 2026-08-22 — default-spec-sync-on-archive — cash-apply round 1 — IC1 第 6 點把「明確要求跳過同步後重跑」列為 delta parse／`requirement_identity_mismatch`／`validation_failed` 的出路，但該前提未對照 `.cash-skills/lib/cash_cli/commands/archive.py` 的實際呼叫順序——`build_sync_plan()` 無條件執行且排在 `skip_specs` 判斷之前，`validation_failed` 的閘門是 `--no-validate`，`--skip-specs` 對三者皆無效；實作照 contract 逐字寫入後才由 reviewer 實檔查出。
+- 2026-08-22 — guard-task-state-integrity — cash-propose round 1 — design 宣稱「記憶體內對齊、持久化交給既有寫入路徑」，但三條被點名的寫入路徑有兩條不會寫：`ensure_touched()` 在 state 檔已存在時零寫入，`touched record` 的 `items = list(...)` 為 shallow copy 使 `updated != touched` 對就地對齊恆為 False；而 `cash-commit` 直接 parse state 檔。該決策因此無法達成其宣稱的目的。

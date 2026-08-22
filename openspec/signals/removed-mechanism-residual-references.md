@@ -2,9 +2,9 @@
 id: removed-mechanism-residual-references
 type: recurring-finding
 status: open
-occurrences: 7
+occurrences: 8
 first_seen: 2026-07-16
-last_seen: 2026-07-27
+last_seen: 2026-08-22
 links:
   - openspec/changes/converge-plus-review-loop/reviews/propose-r1.md
   - openspec/changes/fork-spectra-skills-to-cash/reviews/propose-r1.md
@@ -14,6 +14,7 @@ links:
   - openspec/changes/harden-spec-trace-path-extraction/reviews/propose-r7.md
   - openspec/changes/cash-skill-maintainability/reviews/propose-r1.md
   - openspec/changes/cash-skill-maintainability/reviews/apply-r1.md
+  - openspec/changes/default-spec-sync-on-archive/reviews/propose-r1.md
 ---
 
 # Removed mechanism residual references
@@ -29,3 +30,4 @@ A change removes or replaces a mechanism (a rule, a derivation step, a note type
 - 2026-07-26 — harden-spec-trace-path-extraction — cash-propose round 7 — `cash-ingest` 把診斷／`trace_gaps` 機制移出範圍後，proposal 仍有兩處肯定句以該機制為論證支柱（與自身 Non-Goals 直接矛盾）、兩個懸空條號指向已不存在的「第 4 點」，design Risks 兩則引用已刪除的 `D5`——機制載體刪乾淨了，論證該機制的散文沒有。
 - 2026-07-27 — cash-skill-maintainability — cash-propose round 1 — 移除 `scripts/cash-skills/variant-parity/` manifests 時，cash-cli master spec 的 scan surface SHALL 枚舉與 `CASH-SKILLS.md` 的所有權／live scan 敘述兩處殘留引用均未列入修訂範圍；修正為補 cash-cli delta 並擴充 CASH-SKILLS.md 修訂 task。
 - 2026-07-27 — cash-skill-maintainability — cash-apply round 1 — 對等機制由 diff manifest 比對改為重新生成 freshness 檢查後，cash-cli master spec 仍以「24-skill variant parity」描述 `skill-checks.fish` 的治理範圍，而該句不在本 change 的 cash-cli delta 之內；經使用者裁決維持現狀（該措辭描述被治理的性質而非機制），但殘留引用的盤點仍應在 delta 定稿前完成而非留到 apply 才發現。
+- 2026-08-22 — default-spec-sync-on-archive — cash-propose round 1 — 把封存前的 spec sync 提問改為判定規則後，`.claude/skills/cash-archive/SKILL.md` 的 Optional flags 仍以 `--skip-specs — skip delta spec application (for tooling/doc-only changes)` 描述旗標使用時機，成為檔內唯一還在以 change 性質做推論依據的句子，與新 requirement 的「MUST NOT 從 change 性質推論」直接矛盾；更糟的是 Implementation Contract 原本把整份 Optional flags 清單列為不得改動，等於把殘留引用寫死。步驟 5 的 `adding the selected flags` 是同一機制的第二處殘留。

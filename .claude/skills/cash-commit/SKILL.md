@@ -168,7 +168,7 @@ This is a **utility skill** (not a workflow step). It reads source file tracking
 
 6a. **Archive sub-flow** (only when the user selected "Archive first, then commit together")
 
-    This sub-flow executes three checks in sequence before returning to the main commit flow.
+    This sub-flow executes three steps in sequence before returning to the main commit flow.
 
     **6a-i. Incomplete task handling**
 
@@ -181,15 +181,15 @@ This is a **utility skill** (not a workflow step). It reads source file tracking
         - **Yes**: set a flag to pass `--mark-tasks-complete` to `"$cash_cli" archive`
         - **No**: cancel the archive sub-flow; do not invoke archive with incomplete tasks
 
-    **6a-ii. Delta spec sync check**
+    **6a-ii. Delta spec sync determination**
 
-    Check whether delta specs exist at `openspec/changes/<name>/specs/`.
+    Check whether delta specs exist at `openspec/changes/<name>/specs/` — they do not exist when the directory is empty or absent — then resolve the flag without asking the user.
 
-    - If **no delta specs exist** (directory is empty or absent): skip to 6a-iii.
-    - If **delta specs exist**:
-      - Use the **AskUserQuestion tool** to ask: "Delta specs found. Sync to main specs before archiving?"
-        - **Yes**: do not add `--skip-specs`; archive performs or verifies sync in its own transaction
-        - **No**: set a flag to pass `--skip-specs`
+    - **Explicit skip**: set the `--skip-specs` flag only when the user asked to skip delta spec sync in this invocation. This takes precedence over the default below.
+    - **Default — no flag**: otherwise do not add `--skip-specs`, whether or not delta specs exist, and do NOT ask the user to choose.
+    - MUST NOT infer a skip request from the change looking tooling-only or doc-only, from an earlier archive, or from any other indirect signal.
+
+    Record the resolved outcome by evaluating in order: `skipped` (the flag is set), then `synced` (delta specs exist and the flag is not set), then `no delta specs` (no delta specs and the flag is not set). 6a-iii uses that recorded outcome, and only `synced` admits `openspec/specs/` paths into the commit set.
 
     **6a-iii. Archive execution and file collection**
 
@@ -211,12 +211,14 @@ This is a **utility skill** (not a workflow step). It reads source file tracking
     2. Add only these archive-related file changes to the commit set:
        - Deletions under `openspec/changes/<name>/`
        - Additions or modifications under `openspec/changes/archive/<date>-<change>/`
-       - Changes under `openspec/specs/` only if the user explicitly selected spec sync in 6a-ii
+       - Changes under `openspec/specs/` only when 6a-ii recorded the outcome `synced`
     3. Keep all other post-archive dirty files in Unrelated Changes unless they were part of the pre-archive confirmed commit set
     4. Display an **updated commit plan** showing all sections:
 
     ```
     ## Updated Commit Plan: <change-name> (with archive)
+
+    **Spec sync:** <synced | skipped (explicitly requested) | no delta specs>
 
     ### Change Artifacts (archived)
     - D  openspec/changes/<name>/proposal.md

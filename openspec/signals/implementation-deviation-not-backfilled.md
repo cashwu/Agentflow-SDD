@@ -2,12 +2,13 @@
 id: implementation-deviation-not-backfilled
 type: recurring-finding
 status: open
-occurrences: 2
+occurrences: 3
 first_seen: 2026-07-26
-last_seen: 2026-07-29
+last_seen: 2026-08-22
 links:
   - openspec/changes/rightsize-cash-apply-tdd-discipline/reviews/apply-r1.md
   - openspec/changes/add-global-cash-shim/reviews/apply-r1.md
+  - openspec/changes/default-spec-sync-on-archive/reviews/apply-r2.md
 ---
 
 # Implementation deviation not backfilled
@@ -18,3 +19,4 @@ links:
 
 - 2026-07-26 — rightsize-cash-apply-tdd-discipline — cash-apply round 1 — Python 測試實際需要 `PYTHONPATH=.cash-skills/lib` 才能載入 in-repo package，implementation notes 已記錄替代命令，但 design 與已完成 task 仍保留不可直接執行的命令；修正後把已驗證命令回填至兩份 durable artifacts，並保留歷史 deviation 紀錄。
 - 2026-07-29 — add-global-cash-shim — cash-apply round 1 — deletion test 因真實 `$HOME/.local/bin/cash` 原本不存在而改用隔離 `HOME` fixture，implementation notes 已記錄合理 deviation，但 task 4.1 仍只寫真實 shim 的暫移／還原路徑，未回填等價的條件式驗證契約。
+- 2026-08-22 — default-spec-sync-on-archive — cash-apply round 2 — bundle version bump 的兩筆 `deviation` 於 round 1 被吸收為 `design.md` IC6、`tasks.md` task 1.0 與 `## Impact` 三路徑，但 `implementation-notes.md` 未追加回填條目，原條目仍記「任務：2.1」且理由寫著已被推翻的前提「artifacts 只宣告修改四個 SKILL.md」。
