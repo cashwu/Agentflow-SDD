@@ -2,9 +2,9 @@
 id: task-verification-coverage-incomplete
 type: recurring-finding
 status: open
-occurrences: 14
+occurrences: 16
 first_seen: 2026-07-14
-last_seen: 2026-08-20
+last_seen: 2026-08-23
 links:
   - openspec/changes/repair-all-uses-pinned-commit-inputs/reviews/apply-r1.md
   - openspec/changes/converge-plus-review-loop/reviews/apply-r2.md
@@ -21,6 +21,8 @@ links:
   - openspec/changes/bootstrap-openspec-config-on-install/reviews/propose-r1.md
   - openspec/changes/rightsize-cash-apply-tdd-discipline/reviews/apply-r1.md
   - openspec/changes/tolerate-remount-device-renumbering/reviews/propose-r1.md
+  - openspec/changes/add-minimal-solution-discipline/reviews/propose-r1.md
+  - openspec/changes/add-minimal-solution-discipline/reviews/apply-r1.md
 ---
 
 # Task verification coverage incomplete
@@ -44,3 +46,7 @@ A task is marked complete after testing the primary outcome but omits one or mor
 - 2026-07-26 — rightsize-cash-apply-tdd-discipline — cash-apply round 1 — precedence 與 catch-all boundary cases 只靠 instruction 全文中的靜態 marker 通過，未證明無可行測試邊界的 bug fix 與文件／metadata／checker-only task 實際落在第四分支；修正後解析四個編號分支並以 branch-scoped assertions 驗證 routing。
 
 - 2026-08-20 — tolerate-remount-device-renumbering — cash-propose round 1 — ADDED requirement 的兩個診斷 scenario 的 WHEN 明寫涵蓋 launcher 與 installer preflight 兩個面，Implementation Contract 也對 installer 規定了訊息契約，但測試對照表列出的四個案例全部只針對 launcher，對應 task 的驗收也只寫「preflight 不失敗」。實作者把 installer 的失敗訊息原樣留著也會全綠。修法是建立逐 scenario 的測試對照表，並讓每個跨 gate 的 scenario 在兩個 gate 各有一個測試函式。
+
+- 2026-08-23 — add-minimal-solution-discipline — cash-propose round 1 — task tests 只釘 ladder／complexity／ceiling 的主要 literals，漏掉較早 rung 不合格、YAGNI、tie-break 次序、changed-diff-only、contract／rationale exclusions、metric boundary、contract-invasive ceiling 與 routine implementation 等 normative scenarios；修正為逐 scenario exact clauses 與 removal／reversal／order mutation matrix。
+
+- 2026-08-23 — add-minimal-solution-discipline — cash-apply round 1 — 新增 checker 雖涵蓋主要 mutations，但 reviewer topology 未精確計數，且 contract-invasive ceiling 未把 variant-correct `cash-ingest` destination 納入 assertion；修正為解析所有 role bullets 的 exact sets，並加入 Reviewer C／Rater／Auditor C 與 wrong-destination mutations。

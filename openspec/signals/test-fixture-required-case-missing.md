@@ -2,9 +2,9 @@
 id: test-fixture-required-case-missing
 type: recurring-finding
 status: open
-occurrences: 7
+occurrences: 8
 first_seen: 2026-07-24
-last_seen: 2026-07-29
+last_seen: 2026-08-23
 links:
   - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/apply-r6.md
   - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r1.md
@@ -13,6 +13,7 @@ links:
   - openspec/changes/tolerate-versioned-legacy-guidance-marker/reviews/propose-r7.md
   - openspec/changes/rightsize-cash-skills/reviews/apply-r1.md
   - openspec/changes/add-global-cash-shim/reviews/apply-r1.md
+  - openspec/changes/add-minimal-solution-discipline/reviews/apply-r1.md
 
 ---
 
@@ -32,3 +33,5 @@ A regression test claims to cover a task-required input shape, but its fixture d
 - 2026-07-25 — tolerate-versioned-legacy-guidance-marker — cash-propose round 7 與 round 10 —— B-2：IC4 的核心 MUST（`canonical_guidance` 須傳入帶 source 限定詞的標籤）完全沒有驗證點，因為全部失敗情境中 `marker_span` 的例外都在 target 側，source 側的兩個打到的是另一條 IC5 新例外；實作者只要在該新訊息寫死限定詞就能讓全部斷言變綠而 IC4 已被違反。B-3 與 Q-4：1.4 case 二與 1.2 的斷言非排他形式，現行實作對兩側皆帶字尾的 block 會於檔尾附加 canonical 而 exit 0，包含式斷言在修復前即成立。
 - 2026-07-26 — rightsize-cash-skills — cash-apply round 1 — fallback parser 的 canonical corpus 全為單行 `ask` 形式，沒有固定 fixture 覆蓋 spec 要求的跨行 `present the same options` 形狀；修正後加入單行、跨行、單軸與重複陳述 fixtures。
 - 2026-07-29 — add-global-cash-shim — cash-apply round 1 — `shim-checks.fish` 以合併組合覆蓋部分路由，卻沒有逐列執行 spec 兩個 `##### Example:` 的完整 argv：dispatch 漏 `--limit 10`，init 也漏掉四列旗標映射的獨立斷言。
+
+- 2026-08-23 — add-minimal-solution-discipline — cash-apply round 1 — known-ceiling checker 只驗證 `限制`／`重訪條件` 成對，沒有真正建立「之後需要時」或「規模變大時」的 entry fixture，因此空泛 trigger 仍可被接受；修正為驗證 trigger 值並加入兩個具體 negative fixtures。

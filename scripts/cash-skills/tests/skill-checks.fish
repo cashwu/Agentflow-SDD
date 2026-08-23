@@ -561,6 +561,170 @@ function assert_well_formedness
     end
 end
 
+function assert_minimal_solution_discipline
+    python3 -c '
+import re
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+apply_paths = [
+    root / ".claude/skills/cash-apply/SKILL.md",
+    root / ".agents/skills/cash-apply/SKILL.md",
+]
+canonical_paths = [
+    root / ".claude/skills/cash-propose/SKILL.md",
+    root / ".claude/skills/cash-apply/SKILL.md",
+    root / ".agents/skills/cash-propose/SKILL.md",
+    root / ".agents/skills/cash-apply/SKILL.md",
+]
+shared_path = root / "scripts/cash-skills/blocks/review-gate.md"
+
+rungs = ["reuse", "stdlib", "native", "installed-dependency", "custom"]
+safety_items = [
+    "observable behavior",
+    "interface／data shape",
+    "failure modes",
+    "acceptance criteria",
+    "trust-boundary validation",
+    "data-loss prevention",
+    "security",
+    "accessibility",
+]
+understanding = "Before writing code, re-read and understand the task, relevant spec, Implementation Contract, and actual call flow."
+eligibility = "A candidate is eligible only when it preserves " + ", ".join(safety_items[:-1]) + ", and " + safety_items[-1] + "."
+continue_clause = "If an earlier rung does not satisfy the contract, exclude it and continue"
+yagni_clause = "MUST NOT use YAGNI to mark it complete or silently skip it"
+tie_break = "Within the same rung among candidates of comparable cost, choose stronger edge-case correctness first, then the candidate that follows the existing codebase pattern."
+traceability = "本次 diff 的每一行，都能直接追溯到 `tasks.md` 中的某條任務或 `design.md` 中的 Implementation Contract 項目"
+circuit_breaker = "a synchronization primitive, identity/generation type, or state machine not defined in design.md"
+paired_fields = "append both fields immediately after `原因`; never add only one and never fill either with `none`"
+no_ceiling = "Preserve this four-field entry shape for every `open-question` and for a `deviation` with no nontrivial known ceiling."
+trigger_clause = "A vague trigger such as「之後需要時」or「規模變大時」is insufficient."
+routine_clause = "Routine implementation, an ordinary tradeoff, or an internal choice that does not deviate from an artifact creates no note."
+invasive_clause = "the substitute is not contract-preserving: do not record it and continue; use the existing pause branch and direct the user to"
+reviewer_notes = "Reviewer A and Reviewer V also evaluate every known-ceiling `deviation` for paired `限制`／`重訪條件` fields, an observable or measurable trigger, and a ceiling outside the current contract envelope."
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+def validate_apply(text, ingest_command):
+    ingest_clause = invasive_clause + " `" + ingest_command + "`."
+    for literal in [understanding, eligibility, continue_clause, yagni_clause, tie_break, traceability, paired_fields, no_ceiling, trigger_clause, routine_clause, ingest_clause, reviewer_notes]:
+        require(literal in text, "missing apply contract: " + literal)
+    ladder_start = text.index("ordered minimal-solution ladder")
+    ladder_end = text.index("Then check:", ladder_start)
+    ladder = text[ladder_start:ladder_end]
+    positions = []
+    for rung in rungs:
+        marker = "`" + rung + "`"
+        require(ladder.count(marker) == 1, "rung must occur exactly once in ladder: " + rung)
+        positions.append(ladder.index(marker))
+    require(positions == sorted(positions), "rung order changed")
+    require(text.count(circuit_breaker) == 2, "circuit-breaker literal must occur twice")
+    require("- 限制：" in text and "- 重訪條件：" in text, "known-ceiling fields must be paired")
+    forbidden = [r"(?im)^\s*\d+\.\s+`one line`", r"net:\s*-", r"LOC gate", r"complexity reviewer", r"third reviewer", r"限制：\s*none", r"重訪條件：\s*none"]
+    for pattern in forbidden:
+        require(not re.search(pattern, text), "forbidden contract found: " + pattern)
+
+complexity_literals = [
+    "new dependency",
+    "single-implementation abstraction",
+    "pass-through wrapper",
+    "speculative configuration",
+    "duplicate existing capability",
+    "`stdlib`／`native` replacement opportunity",
+]
+propose_scope = "For cash-propose: scan proposal, design, and tasks for complexity introduced or permitted by those artifacts without evidence that the contract requires it"
+apply_scope = "For cash-apply: scan only complexity introduced by the changed diff"
+contract_exemption = "mechanisms explicitly required by the contract"
+rationale_exemption = "intentional complexity already justified in `design.md`, `implementation-notes.md`, proposal Non-Goals, or `## Alternatives Considered`"
+exclusions = "Do not report this lens against pre-existing code, unrelated refactors, " + contract_exemption + ", or " + rationale_exemption + "."
+metric_boundary = "LOC, estimated token use, cost, and time are not inputs to a finding, severity, confidence, or gate decision."
+
+def validate_review(text):
+    for literal in complexity_literals + [propose_scope, apply_scope, exclusions, contract_exemption, rationale_exemption, metric_boundary, "Reviewer A — Adherence", "Reviewer B — Quality", "Reviewer V — Verification"]:
+        require(literal in text, "missing reviewer contract: " + literal)
+    require("complexity reviewer" not in text.lower(), "new complexity reviewer role")
+    require("third reviewer" not in text.lower(), "third reviewer role")
+    require("net: -" not in text, "net-line metric gate")
+    full_start = text.index("Full rounds occur only")
+    micro_start = text.index("Each micro round", full_start)
+    pre_spawn = text.index("A pre-spawn short-circuit round", micro_start)
+    role_pattern = re.compile(r"(?m)^\s+- \*\*([^*]+)\*\*:")
+    require(role_pattern.findall(text[full_start:micro_start]) == ["Reviewer A — Adherence", "Reviewer B — Quality"], "full-round reviewer topology changed")
+    require(role_pattern.findall(text[micro_start:pre_spawn]) == ["Reviewer V — Verification"], "micro-round reviewer topology changed")
+
+def expect_rejected(label, validator, text):
+    try:
+        validator(text)
+    except (ValueError, AssertionError):
+        return
+    raise AssertionError("mutation was accepted: " + label)
+
+for path in apply_paths:
+    text = path.read_text(encoding="utf-8")
+    ingest_command = "$cash-ingest" if ".agents" in path.parts else "/cash-ingest"
+    validator = lambda value, command=ingest_command: validate_apply(value, command)
+    validator(text)
+    for rung in rungs:
+        expect_rejected("remove rung " + rung, validator, text.replace("`" + rung + "`", "`removed-rung`", 1))
+    expect_rejected("swap rung order", validator, text.replace("1. `reuse`", "1. `stdlib`", 1).replace("2. `stdlib`", "2. `reuse`", 1))
+    expect_rejected("remove earlier-rung continuation", validator, text.replace(continue_clause, "Stop when an earlier rung fails", 1))
+    expect_rejected("reverse YAGNI", validator, text.replace(yagni_clause, "use YAGNI to mark it complete or silently skip it", 1))
+    expect_rejected("swap tie-break order", validator, text.replace("edge-case correctness first, then the candidate that follows the existing codebase pattern", "existing codebase pattern first, then edge-case correctness", 1))
+    for item in safety_items:
+        expect_rejected("remove safety item " + item, validator, text.replace(eligibility, eligibility.replace(item, "removed-safety-item"), 1))
+    expect_rejected("missing ceiling limitation", validator, text.replace("- 限制：", "- removed-field：", 1))
+    expect_rejected("missing revisit trigger", validator, text.replace("- 重訪條件：", "- removed-field：", 1))
+    expect_rejected("vague trigger accepted", validator, text.replace(trigger_clause, "A vague trigger such as「之後需要時」is sufficient.", 1))
+    expect_rejected("contract-invasive continuation", validator, text.replace(invasive_clause, "the substitute may be recorded and continued; direct the user to", 1))
+    exact_ingest_clause = invasive_clause + " `" + ingest_command + "`."
+    expect_rejected("wrong ingest destination", validator, text.replace(exact_ingest_clause, invasive_clause + " `wrong-destination`.", 1))
+    expect_rejected("routine stdlib note", validator, text.replace(routine_clause, "Routine `stdlib` implementation creates a deviation note.", 1))
+    expect_rejected("one-line rung", validator, text.replace("5. `custom`", "5. `one line`\n     6. `custom`", 1))
+    expect_rejected("forced none fields", validator, text.replace("never fill either with `none`", "fill missing values with `none`", 1))
+
+shared = shared_path.read_text(encoding="utf-8")
+validate_review(shared)
+for path in canonical_paths:
+    validate_review(path.read_text(encoding="utf-8"))
+expect_rejected("remove changed-diff restriction", validate_review, shared.replace(apply_scope, "For cash-apply: scan repository complexity", 1))
+expect_rejected("remove contract exemption", validate_review, shared.replace(contract_exemption, "contract mechanisms", 1))
+expect_rejected("remove rationale exemption", validate_review, shared.replace(rationale_exemption, "documented complexity", 1))
+expect_rejected("metrics become gate input", validate_review, shared.replace(metric_boundary, "LOC, estimated token use, cost, and time are inputs to the gate decision.", 1))
+reviewer_c = "     - **Reviewer C — Simplicity**: score the implementation.\n"
+rater = "     - **Rater — Simplicity**: score the implementation.\n"
+auditor_c = "     - **Auditor C — Simplicity**: score the implementation.\n"
+expect_rejected("extra Reviewer C", validate_review, shared.replace("   - Each micro round", reviewer_c + "   - Each micro round", 1))
+expect_rejected("extra rater", validate_review, shared.replace("   - Each micro round", rater + "   - Each micro round", 1))
+expect_rejected("extra Auditor C", validate_review, shared.replace("   - Each micro round", auditor_c + "   - Each micro round", 1))
+expect_rejected("net-line metric", validate_review, shared + "\nnet: -10 lines\n")
+
+def validate_note_entry(entry, known_ceiling=False):
+    for field in ["類別", "任務", "內容", "原因"]:
+        require("- " + field + "：" in entry, "missing base note field: " + field)
+    has_limit = "- 限制：" in entry
+    has_trigger = "- 重訪條件：" in entry
+    require(has_limit == has_trigger, "ceiling fields are not paired")
+    require((has_limit and has_trigger) if known_ceiling else (not has_limit and not has_trigger), "wrong ceiling shape")
+    if known_ceiling:
+        trigger = next(line.removeprefix("- 重訪條件：").strip() for line in entry.splitlines() if line.startswith("- 重訪條件："))
+        require(trigger and trigger not in {"之後需要時", "規模變大時"}, "revisit trigger must be observable or measurable")
+
+validate_note_entry("## date — title\n- 類別：deviation\n- 任務：x\n- 內容：x\n- 原因：x\n")
+for missing in ["- 限制：100 ops/s\n", "- 重訪條件：observed 100 ops/s\n"]:
+    fixture = "## date — title\n- 類別：deviation\n- 任務：x\n- 內容：x\n- 原因：x\n- 限制：100 ops/s\n- 重訪條件：observed 100 ops/s\n".replace(missing, "")
+    expect_rejected("known-ceiling field pair", lambda value: validate_note_entry(value, known_ceiling=True), fixture)
+for vague in ["之後需要時", "規模變大時"]:
+    fixture = "## date — title\n- 類別：deviation\n- 任務：x\n- 內容：x\n- 原因：x\n- 限制：100 ops/s\n- 重訪條件：" + vague + "\n"
+    expect_rejected("vague known-ceiling trigger " + vague, lambda value: validate_note_entry(value, known_ceiling=True), fixture)
+
+print("minimal-solution-discipline contract and mutations: ok")
+' "$root_dir"; or fail "minimal-solution discipline contract failed"
+end
+
 set -l group all
 if test (count $argv) -gt 0
     set group $argv[1]
@@ -586,6 +750,8 @@ switch "$group"
         assert_namespace
     case well-formedness
         assert_well_formedness
+    case minimal-solution-discipline
+        assert_minimal_solution_discipline
     case all
         assert_inventory
         assert_well_formedness
@@ -596,6 +762,7 @@ switch "$group"
         assert_guidance_and_docs
         assert_installer
         assert_namespace
+        assert_minimal_solution_discipline
     case '*'
         fail "unknown test group: $group"
 end
