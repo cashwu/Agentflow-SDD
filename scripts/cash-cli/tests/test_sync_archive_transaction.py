@@ -579,7 +579,7 @@ class SyncArchiveTransactionTests(unittest.TestCase):
             "touched": [
                 {
                     "task_id": "1.1",
-                    "task_desc": "Modify `src/demo.py`",
+                    "task_desc": "1.1 Modify `src/demo.py`；以 `tests/demo_test.py` 驗證",
                     "files": files,
                 }
             ],
@@ -591,8 +591,10 @@ class SyncArchiveTransactionTests(unittest.TestCase):
             json.dumps(touched, ensure_ascii=False, separators=(",", ":")),
             encoding="utf-8",
         )
+        aligned = json.loads(json.dumps(touched))
+        aligned["touched"][0]["task_id"] = "1"
         expected_digest = hashlib.sha256(
-            json.dumps(touched, ensure_ascii=False, separators=(",", ":")).encode(
+            json.dumps(aligned, ensure_ascii=False, separators=(",", ":")).encode(
                 "utf-8"
             )
         ).hexdigest()

@@ -59,8 +59,9 @@ Archive a completed change.
 
    **If incomplete tasks found:**
    - Display warning showing count of incomplete tasks
-   - Prompt user for confirmation to continue
-   - Proceed if user confirms
+   - Use the **AskUserQuestion tool** to ask: "These tasks are still incomplete. Mark all as complete before archiving?"
+     - **Yes**: set a flag to pass `--mark-tasks-complete` to the archive command in step 5
+     - **No**: stop without archiving; do not invoke archive with incomplete tasks
 
    **If no tasks file exists:** Proceed without task-related warning.
 
@@ -82,6 +83,7 @@ Archive a completed change.
    ```bash
    "$cash_cli" archive <name>
    "$cash_cli" archive <name> --skip-specs
+   "$cash_cli" archive <name> --mark-tasks-complete
    ```
 
    **Optional flags:**
@@ -94,6 +96,10 @@ Archive a completed change.
    **If archive fails** on delta parse or `requirement_identity_mismatch`, report the exact error and fix the delta specs before re-running. `--skip-specs` does NOT bypass either check.
 
    **If archive fails** with `validation_failed`, report the exact error and give both ways forward: fix the validation findings and re-run, or re-run with `--no-validate` once the findings are judged acceptable. `--skip-specs` does NOT bypass this gate either.
+
+   **If archive fails** with `tasks_incomplete`, report the exact error and re-run with `--mark-tasks-complete`; neither `--skip-specs` nor `--no-validate` bypasses this precondition.
+
+   **If archive fails** with `touched_invalid` naming a `task_desc` that no longer exists in `tasks.md`, determine whether that task was renamed or removed. If renamed, update that entry's `task_desc` in `.cash-skills/state/touched/<name>.json` to the task's current description, then re-run archive. Editing `task_desc` to repair a rename is the one permitted manual edit to touched state; never delete the file. If removed, stop and run `/cash-ingest` with the current `touched_invalid` error and change name as conversation context so it selects the existing change and restores the exact `task_desc` as a completed `[x]` task in `tasks.md`, then re-run archive; do not edit or delete the touched entry, because its `files` remain attributed to that historical task. If restoring the exact `task_desc` would cause a task label conflict, stop and use `/cash-ingest` with the same conversation context to resolve the artifact conflict; do not guess a new label or reattribute `files`.
 
 6. **Display summary**
 

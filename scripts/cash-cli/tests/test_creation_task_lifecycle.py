@@ -112,6 +112,283 @@ class CreationTaskLifecycleTests(unittest.TestCase):
         subprocess.run(["git", "-C", str(root), "add", f"openspec/changes/{name}"], check=True)
         subprocess.run(["git", "-C", str(root), "commit", "-qm", "add change"], check=True)
 
+    def write_touched_state(
+        self,
+        root: Path,
+        entries: list[dict[str, object]],
+        *,
+        name: str = "demo",
+        legacy: bool = False,
+    ) -> Path:
+        state_path = root / ".cash-skills" / "state" / "touched" / f"{name}.json"
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state = {
+            "version": 1,
+            "change": name,
+            "legacy_import": (
+                {
+                    "path": f".spectra/touched/{name}.json",
+                    "sha256": "0" * 64,
+                    "st_dev": 1,
+                    "st_ino": 1,
+                }
+                if legacy
+                else None
+            ),
+            "touched": entries,
+            "files": sorted(
+                {path for entry in entries for path in entry["files"]},
+                key=lambda path: path.encode("utf-8"),
+            ),
+        }
+        state_path.write_text(
+            json.dumps(state, ensure_ascii=False, separators=(",", ":")) + "\n",
+            encoding="utf-8",
+        )
+        return state_path
+
+    def test_realign_inserted_task_uses_description_without_changing_payload(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        tasks_path = root / "openspec" / "changes" / "demo" / "tasks.md"
+        tasks_path.write_text(
+            "- [ ] 1.0 Prepare\n- [ ] 1.1 Change a\n- [ ] 1.2 Add b\n",
+            encoding="utf-8",
+        )
+        self.write_touched_state(
+            root,
+            [{"task_id": "1", "task_desc": "1.1 Change a", "files": ["src/a.py"]}],
+        )
+
+        state = tasks.load_or_import_touched(workspace, "demo")
+
+        self.assertEqual(state["touched"], [
+            {"task_id": "2", "task_desc": "1.1 Change a", "files": ["src/a.py"]}
+        ])
+
+    def test_realign_missing_description_fails_closed_with_description(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        self.write_touched_state(
+            root,
+            [{"task_id": "1", "task_desc": "1.1 Removed", "files": []}],
+        )
+
+        with self.assertRaises(CashError) as raised:
+            tasks.load_or_import_touched(workspace, "demo")
+
+        self.assertEqual(raised.exception.code, "touched_invalid")
+        self.assertIn("1.1 Removed", str(raised.exception))
+
+    def test_realign_reserved_review_loop_entry_is_unchanged(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        entry = {"task_id": "review-loop", "task_desc": "Review loop outputs", "files": []}
+        self.write_touched_state(root, [entry])
+
+        state = tasks.load_or_import_touched(workspace, "demo")
+
+        self.assertEqual(state["touched"], [entry])
+
+    def test_realign_missing_tasks_file_returns_original_state(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        (root / "openspec" / "changes" / "demo" / "tasks.md").unlink()
+        state_path = self.write_touched_state(
+            root,
+            [{"task_id": "9", "task_desc": "unknown", "files": []}],
+        )
+        expected = json.loads(state_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(tasks.load_or_import_touched(workspace, "demo"), expected)
+
+    def test_realign_duplicate_resulting_ids_fail_closed(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        self.write_touched_state(
+            root,
+            [
+                {"task_id": "1", "task_desc": "1.1 Change a", "files": []},
+                {"task_id": "2", "task_desc": "1.1 Change a", "files": []},
+            ],
+        )
+
+        with self.assertRaises(CashError) as raised:
+            tasks.load_or_import_touched(workspace, "demo")
+
+        self.assertEqual(raised.exception.code, "touched_invalid")
+
+    def test_realign_legacy_collision_discards_all_changes(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        state_path = self.write_touched_state(
+            root,
+            [
+                {"task_id": "2", "task_desc": "legacy unknown", "files": []},
+                {"task_id": "1", "task_desc": "1.2 Add b", "files": []},
+            ],
+            legacy=True,
+        )
+        before = state_path.read_bytes()
+        expected = json.loads(before)
+
+        self.assertEqual(tasks.load_or_import_touched(workspace, "demo"), expected)
+        self.assertEqual(state_path.read_bytes(), before)
+
+    def test_realign_order_only_change_is_persisted_by_ensure(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        state_path = self.write_touched_state(
+            root,
+            [
+                {"task_id": "2", "task_desc": "1.2 Add b", "files": []},
+                {"task_id": "1", "task_desc": "1.1 Change a", "files": []},
+            ],
+        )
+        before = state_path.read_bytes()
+
+        ensure_touched(workspace, "demo")
+
+        self.assertNotEqual(state_path.read_bytes(), before)
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        self.assertEqual([entry["task_id"] for entry in state["touched"]], ["1", "2"])
+
+    def test_realign_read_only_load_does_not_write_state(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        tasks_path = root / "openspec" / "changes" / "demo" / "tasks.md"
+        tasks_path.write_text("- [ ] 1.0 Prepare\n- [ ] 1.1 Change a\n", encoding="utf-8")
+        state_path = self.write_touched_state(
+            root,
+            [{"task_id": "1", "task_desc": "1.1 Change a", "files": []}],
+        )
+        before = state_path.read_bytes()
+
+        state = tasks.load_or_import_touched(workspace, "demo")
+
+        self.assertEqual(state["touched"][0]["task_id"], "2")
+        self.assertEqual(state_path.read_bytes(), before)
+
+    def test_realign_ensure_persists_changed_attribution(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        tasks_path = root / "openspec" / "changes" / "demo" / "tasks.md"
+        tasks_path.write_text("- [ ] 1.0 Prepare\n- [ ] 1.1 Change a\n", encoding="utf-8")
+        state_path = self.write_touched_state(
+            root,
+            [{"task_id": "1", "task_desc": "1.1 Change a", "files": []}],
+        )
+
+        ensure_touched(workspace, "demo")
+
+        self.assertEqual(
+            json.loads(state_path.read_text(encoding="utf-8"))["touched"][0]["task_id"],
+            "2",
+        )
+
+    def test_realign_record_persists_change_when_review_union_is_noop(self) -> None:
+        root = self.enter_workspace()
+        self.add_ready_change(root)
+        tasks_path = root / "openspec" / "changes" / "demo" / "tasks.md"
+        tasks_path.write_text("- [ ] 1.0 Prepare\n- [ ] 1.1 Change a\n", encoding="utf-8")
+        signal = root / "openspec" / "signals" / "demo.md"
+        signal.parent.mkdir()
+        signal.write_text("# Demo\n", encoding="utf-8")
+        state_path = self.write_touched_state(
+            root,
+            [
+                {"task_id": "1", "task_desc": "1.1 Change a", "files": []},
+                {
+                    "task_id": "review-loop",
+                    "task_desc": "Review loop outputs",
+                    "files": ["openspec/signals/demo.md"],
+                },
+            ],
+        )
+
+        self.assertEqual(
+            tasks.execute("touched", ["record", "demo", "--path", "openspec/signals/demo.md"]),
+            0,
+        )
+        self.assertEqual(
+            json.loads(state_path.read_text(encoding="utf-8"))["touched"][0]["task_id"],
+            "2",
+        )
+
+    def test_realign_ensure_noop_preserves_bytes_inode_and_mtime(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        state_path = self.write_touched_state(
+            root,
+            [{"task_id": "1", "task_desc": "1.1 Change a", "files": []}],
+        )
+        before = state_path.read_bytes()
+        before_stat = state_path.stat()
+
+        ensure_touched(workspace, "demo")
+
+        after_stat = state_path.stat()
+        self.assertEqual(state_path.read_bytes(), before)
+        self.assertEqual(after_stat.st_ino, before_stat.st_ino)
+        self.assertEqual(after_stat.st_mtime_ns, before_stat.st_mtime_ns)
+
+    def test_realign_legacy_unknown_description_is_preserved(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        entry = {"task_id": "7", "task_desc": "legacy unknown", "files": ["src/a.py"]}
+        self.write_touched_state(root, [entry], legacy=True)
+
+        state = tasks.load_or_import_touched(workspace, "demo")
+
+        self.assertEqual(state["touched"], [entry])
+
+    def test_realign_task_parse_failure_returns_original_state(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        (root / "openspec" / "changes" / "demo" / "tasks.md").write_text(
+            "- [ ] Missing label\n",
+            encoding="utf-8",
+        )
+        state_path = self.write_touched_state(
+            root,
+            [{"task_id": "9", "task_desc": "unknown", "files": []}],
+        )
+        expected = json.loads(state_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(tasks.load_or_import_touched(workspace, "demo"), expected)
+
+    def test_realign_parked_change_uses_parked_tasks(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        active = root / "openspec" / "changes" / "demo"
+        parked = root / "openspec" / "changes" / ".parked" / "demo"
+        active.rename(parked)
+        (parked / "tasks.md").write_text(
+            "- [ ] 1.0 Prepare\n- [ ] 1.1 Change a\n",
+            encoding="utf-8",
+        )
+        self.write_touched_state(
+            root,
+            [{"task_id": "1", "task_desc": "1.1 Change a", "files": []}],
+        )
+
+        state = tasks.load_or_import_touched(workspace, "demo")
+
+        self.assertEqual(state["touched"][0]["task_id"], "2")
+
     def test_create_change_and_dependency_gated_artifacts(self) -> None:
         temporary, root, workspace = self.make_workspace()
         self.addCleanup(temporary.cleanup)
@@ -497,9 +774,18 @@ class CreationTaskLifecycleTests(unittest.TestCase):
         signal.write_text("# Demo\n", encoding="utf-8")
         tasks.execute("touched", ["ensure", "demo"])
         state_path = root / ".cash-skills" / "state" / "touched" / "demo.json"
+        task_ids = sorted((str(index) for index in range(1, 11)), key=str.encode)
+        (root / "openspec" / "changes" / "demo" / "tasks.md").write_text(
+            "".join(f"- [ ] 1.{index} Task {index}\n" for index in range(1, 11)),
+            encoding="utf-8",
+        )
         per_task_entries = [
-            {"task_id": str(index), "task_desc": f"Task {index}", "files": []}
-            for index in range(1, 11)
+            {
+                "task_id": task_id,
+                "task_desc": f"1.{int(task_id)} Task {int(task_id)}",
+                "files": [],
+            }
+            for task_id in task_ids
         ]
         state = json.loads(state_path.read_text(encoding="utf-8"))
         state["touched"] = per_task_entries

@@ -49,6 +49,7 @@ This is a **utility skill** (not a workflow step). It reads source file tracking
    ```
 
    If ensure fails, report the error and STOP. Then parse `.cash-skills/state/touched/<change-name>.json`; Cash state is the only allowlist authority after this point, except when step 2a establishes a post-archive recovery source. Do not re-read or merge legacy state.
+   If ensure fails with `touched_invalid` naming a `task_desc` that no longer exists in `tasks.md`, determine whether that task was renamed or removed. If renamed, update that entry's `task_desc` in `.cash-skills/state/touched/<change-name>.json` to the task's current description, then re-run ensure. Editing `task_desc` to repair a rename is the one permitted manual edit to touched state; never delete the file. If removed, stop and run `/cash-ingest` with the current `touched_invalid` error and change name as conversation context so it selects the existing change and restores the exact `task_desc` as a completed `[x]` task in `tasks.md`, then re-run ensure; do not edit or delete the touched entry, because its `files` remain attributed to that historical task. If restoring the exact `task_desc` would cause a task label conflict, stop and use `/cash-ingest` with the same conversation context to resolve the artifact conflict; do not guess a new label or reattribute `files`.
 
    Expected format:
 

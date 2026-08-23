@@ -2,15 +2,16 @@
 id: policy-surface-enumeration-incomplete
 type: recurring-finding
 status: open
-occurrences: 6
+occurrences: 7
 first_seen: 2026-07-19
-last_seen: 2026-08-20
+last_seen: 2026-08-22
 links:
   - openspec/changes/chinese-spec-content/reviews/propose-r1.md
   - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/propose-r3.md
   - openspec/changes/align-cli-skill-contracts/reviews/propose-r1.md
   - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r1.md
   - openspec/changes/tolerate-versioned-legacy-guidance-marker/reviews/propose-r10.md
+  - openspec/changes/guard-task-state-integrity/reviews/propose-r1.md
 
   - openspec/changes/tolerate-remount-device-renumbering/reviews/propose-r4.md
 ---
@@ -30,3 +31,4 @@ A cross-cutting policy change (language rules, naming rules, format contracts) e
 - 2026-07-25 — tolerate-versioned-legacy-guidance-marker — cash-propose round 7 與 round 10 —— B-1：D3 把 source 側風險當成只有「Cash marker 帶字尾被散播」一項，但 source guidance 中任何一行形似 legacy marker 的散文會讓全部 registered target 一起 fail closed，且本 repo 的 `CASH-SKILLS.md` 今天就有這種寫法。Q-1：行為改變的方向列舉只有兩個，漏掉第三個——原本被忽略而內容原樣保留、容忍後被當作真 marker 而內容被移除，且前後兩次安裝的 exit code 與分類皆不變、使用者零訊號、`--dry-run` 不預覽，是三者中唯一不可觀察的資料移除。
 
 - 2026-08-20 — tolerate-remount-device-renumbering — cash-propose round 4 — 新增的規範句寫成「installer 在其唯讀 version-control index 查詢判定 receipt 已被追蹤時……」，但 `validate_installed_receipt` 有兩個呼叫點，而執行該查詢的函式只由其中一個呼叫；另一條路徑（`--vendor`，也就是全域 shim 的預設）整條不做查詢。結果是同段的兩條 MUST 在該路徑互相封死，而該路徑正是 proposal 自己指名的主要修復路徑。修法是移除以查詢為分支條件的整套機制，改以不依賴查詢的文字限定，使規範在兩個 gate 的全部路徑一致生效。
+- 2026-08-22 — guard-task-state-integrity — cash-propose round 4 — D8 逐字宣告新失敗模式「在兩個會撞到它的 skill 都要有復原指引」並只列 `cash-commit` 與 `cash-apply`，但同一份 design 的 `## Risks` 自己證明 `archive` 是第三個撞擊點，而該 skill 的 Guardrails 又禁止使用者採取唯一直覺的動作。
