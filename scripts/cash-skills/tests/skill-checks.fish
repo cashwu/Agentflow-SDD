@@ -232,12 +232,7 @@ function assert_generated_fresh
 end
 
 function assert_tdd_discipline
-    set -l test_quality_gate_literals \
-        'name a realistic production defect' \
-        'expected value' \
-        'observable behavior instead' \
-        'slow or external boundary' \
-        'bounded mutation check'
+    assert_test_quality_single_source
 
     for variant in .agents .claude
         set -l relative "$variant/skills/cash-apply/SKILL.md"
@@ -270,9 +265,6 @@ function assert_tdd_discipline
         assert_contains "$path" 'when a task will add or modify any test' "on-demand test-quality trigger"
         assert_contains "$path" 'Regardless of the `tdd` value' "toggle-independent test-quality obligation"
         assert_contains "$path" 'do not add a test for form' "no-formal-test contract"
-        for duplicated in $test_quality_gate_literals
-            assert_absent "$path" (string escape --style=regex "$duplicated") "duplicated test-quality semantics"
-        end
 
         for field in '`delivery`' '`verification`' '`regression`' '`success`' '`red`'
             assert_contains "$path" "$field" "task evidence field $field"
@@ -311,14 +303,163 @@ function assert_tdd_discipline
         test "$debug_rgr_count" = 0; or fail "$relative must contain zero Red-Green-Refactor literals; found $debug_rgr_count"
         assert_absent "$path" (string escape --style=regex 'Write a failing test') "retired unconditional failing-test step"
         assert_absent "$path" (string escape --style=regex 'Phase 4 always starts with a failing test') "retired Phase-4-always-failing-test rule"
-        for duplicated in $test_quality_gate_literals
-            assert_absent "$path" (string escape --style=regex "$duplicated") "duplicated test-quality semantics"
-        end
     end
 
     assert_command_matrix
 
     assert_tdd_variant_parity
+end
+
+function assert_test_quality_single_source
+    python3 -c '
+import sys
+from pathlib import Path
+
+sys.path.insert(0, sys.argv[2])
+
+root = Path(sys.argv[1])
+
+FORBIDDEN_GATE_CLAUSES = {
+    "named-defect": {
+        "zh": "命名一個會使該測試失敗的 realistic production defect",
+        "en": "name a realistic production defect that would make the test fail",
+    },
+    "independent-expected": {
+        "zh": "expected value 以 literal 或手工驗證 fixture 獨立推導",
+        "en": "derive the expected value independently from a literal or hand-verified fixture",
+    },
+    "observable-assertion": {
+        "zh": "斷言 consumer-visible output、state、side effect 或 failure mode",
+        "en": "assert consumer-visible output, state, side effect, or failure mode",
+    },
+    "mock-boundary": {
+        "zh": "mock 只切 slow 或 external boundary",
+        "en": "mock only a slow or external boundary",
+    },
+    "bounded-mutation": {
+        "zh": "執行有限 mutation check",
+        "en": "perform a bounded mutation check",
+    },
+}
+
+EXPECTED_GATE_FIXTURES = {
+    "named-defect": {
+        "zh": "命名一個會使該測試失敗的 realistic production defect",
+        "en": "name a realistic production defect that would make the test fail",
+    },
+    "independent-expected": {
+        "zh": "expected value 以 literal 或手工驗證 fixture 獨立推導",
+        "en": "derive the expected value independently from a literal or hand-verified fixture",
+    },
+    "observable-assertion": {
+        "zh": "斷言 consumer-visible output、state、side effect 或 failure mode",
+        "en": "assert consumer-visible output, state, side effect, or failure mode",
+    },
+    "mock-boundary": {
+        "zh": "mock 只切 slow 或 external boundary",
+        "en": "mock only a slow or external boundary",
+    },
+    "bounded-mutation": {
+        "zh": "執行有限 mutation check",
+        "en": "perform a bounded mutation check",
+    },
+}
+
+EXPECTED_GATES = {
+    "named-defect",
+    "independent-expected",
+    "observable-assertion",
+    "mock-boundary",
+    "bounded-mutation",
+}
+EXPECTED_LANGUAGES = {"zh", "en"}
+
+SKILL_FILES = (
+    ".agents/skills/cash-apply/SKILL.md",
+    ".claude/skills/cash-apply/SKILL.md",
+    ".agents/skills/cash-debug/SKILL.md",
+    ".claude/skills/cash-debug/SKILL.md",
+)
+
+LEGITIMATE_PROSE = (
+    "\nThe table below lists each GIVEN input and its expected value.\n"
+    "Run the named verification target and record the observed success marker.\n"
+)
+LEGITIMATE_PROSE_TOKENS = ("expected value", "verification target")
+
+
+failures = []
+
+
+def record(message):
+    failures.append("test-quality single source: " + message)
+
+
+def duplicated_gate_clauses(text):
+    return [
+        gate + "/" + language
+        for gate, clauses in FORBIDDEN_GATE_CLAUSES.items()
+        for language, clause in clauses.items()
+        if clause in text
+    ]
+
+
+if set(FORBIDDEN_GATE_CLAUSES) != EXPECTED_GATES:
+    record("detector gates are not the five canonical test-quality gates")
+if set(EXPECTED_GATE_FIXTURES) != EXPECTED_GATES:
+    record("fixture gates are not the five canonical test-quality gates")
+for gate in sorted(EXPECTED_GATES):
+    if set(FORBIDDEN_GATE_CLAUSES.get(gate, {})) != EXPECTED_LANGUAGES:
+        record("detector gate " + gate + " does not carry exactly a zh and an en clause")
+    if set(EXPECTED_GATE_FIXTURES.get(gate, {})) != EXPECTED_LANGUAGES:
+        record("fixture gate " + gate + " does not carry exactly a zh and an en clause")
+if FORBIDDEN_GATE_CLAUSES != EXPECTED_GATE_FIXTURES:
+    record("detector clauses are no longer verbatim identical to the fixture clauses")
+if set(LEGITIMATE_PROSE_TOKENS) != {"expected value", "verification target"}:
+    record("legitimate prose tokens are not the fixed expected-value and verification-target set")
+
+clean = (root / SKILL_FILES[0]).read_text(encoding="utf-8")
+for relative in SKILL_FILES:
+    duplicated = duplicated_gate_clauses((root / relative).read_text(encoding="utf-8"))
+    if duplicated:
+        record(relative + " duplicates canonical test-quality semantics: " + ", ".join(duplicated))
+
+for gate in sorted(EXPECTED_GATE_FIXTURES):
+    for language in sorted(EXPECTED_GATE_FIXTURES[gate]):
+        injected = clean + "\n" + EXPECTED_GATE_FIXTURES[gate][language] + "\n"
+        detected = duplicated_gate_clauses(injected)
+        if detected != [gate + "/" + language]:
+            record(
+                "injected " + gate + "/" + language
+                + " must be the single detected duplication; detected " + repr(detected)
+            )
+
+for token in LEGITIMATE_PROSE_TOKENS:
+    if token not in LEGITIMATE_PROSE:
+        record("legitimate prose fixture no longer carries the false-positive token: " + token)
+
+leaked = duplicated_gate_clauses(clean + LEGITIMATE_PROSE)
+if leaked:
+    record("legitimate example and verification prose was rejected by: " + ", ".join(leaked))
+
+try:
+    from cash_cli.resources import DISCIPLINES
+
+    canonical = DISCIPLINES["test-quality"]
+except (ImportError, KeyError) as error:
+    record("cannot anchor gate clauses to the canonical test-quality discipline: " + repr(error))
+else:
+    for gate in sorted(FORBIDDEN_GATE_CLAUSES):
+        clause = FORBIDDEN_GATE_CLAUSES[gate].get("zh")
+        if clause is not None and clause not in canonical:
+            record(
+                "detector gate " + gate
+                + " zh clause is no longer a verbatim span of the canonical test-quality discipline"
+            )
+
+if failures:
+    raise SystemExit("\n".join(failures))
+' "$root_dir" "$root_dir/.cash-skills/lib"; or fail "cash-apply/cash-debug duplicate canonical test-quality semantics"
 end
 
 function assert_tdd_variant_parity

@@ -2,9 +2,9 @@
 id: test-fixture-required-case-missing
 type: recurring-finding
 status: open
-occurrences: 8
+occurrences: 9
 first_seen: 2026-07-24
-last_seen: 2026-08-23
+last_seen: 2026-08-24
 links:
   - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/apply-r6.md
   - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r1.md
@@ -14,6 +14,7 @@ links:
   - openspec/changes/rightsize-cash-skills/reviews/apply-r1.md
   - openspec/changes/add-global-cash-shim/reviews/apply-r1.md
   - openspec/changes/add-minimal-solution-discipline/reviews/apply-r1.md
+  - openspec/changes/refine-cash-tdd-test-guards/reviews/propose-r1.md
 
 ---
 
@@ -35,3 +36,5 @@ A regression test claims to cover a task-required input shape, but its fixture d
 - 2026-07-29 — add-global-cash-shim — cash-apply round 1 — `shim-checks.fish` 以合併組合覆蓋部分路由，卻沒有逐列執行 spec 兩個 `##### Example:` 的完整 argv：dispatch 漏 `--limit 10`，init 也漏掉四列旗標映射的獨立斷言。
 
 - 2026-08-23 — add-minimal-solution-discipline — cash-apply round 1 — known-ceiling checker 只驗證 `限制`／`重訪條件` 成對，沒有真正建立「之後需要時」或「規模變大時」的 entry fixture，因此空泛 trigger 仍可被接受；修正為驗證 trigger 值並加入兩個具體 negative fixtures。
+
+- 2026-08-24 — refine-cash-tdd-test-guards — cash-propose round 1 — 初稿的skill去重fixtures只有英文clauses，漏掉繁中canonical原文；resource contradiction inventory又漏carrier固定、強制mutation framework與每task強制新增測試等既有邊界。修正為五gate十個雙語fixtures，以及TDD三類、test-quality六類、tasks四類逐字固定fixtures。

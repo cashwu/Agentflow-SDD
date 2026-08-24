@@ -2,9 +2,9 @@
 id: task-verification-coverage-incomplete
 type: recurring-finding
 status: open
-occurrences: 16
+occurrences: 18
 first_seen: 2026-07-14
-last_seen: 2026-08-23
+last_seen: 2026-08-24
 links:
   - openspec/changes/repair-all-uses-pinned-commit-inputs/reviews/apply-r1.md
   - openspec/changes/converge-plus-review-loop/reviews/apply-r2.md
@@ -23,6 +23,8 @@ links:
   - openspec/changes/tolerate-remount-device-renumbering/reviews/propose-r1.md
   - openspec/changes/add-minimal-solution-discipline/reviews/propose-r1.md
   - openspec/changes/add-minimal-solution-discipline/reviews/apply-r1.md
+  - openspec/changes/strengthen-cash-tdd-evidence/reviews/propose-r1.md
+  - openspec/changes/refine-cash-tdd-test-guards/reviews/propose-r1.md
 ---
 
 # Task verification coverage incomplete
@@ -50,3 +52,6 @@ A task is marked complete after testing the primary outcome but omits one or mor
 - 2026-08-23 — add-minimal-solution-discipline — cash-propose round 1 — task tests 只釘 ladder／complexity／ceiling 的主要 literals，漏掉較早 rung 不合格、YAGNI、tie-break 次序、changed-diff-only、contract／rationale exclusions、metric boundary、contract-invasive ceiling 與 routine implementation 等 normative scenarios；修正為逐 scenario exact clauses 與 removal／reversal／order mutation matrix。
 
 - 2026-08-23 — add-minimal-solution-discipline — cash-apply round 1 — 新增 checker 雖涵蓋主要 mutations，但 reviewer topology 未精確計數，且 contract-invasive ceiling 未把 variant-correct `cash-ingest` destination 納入 assertion；修正為解析所有 role bullets 的 exact sets，並加入 Reviewer C／Rater／Auditor C 與 wrong-destination mutations。
+- 2026-08-24 — strengthen-cash-tdd-evidence — cash-propose round 1 — task contract 把 primary RED／GREEN target與相關 regression commands全部塞進未分型的 `verification`，實作者無法知道哪個 target必須 same-target轉綠；修正為獨立的 `verification` primary與 `regression` 欄位。
+
+- 2026-08-24 — refine-cash-tdd-test-guards — cash-propose round 1 — design與兩份delta要求canonical resources、四份skill、manifest及bundle version零修改，但兩個tasks只驗primary與suite，沒有任何change-scoped inventory assertion承載scope acceptance。修正為每個task在完成前手工確認自身edit inventory恰等於delivery path，並由final review檢查兩個affected-code paths。

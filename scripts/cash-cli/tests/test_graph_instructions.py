@@ -232,11 +232,6 @@ class GraphInstructionTests(unittest.TestCase):
         ):
             with self.subTest(mutation=label):
                 self.assert_rejected(validate_tdd_red_green, mutated, because="missing")
-        self.assert_rejected(
-            validate_tdd_red_green,
-            instruction + "\n但在時間緊迫時，也可以先做 production edit 再補跑該 target。",
-            because="forbidden",
-        )
 
     def test_test_quality_skill_payload_uses_the_canonical_instruction(self) -> None:
         instruction = self.canonical_test_quality()
@@ -318,11 +313,6 @@ class GraphInstructionTests(unittest.TestCase):
         ):
             with self.subTest(mutation=label):
                 self.assert_rejected(validate_test_quality, mutated, because="missing")
-        self.assert_rejected(
-            validate_test_quality,
-            instruction + "\n時間不足時可以略過 mutation check。",
-            because="forbidden",
-        )
 
     def test_tasks_resource_requires_five_field_evidence_contract(self) -> None:
         tasks = artifact_resource("tasks")
@@ -399,11 +389,193 @@ class GraphInstructionTests(unittest.TestCase):
                     validate_tasks_resource, description, tasks.template,
                     because="missing",
                 )
-        self.assert_rejected(
+
+    def test_contradiction_inventories_match_the_fixed_categories(self) -> None:
+        for label, detector, fixtures, categories in (
+            (
+                "TDD",
+                TDD_CONTRADICTIONS,
+                EXPECTED_TDD_CONTRADICTION_FIXTURES,
+                {"carrier-fixed", "unexecuted-red", "red-after-edit"},
+            ),
+            (
+                "test-quality",
+                TEST_QUALITY_CONTRADICTIONS,
+                EXPECTED_TEST_QUALITY_CONTRADICTION_FIXTURES,
+                {
+                    "derived-expected",
+                    "non-observable-result",
+                    "unbounded-mock",
+                    "framework-required",
+                    "test-for-every-task",
+                    "mutation-skippable",
+                },
+            ),
+            (
+                "tasks",
+                TASKS_CONTRADICTIONS,
+                EXPECTED_TASKS_CONTRADICTION_FIXTURES,
+                {
+                    "multiple-primary",
+                    "mixed-success",
+                    "blank-red",
+                    "placeholder-fields",
+                },
+            ),
+        ):
+            with self.subTest(inventory=label):
+                self.assertEqual(set(detector), categories)
+                self.assertEqual(set(fixtures), categories)
+                self.assertEqual(detector, fixtures)
+
+    def test_no_contradiction_literal_matches_its_legitimate_negation(self) -> None:
+        detectors = {
+            **TDD_CONTRADICTIONS,
+            **TEST_QUALITY_CONTRADICTIONS,
+            **TASKS_CONTRADICTIONS,
+        }
+        self.assertEqual(
+            set(EXPECTED_NEGATION_RESTATEMENTS),
+            {
+                "carrier-fixed",
+                "unexecuted-red",
+                "red-after-edit",
+                "derived-expected",
+                "non-observable-result",
+                "unbounded-mock",
+                "framework-required",
+                "test-for-every-task",
+                "mutation-skippable",
+                "multiple-primary",
+                "mixed-success",
+                "blank-red",
+                "placeholder-fields",
+            },
+        )
+
+        tasks = artifact_resource("tasks")
+        canonical_scopes = {
+            **dict.fromkeys(
+                TDD_CONTRADICTIONS,
+                (validate_tdd_red_green, DISCIPLINES["tdd"], (), "TDD"),
+            ),
+            **dict.fromkeys(
+                TEST_QUALITY_CONTRADICTIONS,
+                (validate_test_quality, DISCIPLINES["test-quality"], (), "test-quality"),
+            ),
+            **dict.fromkeys(
+                TASKS_CONTRADICTIONS,
+                (validate_tasks_resource, tasks.description, (tasks.template,), "tasks"),
+            ),
+        }
+        self.assertEqual(set(NEGATION_PARTICLES), {"不", "並非"})
+
+        for category, negation in EXPECTED_NEGATION_RESTATEMENTS.items():
+            with self.subTest(category=category):
+                self.assertNotIn(
+                    detectors[category],
+                    negation,
+                    "contradiction literal is still a substring of a legitimate"
+                    " negated restatement of the same obligation",
+                )
+                self.assertTrue(
+                    any(
+                        f"{detectors[category][:index]}{particle}"
+                        f"{detectors[category][index:]}" in negation
+                        for index in range(len(detectors[category]) + 1)
+                        for particle in NEGATION_PARTICLES
+                    ),
+                    "negation restatement is not the literal with a single negating"
+                    " particle inserted, so it does not restate the same obligation",
+                )
+                validator, canonical, extra, label = canonical_scopes[category]
+                self.assert_rejected(
+                    validator,
+                    f"{canonical}\n{detectors[category]}。",
+                    *extra,
+                    because=f"forbidden {label} contradiction: {category}",
+                )
+                self.assert_accepted(validator, f"{canonical}\n{negation}。", *extra)
+
+    def test_tdd_gates_reject_each_additive_contradiction(self) -> None:
+        instruction = DISCIPLINES["tdd"]
+        self.assert_accepted(validate_tdd_red_green, instruction)
+
+        for category, contradiction in EXPECTED_TDD_CONTRADICTION_FIXTURES.items():
+            with self.subTest(contradiction=category):
+                mutated = f"{instruction}\n{contradiction}。"
+                self.assert_rejected(
+                    validate_tdd_red_green,
+                    mutated,
+                    because=f"forbidden TDD contradiction: {category}",
+                )
+
+    def test_test_quality_gates_reject_each_additive_contradiction(self) -> None:
+        instruction = self.canonical_test_quality()
+        self.assert_accepted(validate_test_quality, instruction)
+
+        for category, contradiction in EXPECTED_TEST_QUALITY_CONTRADICTION_FIXTURES.items():
+            with self.subTest(contradiction=category):
+                mutated = f"{instruction}\n{contradiction}。"
+                self.assert_rejected(
+                    validate_test_quality,
+                    mutated,
+                    because=f"forbidden test-quality contradiction: {category}",
+                )
+
+    def test_tasks_resource_rejects_each_additive_contradiction(self) -> None:
+        tasks = artifact_resource("tasks")
+        self.assert_accepted(validate_tasks_resource, tasks.description, tasks.template)
+
+        for category, contradiction in EXPECTED_TASKS_CONTRADICTION_FIXTURES.items():
+            with self.subTest(contradiction=category):
+                mutated = f"{tasks.description}{contradiction}。"
+                self.assert_rejected(
+                    validate_tasks_resource,
+                    mutated,
+                    tasks.template,
+                    because=f"forbidden tasks contradiction: {category}",
+                )
+
+    def test_validators_accept_legitimate_phrasings_with_retired_tokens(self) -> None:
+        self.assertEqual(set(RETIRED_PERMISSIVE_TOKENS), {"可以不", "不必", "視情況"})
+
+        for scope, token, phrasing in (
+            ("TDD remaining-task", "可以不", LEGITIMATE_TDD_PHRASING),
+            ("test-quality no-test scope", "不必", LEGITIMATE_TEST_QUALITY_PHRASING),
+            ("tasks manual verification", "視情況", LEGITIMATE_TASKS_PHRASING),
+        ):
+            with self.subTest(scope=scope):
+                self.assertIn(token, phrasing)
+        for label, inventory in (
+            ("TDD", TDD_CONTRADICTIONS),
+            ("test-quality", TEST_QUALITY_CONTRADICTIONS),
+            ("tasks", TASKS_CONTRADICTIONS),
+        ):
+            with self.subTest(inventory=label):
+                self.assertEqual(
+                    [
+                        category
+                        for category, contradiction in inventory.items()
+                        if contradiction in RETIRED_PERMISSIVE_TOKENS
+                    ],
+                    [],
+                    f"{label} reinstated a retired bare permissive token as a whole contradiction",
+                )
+
+        tasks = artifact_resource("tasks")
+        self.assert_accepted(
+            validate_tdd_red_green,
+            f"{DISCIPLINES['tdd']}\n{LEGITIMATE_TDD_PHRASING}",
+        )
+        self.assert_accepted(
+            validate_test_quality,
+            f"{self.canonical_test_quality()}\n{LEGITIMATE_TEST_QUALITY_PHRASING}",
+        )
+        self.assert_accepted(
             validate_tasks_resource,
-            tasks.description + "短 task 可以不填 red 欄位。",
+            tasks.description + LEGITIMATE_TASKS_PHRASING,
             tasks.template,
-            because="forbidden",
         )
 
     def canonical_test_quality(self) -> str:
@@ -474,15 +646,74 @@ TASK_EVIDENCE_RULES = {
     "no placeholder": "五個欄位都不得留空，也不得填 TBD 或 TODO",
 }
 
+EXPECTED_TDD_CONTRADICTION_FIXTURES = {
+    "carrier-fixed": "evidence carrier 一定是 tasks.md",
+    "unexecuted-red": "推測結果即可視為有效 red evidence",
+    "red-after-edit": "primary verification target 可以在 production edit 後再執行",
+}
+EXPECTED_TEST_QUALITY_CONTRADICTION_FIXTURES = {
+    "derived-expected": "expected value 可以由受測程式、其 helper 或同一套邏輯推導",
+    "non-observable-result": "結果可以用 source text、private structure 或 mock 自身存在代替",
+    "unbounded-mock": "mock 可以切任何 internal boundary",
+    "framework-required": "有限 mutation check 必須新增 mutation framework",
+    "test-for-every-task": "本 discipline 要求每個 task 都必須新增測試",
+    "mutation-skippable": "時間不足時可以略過 mutation check",
+}
+EXPECTED_TASKS_CONTRADICTION_FIXTURES = {
+    "multiple-primary": "verification 可以命名多個 primary targets",
+    "mixed-success": "success 可以一併記錄 regression、publication 或 task completion 結果",
+    "blank-red": "red 不適用時可以留空",
+    "placeholder-fields": "欄位可以留空或填 TBD／TODO",
+}
 
-PERMISSIVE_CONTRADICTIONS = (
-    "可以略過",
-    "可以先做",
-    "可以先進行",
-    "可以不",
-    "不必",
-    "視情況",
+EXPECTED_NEGATION_RESTATEMENTS = {
+    "carrier-fixed": "evidence carrier 不一定是 tasks.md",
+    "unexecuted-red": "推測結果並非即可視為有效 red evidence",
+    "red-after-edit": "primary verification target 不可以在 production edit 後再執行",
+    "derived-expected": "expected value 不可以由受測程式、其 helper 或同一套邏輯推導",
+    "non-observable-result": "結果不可以用 source text、private structure 或 mock 自身存在代替",
+    "unbounded-mock": "mock 不可以切任何 internal boundary",
+    "framework-required": "有限 mutation check 並非必須新增 mutation framework",
+    "test-for-every-task": "本 discipline 不要求每個 task 都必須新增測試",
+    "mutation-skippable": "時間不足時不可以略過 mutation check",
+    "multiple-primary": "verification 不可以命名多個 primary targets",
+    "mixed-success": "success 不可以一併記錄 regression、publication 或 task completion 結果",
+    "blank-red": "red 不適用時不可以留空",
+    "placeholder-fields": "欄位不可以留空或填 TBD／TODO",
+}
+
+NEGATION_PARTICLES = ("不", "並非")
+RETIRED_PERMISSIVE_TOKENS = ("可以不", "不必", "視情況")
+LEGITIMATE_TDD_PHRASING = (
+    "remaining task 可以不建立 red phase，直接執行命名的 verification target。"
 )
+LEGITIMATE_TEST_QUALITY_PHRASING = (
+    "未修改任何測試的 task 不必取得 test-quality instruction。"
+)
+LEGITIMATE_TASKS_PHRASING = (
+    "沒有自動測試邊界時，verification 視情況採用 manual assertion。"
+)
+
+
+TDD_CONTRADICTIONS = {
+    "carrier-fixed": "evidence carrier 一定是 tasks.md",
+    "unexecuted-red": "推測結果即可視為有效 red evidence",
+    "red-after-edit": "primary verification target 可以在 production edit 後再執行",
+}
+TEST_QUALITY_CONTRADICTIONS = {
+    "derived-expected": "expected value 可以由受測程式、其 helper 或同一套邏輯推導",
+    "non-observable-result": "結果可以用 source text、private structure 或 mock 自身存在代替",
+    "unbounded-mock": "mock 可以切任何 internal boundary",
+    "framework-required": "有限 mutation check 必須新增 mutation framework",
+    "test-for-every-task": "本 discipline 要求每個 task 都必須新增測試",
+    "mutation-skippable": "時間不足時可以略過 mutation check",
+}
+TASKS_CONTRADICTIONS = {
+    "multiple-primary": "verification 可以命名多個 primary targets",
+    "mixed-success": "success 可以一併記錄 regression、publication 或 task completion 結果",
+    "blank-red": "red 不適用時可以留空",
+    "placeholder-fields": "欄位可以留空或填 TBD／TODO",
+}
 
 
 def _require(condition: bool, message: str) -> None:
@@ -490,9 +721,12 @@ def _require(condition: bool, message: str) -> None:
         raise ValueError(message)
 
 
-def _reject_permissive(text: str, label: str) -> None:
-    for permissive in PERMISSIVE_CONTRADICTIONS:
-        _require(permissive not in text, f"forbidden {label} statement: {permissive}")
+def _reject_contradictions(text: str, contradictions: dict, label: str) -> None:
+    for category, contradiction in contradictions.items():
+        _require(
+            contradiction not in text,
+            f"forbidden {label} contradiction: {category}",
+        )
 
 
 def validate_tdd_red_green(instruction: str) -> None:
@@ -502,9 +736,7 @@ def validate_tdd_red_green(instruction: str) -> None:
         TDD_CARRIER_NEUTRAL in instruction,
         "missing carrier-neutral evidence statement",
     )
-    for forbidden in ("tasks.md", "推測結果即可", "可以在 production edit 後"):
-        _require(forbidden not in instruction, f"forbidden TDD statement: {forbidden}")
-    _reject_permissive(instruction, "TDD")
+    _reject_contradictions(instruction, TDD_CONTRADICTIONS, "TDD")
 
 
 def validate_test_quality(instruction: str) -> None:
@@ -513,16 +745,7 @@ def validate_test_quality(instruction: str) -> None:
     for meaning, marker in TEST_QUALITY_BOUNDARIES.items():
         _require(marker in instruction, f"missing test-quality boundary: {meaning}")
     _require(TEST_QUALITY_SCOPE in instruction, "missing test-quality scope bound")
-    for forbidden in (
-        "expected value 可由受測程式",
-        "可以用 mock 自身存在代替結果",
-        "必須新增 mutation framework",
-        "每個 task 都必須新增測試",
-    ):
-        _require(
-            forbidden not in instruction, f"forbidden test-quality statement: {forbidden}"
-        )
-    _reject_permissive(instruction, "test-quality")
+    _reject_contradictions(instruction, TEST_QUALITY_CONTRADICTIONS, "test-quality")
 
 
 def validate_tasks_resource(description: str, template: str) -> None:
@@ -538,16 +761,7 @@ def validate_tasks_resource(description: str, template: str) -> None:
                 f"{field}: " in line,
                 f"tasks template checkbox line omits field: {field}",
             )
-    for forbidden in (
-        "verification 可以命名多個 target",
-        "success 可以一併記錄 regression",
-        "red 不適用時可以留空",
-        "欄位可以留空或填 TBD",
-    ):
-        _require(
-            forbidden not in description, f"forbidden tasks statement: {forbidden}"
-        )
-    _reject_permissive(description, "tasks")
+    _reject_contradictions(description, TASKS_CONTRADICTIONS, "tasks")
 
 if __name__ == "__main__":
     unittest.main()

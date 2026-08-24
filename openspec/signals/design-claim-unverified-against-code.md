@@ -2,11 +2,12 @@
 id: design-claim-unverified-against-code
 type: recurring-finding
 status: open
-occurrences: 15
+occurrences: 16
 first_seen: 2026-07-25
-last_seen: 2026-08-22
+last_seen: 2026-08-24
 links:
   - openspec/changes/align-cli-skill-contracts/reviews/propose-r1.md
+  - openspec/changes/refine-cash-tdd-test-guards/reviews/apply-r3.md
   - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r1.md
   - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r2.md
   - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r3.md
@@ -59,3 +60,4 @@ A design or proposal states a fact about the existing codebase as the premise of
 - 2026-08-20 — tolerate-remount-device-renumbering — cash-propose round 7 — 為了解決「指令內嵌 target 路徑未規範 quoting」而改採前綴方案，理由寫成「以 target 絕對路徑作為訊息前綴是 installer 全部使用者可見訊息的既有慣例」。該宣稱是選擇該方案而非 quoting 規則的正當化基礎，但不成立：前綴只存在於直接 `print` 的 target-scoped diagnostic，`InstallerError` 的二十餘處 raise 全部不帶前綴，direct 與 vendor 路徑由 `main()` 印為 `Error: <message>`，批次模式的前綴是呼叫端加的。後果是前綴的產生位置未定義，且唯一能同時滿足 vendor 路徑的作法會讓批次模式出現重複前綴。教訓是：當一個設計選擇的正當化理由是「沿用既有慣例」，那句話本身就是必須逐一對照 call site 查證的 claim，而不是背景敘述。
 - 2026-08-22 — default-spec-sync-on-archive — cash-apply round 1 — IC1 第 6 點把「明確要求跳過同步後重跑」列為 delta parse／`requirement_identity_mismatch`／`validation_failed` 的出路，但該前提未對照 `.cash-skills/lib/cash_cli/commands/archive.py` 的實際呼叫順序——`build_sync_plan()` 無條件執行且排在 `skip_specs` 判斷之前，`validation_failed` 的閘門是 `--no-validate`，`--skip-specs` 對三者皆無效；實作照 contract 逐字寫入後才由 reviewer 實檔查出。
 - 2026-08-22 — guard-task-state-integrity — cash-propose round 1 — design 宣稱「記憶體內對齊、持久化交給既有寫入路徑」，但三條被點名的寫入路徑有兩條不會寫：`ensure_touched()` 在 state 檔已存在時零寫入，`touched record` 的 `items = list(...)` 為 shallow copy 使 `updated != touched` 對就地對齊恆為 False；而 `cash-commit` 直接 parse state 檔。該決策因此無法達成其宣稱的目的。
+- 2026-08-24 — refine-cash-tdd-test-guards — cash-apply round 3 — `design.md` §Risks 具名記錄「舊 suite 曾攔下、新 inventory 不再攔下」的覆蓋缺口時，只列出 2 句並明文宣稱「只有這兩種措辭會通過」。該句是把新機制的窄化代價正當化的基礎，卻是憑印象寫的：實測 HEAD 的 11 個 explicit forbidden literal 中有 10 個現已被 validator 接受，僅 `blank-red` 因逐字保留而仍被拒。教訓是 Risks 條目裡的「只有／僅有」這類封閉式枚舉，與 design 的 code-facing claim 同級，必須逐一對照實際執行結果而非依機制推想；窄化一個 detector inventory 時，被移除的每個舊 literal 都要實跑一次才能宣稱其涵蓋關係。
