@@ -97,6 +97,7 @@ function assert_command_matrix
         '"$cash_cli" instructions <artifact-id> --change "<name>" --json' \
         '"$cash_cli" instructions apply --change "<name>" --json' \
         '"$cash_cli" instructions --skill tdd' \
+        '"$cash_cli" instructions --skill test-quality' \
         '"$cash_cli" instructions --skill audit' \
         '"$cash_cli" new change "<name>" --agent codex' \
         '"$cash_cli" new artifact proposal --change "<name>" --stdin' \
@@ -231,6 +232,13 @@ function assert_generated_fresh
 end
 
 function assert_tdd_discipline
+    set -l test_quality_gate_literals \
+        'name a realistic production defect' \
+        'expected value' \
+        'observable behavior instead' \
+        'slow or external boundary' \
+        'bounded mutation check'
+
     for variant in .agents .claude
         set -l relative "$variant/skills/cash-apply/SKILL.md"
         set -l path "$root_dir/$relative"
@@ -256,7 +264,108 @@ function assert_tdd_discipline
         assert_contains "$path" 'concrete risk or boundary reason' "reasoned extra-case contract"
         assert_contains "$path" 'not a closed input set' "example input-set contract"
         assert_absent "$path" (string escape --style=regex 'Do NOT invent additional test values beyond what the spec examples provide without reason. The examples ARE the agreed specification.') "retired closed-example rule"
+
+        set -l quality_count (rg -Fo -- '"$cash_cli" instructions --skill test-quality' "$path" | wc -l | string trim)
+        test "$quality_count" = 1; or fail "$relative must contain exactly one on-demand test-quality instruction consumer; found $quality_count"
+        assert_contains "$path" 'when a task will add or modify any test' "on-demand test-quality trigger"
+        assert_contains "$path" 'Regardless of the `tdd` value' "toggle-independent test-quality obligation"
+        assert_contains "$path" 'do not add a test for form' "no-formal-test contract"
+        for duplicated in $test_quality_gate_literals
+            assert_absent "$path" (string escape --style=regex "$duplicated") "duplicated test-quality semantics"
+        end
+
+        for field in '`delivery`' '`verification`' '`regression`' '`success`' '`red`'
+            assert_contains "$path" "$field" "task evidence field $field"
+        end
+        assert_contains "$path" 'Map the task' "task evidence mapping"
+        assert_contains "$path" '`verification` names exactly one primary target' "single primary target mapping"
+        assert_contains "$path" 'MUST NOT mix in regression, publication, or task completion results' "success marker boundary"
+        assert_contains "$path" 'pure-refactor or remaining-task classification reason' "red field classification reason"
+        assert_contains "$path" 'take the existing unclear-task branch before any production edit' "missing-field pause branch"
+        assert_contains "$path" "run the targets named in the task's `regression` field" "regression target execution obligation"
     end
+
+    for variant in .agents .claude
+        set -l relative "$variant/skills/cash-debug/SKILL.md"
+        set -l path "$root_dir/$relative"
+
+        set -l debug_tdd_count (rg -Fo -- '"$cash_cli" instructions --skill tdd' "$path" | wc -l | string trim)
+        test "$debug_tdd_count" = 1; or fail "$relative must contain exactly one conditional TDD instruction consumer; found $debug_tdd_count"
+        set -l debug_quality_count (rg -Fo -- '"$cash_cli" instructions --skill test-quality' "$path" | wc -l | string trim)
+        test "$debug_quality_count" = 1; or fail "$relative must contain exactly one on-demand test-quality instruction consumer; found $debug_quality_count"
+
+        assert_contains "$path" 'If `tdd: true` is set' "conditional TDD instruction consumer"
+        assert_contains "$path" 'follow the returned `instruction`' "canonical TDD instruction consumer"
+        assert_contains "$path" 'If `tdd: false` is set' "disabled-TDD ordering contract"
+        assert_contains "$path" 'do not force a fail-first ordering' "disabled-TDD ordering contract"
+
+        assert_contains "$path" 'Record the verification evidence carrier' "Phase 3 evidence carrier"
+        assert_contains "$path" 'exactly one primary verification target' "Phase 3 primary target"
+        assert_contains "$path" 'the related regression targets, the success marker' "Phase 3 regression and success markers"
+        assert_contains "$path" 'MUST NOT assume a `tasks.md` contract exists' "tasks.md-independent carrier"
+        assert_contains "$path" 'a minimum root-cause fix, a named primary verification target' "shared verification gate"
+        assert_contains "$path" 'The numbered order below is the `tdd: false` sequence' "toggle-scoped fix ordering"
+        assert_contains "$path" 'observe its failure marker before any production edit' "red-before-production-edit ordering"
+
+        set -l debug_rgr_count (rg -Fo -- 'Red-Green-Refactor' "$path" | wc -l | string trim)
+        test "$debug_rgr_count" = 0; or fail "$relative must contain zero Red-Green-Refactor literals; found $debug_rgr_count"
+        assert_absent "$path" (string escape --style=regex 'Write a failing test') "retired unconditional failing-test step"
+        assert_absent "$path" (string escape --style=regex 'Phase 4 always starts with a failing test') "retired Phase-4-always-failing-test rule"
+        for duplicated in $test_quality_gate_literals
+            assert_absent "$path" (string escape --style=regex "$duplicated") "duplicated test-quality semantics"
+        end
+    end
+
+    assert_command_matrix
+
+    assert_tdd_variant_parity
+end
+
+function assert_tdd_variant_parity
+    python3 -c '
+import re
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+prefix = re.compile(r"(?<![A-Za-z0-9_.-])(?:\$|/)cash-")
+
+SECTIONS = (
+    ("cash-apply", "tdd and test-quality consumers", "5. **Check project preferences**", "6. **Show current progress**"),
+    ("cash-apply", "task evidence and verification gate", "   For each pending task:", "   **Pause if:**"),
+    ("cash-debug", "root cause carrier and fix ordering", "## Phase 3: Root Cause", "## Guardrails"),
+)
+
+
+def section(path, begin, end):
+    lines = path.read_text(encoding="utf-8").splitlines()
+    try:
+        start = lines.index(begin)
+    except ValueError:
+        raise SystemExit("parity: missing section start in " + str(path) + ": " + begin)
+    for offset, line in enumerate(lines[start + 1:], start=start + 1):
+        if line == end:
+            body = lines[start:offset]
+            break
+    else:
+        raise SystemExit("parity: missing section end in " + str(path) + ": " + end)
+    if len(body) < 2:
+        raise SystemExit("parity: empty section in " + str(path) + ": " + begin)
+    return [prefix.sub("@cash-", line) for line in body]
+
+
+for skill, label, begin, end in SECTIONS:
+    claude = section(root / ".claude/skills" / skill / "SKILL.md", begin, end)
+    codex = section(root / ".agents/skills" / skill / "SKILL.md", begin, end)
+    if claude != codex:
+        for index, (left, right) in enumerate(zip(claude, codex)):
+            if left != right:
+                raise SystemExit(
+                    "parity: " + skill + " " + label + " differs at line " + str(index + 1)
+                    + "\n  .claude: " + left + "\n  .agents: " + right
+                )
+        raise SystemExit("parity: " + skill + " " + label + " has a different line count")
+' "$root_dir"; or fail "cash-apply/cash-debug TDD sections are not variant-identical"
 end
 
 function grader_hash --argument-names path

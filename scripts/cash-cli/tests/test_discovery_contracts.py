@@ -202,10 +202,19 @@ class DiscoveryContractTests(unittest.TestCase):
         self.assertEqual(preflight["driftedFiles"], ["src/app.py"])
 
     def test_skill_instructions_have_exact_shape(self) -> None:
-        for skill in ("tdd", "audit"):
-            payload = skill_payload(skill)
-            self.assertEqual(set(payload), {"skill", "locale", "instruction"})
-            self.assertTrue(payload["instruction"])
+        for skill in ("tdd", "test-quality", "audit"):
+            with self.subTest(skill=skill):
+                payload = skill_payload(skill)
+                self.assertEqual(set(payload), {"skill", "locale", "instruction"})
+                self.assertEqual(payload["skill"], skill)
+                self.assertEqual(payload["locale"], "Traditional Chinese (繁體中文)")
+                self.assertTrue(payload["instruction"])
+
+    def test_unknown_skill_is_rejected_before_returning_a_payload(self) -> None:
+        with self.assertRaises(CashError) as raised:
+            skill_payload("unknown")
+
+        self.assertEqual(raised.exception.code, "unknown_command")
 
     def test_all_artifact_readers_reject_external_change_symlink(self) -> None:
         temporary, root, workspace = self.make_workspace()

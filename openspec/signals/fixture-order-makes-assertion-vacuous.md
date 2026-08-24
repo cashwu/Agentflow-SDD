@@ -2,11 +2,12 @@
 id: fixture-order-makes-assertion-vacuous
 type: recurring-finding
 status: open
-occurrences: 1
+occurrences: 2
 first_seen: 2026-07-28
-last_seen: 2026-07-28
+last_seen: 2026-08-24
 links:
   - openspec/changes/target-receipt-bootstrap/reviews/apply-r1.md
+  - openspec/changes/strengthen-cash-tdd-evidence/reviews/apply-r1.md
 ---
 
 # Fixture order makes the assertion vacuous
@@ -20,3 +21,4 @@ links:
 ## Occurrences
 
 - 2026-07-28 — target-receipt-bootstrap — cash-apply round 1 — `test_non_regular_managed_shape_fails_closed_without_chmod` 要驗證「`init_normalize_modes` 先驗證整份 managed inventory 的形狀、再統一 chmod，因此失敗時零 chmod」。fixture 把 unsafe 形狀放在 `SKILL_PATHS[0]`、被 skew mode 的對照檔放在 `SKILL_PATHS[1]`，而 receipt 順序中前者必早於後者，第一段 loop 一遇 unsafe 即 raise，對照檔的 `0664` 自然不變。反轉 fixture（skew `SKILL_PATHS[0]`、unsafe `SKILL_PATHS[-1]`）後，reviewer 以差分實驗確認：把實作改成單次交錯 loop 會使斷言失敗，還原兩段式則通過。hardlink 案例另需改由非 inventory 檔建立硬連結，否則會同時污染對照檔的 `st_nlink`。
+- 2026-08-24 — strengthen-cash-tdd-evidence — cash-apply round 1 — 三個新 resource validator 各有一組 `forbidden` guard，但每個「inversion」mutation 都同時移除了必要 literal，因而一律被較早的 `missing …` 檢查拒絕，`forbidden` 路徑從未被行使；保留全部必要 literal、只附加一句寬鬆例外的加法式矛盾因此被接受。修正為每個 validator 增加 additive-contradiction case，並讓 `assert_rejected` 斷言 rejection 理由，使 removal 無法冒充 inversion 偵測。
