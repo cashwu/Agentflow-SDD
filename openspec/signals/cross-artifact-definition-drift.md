@@ -2,9 +2,9 @@
 id: cross-artifact-definition-drift
 type: recurring-finding
 status: open
-occurrences: 15
+occurrences: 17
 first_seen: 2026-07-07
-last_seen: 2026-07-28
+last_seen: 2026-08-27
 links:
   - openspec/changes/add-micro-verification-round/reviews/propose-r1.md
   - openspec/changes/add-review-loop-discipline/reviews/propose-r1.md
@@ -23,6 +23,8 @@ links:
   - openspec/changes/rightsize-cash-skills/reviews/propose-r4.md
   - openspec/changes/harden-trace-path-containment-and-label-shape/reviews/propose-r2.md
   - openspec/changes/add-repo-vendored-cash-bundle/reviews/propose-r2.md
+  - openspec/changes/per-change-tdd-override/reviews/propose-r1.md
+  - openspec/changes/per-change-tdd-override/reviews/apply-r1.md
 ---
 
 # Cross-artifact definition drift
@@ -48,3 +50,6 @@ The same concept (a role's scope, an enumerated list, a rule's condition set) is
 - 2026-07-26 — rightsize-cash-skills — cash-propose round 4 — 修正 requirement 主句後標題仍為舊形狀措辭；identifier cross-grep 只掃了改動過的舊字串而未涵蓋同義字串，使「檔案層級／全域規則」在 delta spec 兩處與 proposal 三處殘留並與新主句互斥。
 - 2026-07-26 — harden-trace-path-containment-and-label-shape — cash-propose round 2 — design 的 Risks 已具名接受「同層終止條件放寬會使子清單提前終止、其後路徑被靜默丟棄」這個取捨，但 tasks 的語料等價性驗證所列舉的「合乎設計的損失」條件集合沒有這一款，因此同一份 change 的兩處對「哪些差異是合乎設計的」給出互斥的定義——該形態一旦出現，驗證會把設計自己接受的結果判為實作缺陷，且同一 task 禁止所有脫困手段。
 - 2026-07-28 — add-repo-vendored-cash-bundle — cash-propose round 2 — launcher transition allowlist 在 design 以「來源版本至少為 introduced version」支援跳版，但 spec 一度寫成來源版本必須等於 introduced version；修正為所有 artifacts 共用 `(old_digest, new_digest, introduced_version)` 與 `source_version >= introduced_version` 語意。
+
+- 2026-08-26 — per-change-tdd-override — cash-propose round 1 — proposal 寫「後續 tasks 的 `red` 欄位依該值撰寫」，與 design C2「`red` 欄位語意不變（toggle-independent）」及 delta spec 相矛盾，proposal 為孤立矛盾點；修正 proposal 句子與 design 一致。
+- 2026-08-27 — per-change-tdd-override — cash-apply round 1 — design C1／Context 與 proposal Non-Goals 宣稱不修改任何 CLI 檔案，但 C6 與實作要求同步 installer `BUNDLE_VERSION`；修正為不修改 parser、commands 或可觀察行為，並明列發布 metadata 例外。

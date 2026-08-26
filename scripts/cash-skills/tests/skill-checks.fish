@@ -240,9 +240,18 @@ function assert_tdd_discipline
         set -l consumer_count (rg -Fo -- '"$cash_cli" instructions --skill tdd' "$path" | wc -l | string trim)
         test "$consumer_count" = 1; or fail "$relative must contain exactly one conditional TDD instruction consumer; found $consumer_count"
 
-        assert_contains "$path" 'If `tdd: true` is set' "conditional TDD instruction consumer"
+        assert_contains "$path" 'change-level `tdd` value' "change-level TDD value source"
+        assert_contains "$path" 'first unindented line whose prefix is exactly `tdd:`' "first-match change-level parser"
+        assert_contains "$path" 'never scan later `tdd:` lines after finding it' "later change-level lines ignored"
+        assert_contains "$path" 'entire suffix is exactly ` true` or ` false`' "exact change-level value shape"
+        assert_contains "$path" 'fall back to the project root `.cash.yaml`' "global TDD fallback"
+        assert_contains "$path" 'including no space or a tab after the colon' "malformed change-level value classification"
+        assert_contains "$path" 'actual invalid suffix' "invalid change-level value warning"
+        assert_contains "$path" 'TDD: on（change-level）' "effective TDD source output"
+        assert_contains "$path" 'TDD: off（global）' "effective global TDD source output"
+        assert_contains "$path" 'If the effective `tdd` value is `true`' "conditional TDD instruction consumer"
         assert_contains "$path" 'follow the returned `instruction`' "canonical TDD instruction consumer"
-        assert_contains "$path" 'If `tdd: false` is set' "disabled-TDD ordering contract"
+        assert_contains "$path" 'If the effective `tdd` value is `false`' "disabled-TDD ordering contract"
         assert_contains "$path" 'do not apply TDD ordering' "disabled-TDD ordering contract"
 
         set -l rgr_count (rg -Fo -- 'Red-Green-Refactor' "$path" | wc -l | string trim)
@@ -263,7 +272,7 @@ function assert_tdd_discipline
         set -l quality_count (rg -Fo -- '"$cash_cli" instructions --skill test-quality' "$path" | wc -l | string trim)
         test "$quality_count" = 1; or fail "$relative must contain exactly one on-demand test-quality instruction consumer; found $quality_count"
         assert_contains "$path" 'when a task will add or modify any test' "on-demand test-quality trigger"
-        assert_contains "$path" 'Regardless of the `tdd` value' "toggle-independent test-quality obligation"
+        assert_contains "$path" 'Regardless of the effective `tdd` value' "toggle-independent test-quality obligation"
         assert_contains "$path" 'do not add a test for form' "no-formal-test contract"
 
         for field in '`delivery`' '`verification`' '`regression`' '`success`' '`red`'
@@ -303,6 +312,22 @@ function assert_tdd_discipline
         test "$debug_rgr_count" = 0; or fail "$relative must contain zero Red-Green-Refactor literals; found $debug_rgr_count"
         assert_absent "$path" (string escape --style=regex 'Write a failing test') "retired unconditional failing-test step"
         assert_absent "$path" (string escape --style=regex 'Phase 4 always starts with a failing test') "retired Phase-4-always-failing-test rule"
+    end
+
+    for variant in .agents .claude
+        set -l apply_path "$root_dir/$variant/skills/cash-apply/SKILL.md"
+        set -l propose_path "$root_dir/$variant/skills/cash-propose/SKILL.md"
+        assert_contains "$apply_path" 'apply 迴圈：本次 N 輪，修復檔案數合計 M' "apply-only loop-run summary"
+        assert_contains "$apply_path" '本次 apply 迴圈達 4 輪以上' "apply-only design-degradation warning"
+        assert_absent "$propose_path" (string escape --style=regex 'apply 迴圈：本次 N 輪，修復檔案數合計 M') "cash-propose excludes apply loop-run summary"
+        assert_absent "$propose_path" (string escape --style=regex '本次 apply 迴圈達 4 輪以上') "cash-propose excludes apply design-degradation warning"
+
+        assert_contains "$propose_path" "Record this change's TDD choice" "change-level TDD question step"
+        assert_contains "$propose_path" 'unindented `tdd:` line already exists' "existing TDD choice skip"
+        assert_contains "$propose_path" 'append exactly one unindented line: `tdd: true` or `tdd: false`' "change-level TDD append contract"
+        assert_contains "$propose_path" 'does not end with LF, write exactly one LF separator' "separator-safe TDD append"
+        assert_contains "$propose_path" 'do not modify `.cash.yaml`' "global TDD config preservation"
+        assert_contains "$propose_path" 'report the exact write error and stop' "TDD choice write failure"
     end
 
     assert_command_matrix
@@ -474,6 +499,8 @@ prefix = re.compile(r"(?<![A-Za-z0-9_.-])(?:\$|/)cash-")
 SECTIONS = (
     ("cash-apply", "tdd and test-quality consumers", "5. **Check project preferences**", "6. **Show current progress**"),
     ("cash-apply", "task evidence and verification gate", "   For each pending task:", "   **Pause if:**"),
+    ("cash-apply", "apply loop-run summary", "12. **Summarize this apply loop run**", "**Output During Implementation**"),
+    ("cash-propose", "change-level TDD choice", "4b. **Record this change\x27s TDD choice**", "5. **Write the proposal**"),
     ("cash-debug", "root cause carrier and fix ordering", "## Phase 3: Root Cause", "## Guardrails"),
 )
 

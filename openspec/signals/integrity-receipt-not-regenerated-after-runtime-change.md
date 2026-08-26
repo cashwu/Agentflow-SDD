@@ -2,15 +2,16 @@
 id: integrity-receipt-not-regenerated-after-runtime-change
 type: recurring-finding
 status: open
-occurrences: 5
+occurrences: 6
 first_seen: 2026-07-25
-last_seen: 2026-08-23
+last_seen: 2026-08-26
 links:
   - openspec/changes/align-cli-skill-contracts/reviews/propose-r1.md
   - openspec/changes/guard-post-archive-commit-allowlist/reviews/propose-r1.md
   - openspec/changes/rightsize-cash-apply-tdd-discipline/reviews/propose-r1.md
   - openspec/changes/add-minimal-solution-discipline/reviews/propose-r1.md
   - openspec/changes/strengthen-cash-tdd-evidence/reviews/propose-r2.md
+  - openspec/changes/per-change-tdd-override/reviews/propose-r1.md
 ---
 
 # Integrity receipt not regenerated after runtime change
@@ -27,3 +28,5 @@ A change edits files whose digests are recorded in an integrity manifest that th
 
 - 2026-08-23 — add-minimal-solution-discipline — cash-propose round 1 — managed `SKILL.md` source edit、variant generation 與 portable manifest publication 原本分屬不同 tasks，且 source edits 被標成 `[P]`；第一個 edit 後的 `task done` 與兄弟 task 的任何 Cash CLI invocation都會因 manifest digest drift fail closed。修正為單一不可分割 task，在任何下一次 Cash CLI invocation 前完成 generation 與 `--self` publication。
 - 2026-08-24 — strengthen-cash-tdd-evidence — cash-propose round 2 — bootstrap fix 要求 managed resource 建立後立即呼叫 project-local Cash CLI，卻把 `./install-cash-skills.fish --self` 排在最後，CLI 會先因 manifest／receipt drift fail closed；修正為 managed edits後先self-install，再把CLI同源檢查作為發布後第一步。
+
+- 2026-08-26 — per-change-tdd-override — cash-propose round 1 — tasks 把 SKILL.md 修改（digests 記錄於 `.cash-skills/manifest.tsv` 的 skill records）與 manifest 重簽排成前後兩個 task，中間的每個 Cash CLI 呼叫（含 `task done`）都會以 manifest digest drift fail closed；修正為每個 SKILL.md task 於 generate 後、下一次 CLI 呼叫前內嵌 `./install-cash-skills.fish --self`。
