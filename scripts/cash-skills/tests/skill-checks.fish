@@ -169,8 +169,32 @@ function assert_command_matrix
         end
     end
     for path in "$root_dir/.agents/skills/cash-apply/SKILL.md" "$root_dir/.claude/skills/cash-apply/SKILL.md"
-        for literal in 'Archive first, then commit together' 'deletes the touched state that'
+        for literal in \
+            'Archive first, then commit together' \
+            'deletes the touched state that' \
+            '提交、再執行' \
+            '由 commit 流程代跑封存並把封存檔案搬移併入同一個 commit' \
+            '用作來源允許清單的 touched state' \
+            '語言切換規則不適用於模板本體'
             assert_contains "$path" "$literal" "commit-before-archive guidance"
+        end
+    end
+    for path in "$root_dir/.agents/skills/cash-archive/SKILL.md" "$root_dir/.claude/skills/cash-archive/SKILL.md"
+        for literal in \
+            'Uncommitted source guard' \
+            'git status --porcelain=v1 -z --untracked-files=all' \
+            '停止本次封存（建議）' \
+            '仍要單獨封存' \
+            '靜默通過本步驟，不發問也不顯示訊息' \
+            '對 touched state 只讀不寫' \
+            '改讀 legacy 檔 `touched` 陣列各條目 `files` 的聯集' \
+            '可能為 `state_invalid`、`touched_invalid` 或 `legacy_touched_invalid`' \
+            'MUST NOT 把偵測失敗視同交集為空' \
+            '依 NUL-delimited 格式解析' \
+            '比對前先剝除該前綴取出路徑' \
+            '第二個 NUL field 是裸 old path，MUST NOT 對其剝除前綴' \
+            '新舊兩路徑皆計入 dirty 集合'
+            assert_contains "$path" "$literal" "uncommitted-source guard"
         end
     end
 end

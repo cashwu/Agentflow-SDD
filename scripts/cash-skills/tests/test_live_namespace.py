@@ -135,6 +135,8 @@ def main() -> int:
     }
     touched_allow = {
         root / ".cash-skills/lib/cash_cli/commands/tasks.py",
+        root / ".agents/skills/cash-archive/SKILL.md",
+        root / ".claude/skills/cash-archive/SKILL.md",
         root / "scripts/cash-cli/tests/test_creation_task_lifecycle.py",
         root / "scripts/cash-cli/tests/test_sync_archive_transaction.py",
         *detector_paths,
