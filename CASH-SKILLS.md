@@ -80,7 +80,7 @@ vendored publication 會發佈 `.agents/skills/cash-*/SKILL.md`、`.claude/skill
 
 ### Portable manifest 信任邊界
 
-portable mode 以 Git commit provenance 為 authenticity 的信任根；manifest 驗證受管 inventory 的 digest、filesystem shape 與 Git logical mode，但不宣稱抵抗可同時改寫 `.cash-skills/manifest.tsv` 與受管 inventory 的 repository writer。需要 machine-local post-install identity 時，仍應使用下方的 receipt-based direct／registry／batch workflow。
+portable mode 以 Git commit provenance 為 authenticity 的信任根；manifest 驗證受管 inventory 的 digest、filesystem shape 與 Git logical mode，但不宣稱抵抗可同時改寫 `.cash-skills/manifest.tsv` 與受管 inventory 的 repository writer。需要 machine-local post-install identity 時，仍應使用 receipt-based 的安裝方式；registry 與 batch 對 manifest 缺失或非 regular shape 的 record 走 receipt workflow，已有 regular manifest 的 record 會以 repo-vendored publication 處理而不建立 receipt（canonical source 自身除外，完整分派規則見下方批次段落）。
 
 launcher 使用 manifest-presence 優先序：只要 `.cash-skills/manifest.tsv` path 存在（包括 unsafe shape），就只走 portable gate；invalid manifest 以 `manifest_invalid` fail closed，不會 fallback 到 receipt。只有 manifest 缺失時才檢查 `.cash-skills/receipt.tsv`。因此舊 checkout 中殘留的 ignored receipt 不會遮蔽 pull 後的 valid manifest，也不需由團隊成員刪除或重簽。
 
@@ -95,7 +95,7 @@ target 的分類與處置如下：
 - receipt 與 manifest 都缺失且 managed inventory 為零時是 fresh；real run 明確回報 `Result: update`。
 - receiptless target 若 stable／runtime／skills 的完整 inventory 逐檔符合 source digest 與 Git logical mode，可在 exclusive lock 下認養既有 bytes，最後發佈 manifest。
 - receiptless inventory 若 partial、unknown 或 different，預設回報 `Result: conflict`；`--force` 只可補齊或替換 canonical expected path 上可替換的 missing／different runtime 與 skills，未知 extra runtime 或未知 stable drift仍 fail closed。
-- valid receipt-based target 可由明示的 `--vendor` 在同一 transaction 轉換；manifest publication 完成 portable cutover後，receipt 只是不具權威的 machine-local residue並會安全清除。direct `--target`、`--register` 與 `--all` 不會反向把 vendored target轉回 receipt mode。
+- valid receipt-based target 可由明示的 `--vendor` 在同一 transaction 轉換；manifest publication 完成 portable cutover後，receipt 只是不具權威的 machine-local residue並會安全清除。反向轉換不會隱式發生：direct `--target` 遇到 manifest 時拒絕並指向 `--vendor`；`--all` 則依 target 當下的發佈模式分派，已有 regular manifest 的 record 走 repo-vendored publication 而仍留在 portable mode，其殘留 receipt 依同一 residue cleanup 被刪除。
 - 已有 valid manifest 且內容相同時回報 `Result: current`；較新 source 更新 managed inventory與manifest時回報 `Result: update`；managed digest／logical-mode drift未帶 `--force` 時回報 `Result: conflict`。
 
 受控 launcher migration 只接受 installer 內 `APPROVED_LAUNCHER_TRANSITIONS` 登錄的 exact old digest、new digest與 introduced bundle version。receipt-based migration 會在 launcher replacement 後動態簽發綁定新 inode 的 receipt；失敗 rollback時執行 launcher rebind，依還原後的 launcher／lock identity 重建舊 receipt。vendored migration 由 manifest cutover控制：cutover前失敗回復舊 gate，cutover後只 roll forward cleanup；`.cash-workspace.lock` identity 永不替換。普通 runtime／skill 更新不能藉此改寫 launcher。
@@ -185,7 +185,7 @@ Repository root 的 `AGENTS.md` 與 `CLAUDE.md` 是兩個 canonical guidance sou
 ./install-cash-skills.fish --all
 ```
 
-`--register` 只接受既有 non-symlink directory 並去重；`--unregister` 也能移除清單中已不存在的 stale path；`--list` 完全唯讀。清單不存在時，`--list`、`--unregister` 與 `--all` 都視為空清單且不建立狀態。
+`--register` 只接受既有 non-symlink directory 並去重，且不因 target 已有 portable manifest 而拒絕，因此 registry 可同時容納 receipt-based 與 repo-vendored 兩種 target；`--unregister` 也能移除清單中已不存在的 stale path；`--list` 完全唯讀。清單不存在時，`--list`、`--unregister` 與 `--all` 都視為空清單且不建立狀態。
 
 批次更新必須由使用者明確執行，也支援完整預覽與修復 drift：
 
@@ -194,7 +194,7 @@ Repository root 的 `AGENTS.md` 與 `CLAUDE.md` 是兩個 canonical guidance sou
 ./install-cash-skills.fish --all --force
 ```
 
-每個 target 都會列為 `updated`、`would-update`、`current`、`newer`、`conflict` 或 `failed`，最後輸出各狀態計數。單一 conflict/failed 不會阻止後續 targets，但只要任一 target 是 conflict 或 failed，整體 exit code 就是非零。批次命令不會自動移除 missing/failed entries，也不會修改 registry。
+每個 target 都會列為 `updated`、`would-update`、`current`、`newer`、`conflict` 或 `failed`，最後輸出各狀態計數。`--all` 會先以唯讀判定每個 record 的發佈模式：`.cash-skills/manifest.tsv` 存在且為 regular file 的 record 走 repo-vendored publication，其輸出行在路徑之後帶 ` (vendored)` 後綴（該後綴與最終狀態無關），其餘 record 走既有的 receipt-based workflow 且輸出格式不變。canonical source 自身即使有 manifest 也一律走 receipt 路徑，以保留既有的 non-source 診斷——`--register` 本來就拒絕 source，該情形只可能來自手動編輯 registry。單一 conflict/failed 不會阻止後續 targets，但只要任一 target 是 conflict 或 failed，整體 exit code 就是非零。批次命令不會自動移除 missing/failed entries，也不會修改 registry。
 
 Cash skills 沒有定期 repair、fingerprint freshness、LaunchAgent、daemon 或背景同步。source 更新後，必須再次明確執行 installer 才會傳到其他專案；registry 本身不會觸發任何工作。
 

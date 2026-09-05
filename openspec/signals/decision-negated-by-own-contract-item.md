@@ -2,11 +2,12 @@
 id: decision-negated-by-own-contract-item
 type: recurring-finding
 status: open
-occurrences: 1
+occurrences: 2
 first_seen: 2026-07-26
-last_seen: 2026-07-26
+last_seen: 2026-09-05
 links:
   - openspec/changes/bootstrap-openspec-config-on-install/reviews/propose-r1.md
+  - openspec/changes/dispatch-vendored-targets-in-batch/reviews/propose-r2.md
 ---
 
 # Contract item negates its own decision
@@ -16,3 +17,4 @@ A design decision rejects a specific hazard and states why, then an Implementati
 ## Occurrences
 
 - 2026-07-26 — bootstrap-openspec-config-on-install — cash-propose round 1 — 決策 D2 明文否決「從 source repository 複製 `openspec/config.yaml`」，理由是那會把 source 專案自身的 `context` 與 `rules` 帶進每個 target、並讓輸出取決於可變狀態；同一份 design 的 Implementation Contract 卻把常數定義為「與本 repository 的 `openspec/config.yaml` 逐 byte 相同」——而該檔正是 project-owned 且可變，維護「逐 byte 相同」就是把被否決的危害搬回來。tasks 對新建檔案只斷言 regular file、`0644`、可解析，因此「直接複製 source 檔案」的實作會全部綠燈。修法是改以常數自身的性質定義（LF 結尾、首行 `schema: spec-driven`、其餘只有空行與 full-line 註解、parse 後 `context` 為空、`rules` 為空），並加上機械斷言。
+- 2026-09-05 — dispatch-vendored-targets-in-batch — cash-propose round 2 — 為消除 probe→分類窗口的 TOCTOU 而新增的 D5 要求 `install_vendored_target` 在分類前重新確認 manifest，與同文件 Implementation Contract 9「該函式既有行為不變」及 Non-Goals「不改變兩個函式各自的內部契約」直接牴觸；修法是明確承認一個預設關閉的 batch-only 參數並同步收窄 Contract 9 與兩處 Non-Goals。

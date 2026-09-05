@@ -2,9 +2,9 @@
 id: cross-artifact-definition-drift
 type: recurring-finding
 status: open
-occurrences: 17
+occurrences: 18
 first_seen: 2026-07-07
-last_seen: 2026-08-27
+last_seen: 2026-09-05
 links:
   - openspec/changes/add-micro-verification-round/reviews/propose-r1.md
   - openspec/changes/add-review-loop-discipline/reviews/propose-r1.md
@@ -25,6 +25,8 @@ links:
   - openspec/changes/add-repo-vendored-cash-bundle/reviews/propose-r2.md
   - openspec/changes/per-change-tdd-override/reviews/propose-r1.md
   - openspec/changes/per-change-tdd-override/reviews/apply-r1.md
+  - openspec/changes/dispatch-vendored-targets-in-batch/reviews/propose-r3.md
+  - openspec/changes/dispatch-vendored-targets-in-batch/reviews/propose-r4.md
 ---
 
 # Cross-artifact definition drift
@@ -53,3 +55,4 @@ The same concept (a role's scope, an enumerated list, a rule's condition set) is
 
 - 2026-08-26 — per-change-tdd-override — cash-propose round 1 — proposal 寫「後續 tasks 的 `red` 欄位依該值撰寫」，與 design C2「`red` 欄位語意不變（toggle-independent）」及 delta spec 相矛盾，proposal 為孤立矛盾點；修正 proposal 句子與 design 一致。
 - 2026-08-27 — per-change-tdd-override — cash-apply round 1 — design C1／Context 與 proposal Non-Goals 宣稱不修改任何 CLI 檔案，但 C6 與實作要求同步 installer `BUNDLE_VERSION`；修正為不修改 parser、commands 或可觀察行為，並明列發布 metadata 例外。
+- 2026-09-05 — dispatch-vendored-targets-in-batch — cash-propose rounds 3–4 — 分派鍵由「manifest 存在」收窄為「存在且為 regular file」後，只傳播到 design、`cash-cli` delta、tasks 與 proposal 的補述句，未傳播到 `cash-skill-workflows` delta 的本文（round 3），round 4 又發現三個 scenario 的 GIVEN／THEN 仍是 presence 措辭。根因是同一分派鍵被完整複述在三處；最終修法是讓 workflows requirement 改為以引用界定範圍，使判準在整份規格中只有一個權威定義。

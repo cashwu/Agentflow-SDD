@@ -2768,13 +2768,21 @@ tests:
 
 ### Requirement: 手動的 cash 專案 registry
 
-本 repository SHALL經由`install-cash-skills.fish`提供registry操作與明示的repo-vendored publication。每次registry操作恰好使用`--target <project>`、`--register <project>`、`--unregister <project>`、`--list`或`--all`其中之一；`--vendor <project>`與這些registry操作互斥，屬非registry的publication模式，MUST NOT讀取或修改registry，其target與publication契約由 `Repo-vendored Cash bundle 發佈` requirement治理。source-only `--self`與target-local `--init-receipt`另由 `Bundle 安裝與 runtime receipt`及 `Target-local receipt 初始化` requirements治理，不屬本requirement的封閉registry操作集合。registry SHALL是`$HOME/.config/cash-skills/projects.txt`，每個非空行一個正規化絕對專案路徑，路徑 MUST NOT包含ASCII控制字元。每個registry支援的模式 MUST在使用既有registry前完整驗證它；registry變動 MUST使用同目錄暫存檔與atomic rename，且installer MUST NOT排程或啟動未來呼叫。`--register`的target除了既存non-symlink directory外，還 MUST是canonical Git worktree top-level，並具有安全、可讀、schema-valid的regular `openspec/config.yaml`；它與direct/batch target使用同一prerequisite validator。
+本 repository SHALL經由`install-cash-skills.fish`提供registry操作與明示的repo-vendored publication。每次registry操作恰好使用`--target <project>`、`--register <project>`、`--unregister <project>`、`--list`或`--all`其中之一；`--vendor <project>`與這些registry操作互斥，屬非registry的publication模式，MUST NOT讀取或修改registry，其target與publication契約由 `Repo-vendored Cash bundle 發佈` requirement治理。source-only `--self`與target-local `--init-receipt`另由 `Bundle 安裝與 runtime receipt`及 `Target-local receipt 初始化` requirements治理，不屬本requirement的封閉registry操作集合。registry SHALL是`$HOME/.config/cash-skills/projects.txt`，每個非空行一個正規化絕對專案路徑，路徑 MUST NOT包含ASCII控制字元。每個registry支援的模式 MUST在使用既有registry前完整驗證它；registry變動 MUST使用同目錄暫存檔與atomic rename，且installer MUST NOT排程或啟動未來呼叫。`--register`的target除了既存non-symlink directory外，還 MUST是canonical Git worktree top-level，並具有安全、可讀、schema-valid的regular `openspec/config.yaml`；它與direct/batch target使用同一prerequisite validator。`--register` MUST NOT 以target已有portable manifest為由拒絕登錄，因此registry可同時容納receipt-based與repo-vendored兩種target。`--all` SHALL 對每個registry record判定其發佈模式後分派到對應的publication路徑，其中repo-vendored record以 `Repo-vendored Cash bundle 發佈` requirement定義的publication契約發佈；該分派 MUST NOT 使 `--vendor` mode本身被啟用，讀取registry的一律是 `--all`，因此 `--vendor` 不讀取也不修改registry的既有契約不變。registry檔案 MUST NOT 記錄任何target的發佈模式；模式一律由target當下狀態在每次batch重新判定。
 
 #### Scenario: Vendor mode 不使用 registry
 
 - **WHEN** 維護者執行`--vendor <project>`
 - **THEN** installer依repo-vendored publication契約處理明示target
 - **AND** 它不讀取、不建立也不修改`$HOME/.config/cash-skills/projects.txt`
+
+#### Scenario: Register 與 batch 涵蓋兩種發佈模式的 target
+
+- **WHEN** `--register <project>` 收到符合全部target prerequisites且已具有regular portable manifest的target
+- **THEN** installer完成登錄且不因該manifest拒絕
+- **WHEN** 隨後執行 `--all`
+- **THEN** 該record以repo-vendored publication發佈，registry中判定為receipt-based的record仍以receipt-based publication發佈
+- **AND** `--vendor` mode未被啟用，registry不因該分派被讀取以外的方式使用
 
 #### Scenario: 首次 register 建立安全狀態
 
@@ -2827,28 +2835,31 @@ tests:
 - **AND**沒有任何registry或target state被修改
 
 <!-- @trace
-source: add-repo-vendored-cash-bundle
-updated: 2026-07-29
+source: dispatch-vendored-targets-in-batch
+updated: 2026-09-05
 code:
-  - .cash-skills/bin/cash
   - .cash-skills/lib/cash_cli/installer.py
   - .cash-skills/manifest.tsv
-  - scripts/cash-skills/tests/skill-checks.fish
-  - scripts/cash-skills/tests/test_bundle_version_history.py
-  - scripts/cash-skills/tests/test_init_receipt.py
   - scripts/cash-skills/tests/test_installer_runtime.py
 tests:
-  - scripts/cash-skills/tests/test_init_receipt.py
   - scripts/cash-skills/tests/test_installer_runtime.py
 -->
 
 ### Requirement: 版本感知的 cash skill 批次安裝
 
-`install-cash-skills.fish --all [--dry-run] [--force]` SHALL重用與`--target`相同的完整installer target workflow，處理每個去重後的registry target。每個target MUST先驗證為Git worktree top-level且具有安全有效的`openspec/config.yaml`，並以stable launcher/lock bootstrap、replaceable runtime generation、24個skills、contract modes、Cash config validation/migration、guidance、receipt與精確baseline legacy removal構成同一managed decision。它 MUST將每個target回報為`updated`、`would-update`、`current`、`newer`、`conflict`或`failed`，然後印出每種狀態的計數。單一target的conflict或failed MUST NOT停止後續targets，且任何target為`conflict`或`failed`時，彙總指令 MUST以非零結束。
+本 requirement 的 receipt-based workflow 與 receipt publication 適用於依 `Repo-vendored Cash bundle 發佈` requirement 的 batch publication-mode 分派段落判定為 receipt-based 的 registry record；判定為 repo-vendored 的 record，其 publication 由該 requirement 的較窄契約優先治理。判準本身只由該段落定義，本 requirement 以引用界定自身範圍而 MUST NOT 自行陳述判準，使分派鍵在整份規格中只有一個權威定義。回落到本 requirement 的 record 由其既有拒絕或既有 workflow 處置。`install-cash-skills.fish --all [--dry-run] [--force]` SHALL 對每個去重後的 registry record，依 `Repo-vendored Cash bundle 發佈` requirement 的 batch publication-mode 分派段落判定其發佈模式後分派。判定為 receipt-based 的 record 重用與`--target`相同的完整installer target workflow。每個target MUST先驗證為Git worktree top-level且具有安全有效的`openspec/config.yaml`；走 receipt-based workflow 的 record 以stable launcher/lock bootstrap、replaceable runtime generation、24個skills、contract modes、Cash config validation/migration、guidance、receipt與精確baseline legacy removal構成同一managed decision，走 repo-vendored publication 的 record 則以該 requirement 定義的 manifest-last inventory 構成其 managed decision且 MUST NOT 建立 receipt。它 MUST將每個target回報為`updated`、`would-update`、`current`、`newer`、`conflict`或`failed`，然後印出每種狀態的計數；分派到repo-vendored publication的record MUST 在其輸出行的record之後附加 ` (vendored)` 後綴，該後綴與最終狀態無關。單一target的conflict或failed MUST NOT停止後續targets，發佈模式判定本身也 MUST NOT 成為中止批次的來源，且任何target為`conflict`或`failed`時，彙總指令 MUST以非零結束。
+
+#### Scenario: 批次對兩種發佈模式的 record 都完成分派
+
+- **GIVEN**registry同時包含一個具有regular portable manifest的record與一個manifest缺失的record，且source具有較新bundle
+- **WHEN**installer以`--all`執行
+- **THEN**具有regular manifest的record以repo-vendored publication回報`updated`且其輸出行帶 ` (vendored)` 後綴，並且不建立receipt
+- **AND**manifest缺失的record以receipt-based workflow回報`updated`且其輸出行維持既有格式
+- **AND**發佈模式判定不產生額外diagnostic，也不中止批次
 
 #### Scenario: 較舊 bundle 或 managed drift 被更新
 
-- **GIVEN**registry包含有效且乾淨的targets，其receipt版本分別舊於、等於與新於source
+- **GIVEN**registry包含有效且乾淨的receipt-based targets（皆無portable manifest），其receipt版本分別舊於、等於與新於source
 - **AND**等版本target的stable launcher/lock與replaceable runtime/skill bytes及modes皆符合receipt
 - **AND**其中一個等版本target含可安全遷移的config、guidance或legacy baseline drift，其餘等版本target為canonical
 - **WHEN**installer以`--all`執行
@@ -2859,14 +2870,14 @@ tests:
 
 #### Scenario: 批次揭露等版本的 source 完整性失敗
 
-- **GIVEN**某個target具有等於source版本的有效receipt
+- **GIVEN**某個manifest缺失的target具有等於source版本的有效receipt
 - **AND**至少一個目前source replaceable runtime/skill digest或contract mode與該版本引入commit不符，或stable bootstrap source不符固定baseline
 - **WHEN**installer以`--all`或`--all --force`執行
 - **THEN**該target回報`failed`、零target write且彙總非零
 
 #### Scenario: 除非明確 force 否則 managed drift 被保留
 
-- **GIVEN**較舊或等版本target的replaceable runtime/skill bytes或mode相對有效receipt drift
+- **GIVEN**某個manifest缺失、較舊或等版本target的replaceable runtime/skill bytes或mode相對有效receipt drift
 - **WHEN**installer未帶`--force`
 - **THEN**target回報`conflict`且所有managed及project-owned state零寫入
 - **WHEN**相同target再次帶`--force`
@@ -2875,7 +2886,7 @@ tests:
 
 #### Scenario: Force 從不降級較新的 target
 
-- **GIVEN**有效target receipt版本高於source
+- **GIVEN**某個manifest缺失的target其有效receipt版本高於source
 - **WHEN**installer以`--all --force`執行
 - **THEN**target回報`newer`
 - **AND**stable bootstrap、runtime generation、skills、modes、config、guidance、receipt與legacy candidates全部零寫入
@@ -2889,53 +2900,21 @@ tests:
 
 #### Scenario: 批次 dry run 使用完整驗證且不寫入
 
+- **GIVEN**registry中manifest缺失的record
 - **WHEN**installer以`--all --dry-run`執行
-- **THEN**每個target接受與real run相同的Git/config、source inventory/mode、receipt/version、guidance、legacy identity、transaction及filesystem boundary驗證
+- **THEN**每個這樣的target接受與real run相同的Git/config、source inventory/mode、receipt/version、guidance、legacy identity、transaction及filesystem boundary驗證
 - **AND**計畫中的任何runtime、skill、config、guidance、receipt或legacy removal更新回報`would-update`
 - **AND**target、registry與persistent state零寫入；system temporary validation snapshots在該target invocation結束時清除
 
 <!-- @trace
-source: replace-spectra-cli-with-cash-cli
-updated: 2026-07-24
+source: dispatch-vendored-targets-in-batch
+updated: 2026-09-05
 code:
-  - .agents/skills/
-  - .agents/skills/spectra-analyze/
-  - .agents/skills/spectra-apply/
-  - .agents/skills/spectra-archive/
-  - .agents/skills/spectra-ask/
-  - .agents/skills/spectra-audit/
-  - .agents/skills/spectra-commit/
-  - .agents/skills/spectra-debug/
-  - .agents/skills/spectra-discuss/
-  - .agents/skills/spectra-drift/
-  - .agents/skills/spectra-ingest/
-  - .agents/skills/spectra-propose/
-  - .agents/skills/spectra-verify/
-  - .cash-skills/bin/cash
-  - .cash-skills/lib/cash_cli/
-  - .cash-skills/receipt.tsv
-  - .cash-skills/state/
-  - .cash-skills/state/snapshots/
-  - .cash-skills/state/touched/
-  - .claude/skills/
-  - .claude/skills/spectra-analyze/
-  - .claude/skills/spectra-apply/
-  - .claude/skills/spectra-archive/
-  - .claude/skills/spectra-ask/
-  - .claude/skills/spectra-audit/
-  - .claude/skills/spectra-commit/
-  - .claude/skills/spectra-debug/
-  - .claude/skills/spectra-discuss/
-  - .claude/skills/spectra-drift/
-  - .claude/skills/spectra-ingest/
-  - .claude/skills/spectra-propose/
-  - .claude/skills/spectra-verify/
-  - .spectra/
-  - scripts/cash-cli/fixtures/
-  - scripts/cash-cli/tests/
-  - scripts/cash-skills/legacy-spectra-digests.tsv
-  - scripts/cash-skills/tests/skill-checks.fish
+  - .cash-skills/lib/cash_cli/installer.py
+  - .cash-skills/manifest.tsv
+  - scripts/cash-skills/tests/test_installer_runtime.py
 tests:
+  - scripts/cash-skills/tests/test_installer_runtime.py
 -->
 
 ### Requirement: Spec 檔案語言政策

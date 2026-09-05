@@ -2,9 +2,9 @@
 id: spec-precedence-exception-missing
 type: recurring-finding
 status: open
-occurrences: 5
+occurrences: 6
 first_seen: 2026-07-04
-last_seen: 2026-07-28
+last_seen: 2026-09-05
 links:
   - openspec/changes/guard-dirty-source-auto-repair/reviews/propose-r1.md
   - openspec/changes/guard-dirty-source-auto-repair/reviews/propose-r2.md
@@ -14,6 +14,8 @@ links:
   - openspec/changes/add-review-loop-discipline/reviews/propose-r1.md
   - openspec/changes/converge-plus-review-loop/reviews/propose-r1.md
   - openspec/changes/add-repo-vendored-cash-bundle/reviews/propose-r1.md
+  - openspec/changes/dispatch-vendored-targets-in-batch/reviews/propose-r1.md
+  - openspec/changes/dispatch-vendored-targets-in-batch/reviews/propose-r2.md
 ---
 
 # Spec precedence exception missing
@@ -27,3 +29,4 @@ A change introduces a new guard or early-return behavior that overrides existing
 - 2026-07-07 — add-review-loop-discipline — spectra-propose-plus round 1 — The new grader-immutability rule mandated withholding some fixes, contradicting the master quality-gate scenarios' unconditional "fixes the ... findings before starting the next round"; the delta initially only ADDED the new requirement without MODIFYing the two governed gate requirements.
 - 2026-07-16 — converge-plus-review-loop — spectra-propose-plus rounds 1、6 — 新增的 ≤25 強制降分未對「direct artifact violation 必為 100」不變式宣告優先權；needs-design note 同時是合法 next_round 動作與強制 aborted 觸發；prior-triage re-report 的不重複 note 規則與動作義務互斥（死鎖）。
 - 2026-07-28 — add-repo-vendored-cash-bundle — cash-propose round 1 — vendored trust mode 新增 manifest 優先路徑，但初稿未明定 `--help`、`--generation` 等 launcher 既有早期分支相對於 manifest 驗證的優先順序，可能讓同一個受損 bundle 因指令不同而一部分 fail closed、一部分繞過驗證。
+- 2026-09-05 — dispatch-vendored-targets-in-batch — cash-propose rounds 1–2 — `--all` 改為依 publication mode 分派，delta 只 MODIFY 了 `Repo-vendored Cash bundle 發佈` 與 `手動的 cash 專案 registry`，漏掉真正擁有 `--all` publication 語意的 `版本感知的 cash skill 批次安裝`（其明文要求 `--all` 重用與 `--target` 相同的完整 workflow 且 managed decision 含 receipt）；round 2 補上 MODIFIED 區塊後，其「批次 dry run 使用完整驗證且不寫入」scenario 仍未隨其他四條收窄，round 3 才收斂。

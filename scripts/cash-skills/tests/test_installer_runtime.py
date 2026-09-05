@@ -91,6 +91,7 @@ class InstallerRuntimeTests(unittest.TestCase):
         *,
         home: Path,
         env: dict[str, str] | None = None,
+        timeout: float | None = None,
     ) -> subprocess.CompletedProcess[str]:
         environment = {
             name: value
@@ -106,6 +107,7 @@ class InstallerRuntimeTests(unittest.TestCase):
             text=True,
             capture_output=True,
             env=environment,
+            timeout=timeout,
         )
 
     def install_from(
@@ -313,6 +315,22 @@ class InstallerRuntimeTests(unittest.TestCase):
                 content,
             )
         return snapshot
+
+    def set_manifest_bundle_version(self, target: Path, version: str) -> None:
+        manifest = target / ".cash-skills" / "manifest.tsv"
+        lines = manifest.read_text(encoding="utf-8").split("\n")
+        for index, line in enumerate(lines):
+            if line.startswith("bundle_version\t"):
+                lines[index] = f"bundle_version\t{version}"
+                break
+        else:
+            self.fail("portable manifest has no bundle_version record")
+        manifest.write_text("\n".join(lines), encoding="utf-8")
+
+    def register_batch_targets(self, home: Path, *targets: Path) -> None:
+        for target in targets:
+            registered = self.run_installer(["--register", str(target)], home=home)
+            self.assertEqual(registered.returncode, 0, registered.stderr)
 
     def run_target_cash(
         self,
@@ -3600,6 +3618,224 @@ class InstallerRuntimeTests(unittest.TestCase):
         self.assertIn(f"updated: {first.resolve()}", batch.stdout)
         self.assertIn(f"updated: {second.resolve()}", batch.stdout)
         self.assertIn("updated=2", batch.stdout)
+
+    def test_batch_dispatches_vendored_and_receipt_targets(self) -> None:
+        home = tempfile.TemporaryDirectory()
+        vendored_temp, vendored = self.make_target()
+        receipt_temp, receipt = self.make_target()
+        self.addCleanup(home.cleanup)
+        self.addCleanup(vendored_temp.cleanup)
+        self.addCleanup(receipt_temp.cleanup)
+        self.register_batch_targets(Path(home.name), vendored, receipt)
+        self.assert_vendored(vendored)
+        self.set_manifest_bundle_version(vendored, "2.20.0")
+        (vendored / ".cash-skills" / "receipt.tsv").write_bytes(b"version\t2.20.0\n")
+
+        batch = self.run_installer(["--all"], home=Path(home.name))
+
+        self.assertEqual(batch.returncode, 0, batch.stderr)
+        self.assertIn(f"updated: {vendored.resolve()} (vendored)", batch.stdout)
+        self.assertIn(f"updated: {receipt.resolve()}\n", batch.stdout)
+        self.assertNotIn(f"{receipt.resolve()} (vendored)", batch.stdout)
+        self.assertIn("updated=2", batch.stdout)
+        self.assertIn("failed=0", batch.stdout)
+        self.assertTrue((vendored / ".cash-skills" / "manifest.tsv").is_file())
+        self.assertFalse(
+            (vendored / ".cash-skills" / "receipt.tsv").exists(),
+            "batch vendored dispatch must clear the machine-local receipt residue",
+        )
+        self.assertTrue((receipt / ".cash-skills" / "receipt.tsv").is_file())
+
+    def test_batch_dry_run_reports_would_update_for_vendored_target(self) -> None:
+        home = tempfile.TemporaryDirectory()
+        temporary, target = self.make_target()
+        self.addCleanup(home.cleanup)
+        self.addCleanup(temporary.cleanup)
+        self.register_batch_targets(Path(home.name), target)
+        self.assert_vendored(target)
+        self.set_manifest_bundle_version(target, "2.20.0")
+        residue = target / ".cash-skills" / "receipt.tsv"
+        residue.write_bytes(b"version\t2.20.0\n")
+        before = self.workspace_snapshot(target)
+
+        batch = self.run_installer(["--all", "--dry-run"], home=Path(home.name))
+
+        self.assertEqual(batch.returncode, 0, batch.stderr)
+        self.assertIn(f"would-update: {target.resolve()} (vendored)", batch.stdout)
+        self.assertIn("would-update=1", batch.stdout)
+        self.assertTrue(
+            residue.is_file(),
+            "a dry-run early return must not delete the receipt residue",
+        )
+        self.assertEqual(self.workspace_snapshot(target), before)
+
+    def test_batch_unsafe_manifest_shape_fails_closed_without_blocking(self) -> None:
+        expectations = {
+            "symlink": ("symlink managed boundary: .cash-skills/manifest.tsv", False),
+            "fifo": ("target is managed by a portable manifest; use --vendor", False),
+            "directory": ("target is managed by a portable manifest; use --vendor", False),
+            "hard-link": ("unsafe regular file identity", True),
+        }
+        for shape, (diagnostic, vendored) in expectations.items():
+            with self.subTest(shape=shape):
+                home = tempfile.TemporaryDirectory()
+                temporary, target = self.make_target()
+                self.addCleanup(home.cleanup)
+                self.addCleanup(temporary.cleanup)
+                self.register_batch_targets(Path(home.name), target)
+                self.assert_vendored(target)
+                manifest = target / ".cash-skills" / "manifest.tsv"
+                content = manifest.read_bytes()
+                manifest.unlink()
+                if shape == "symlink":
+                    manifest.symlink_to(target / "missing-manifest")
+                elif shape == "fifo":
+                    os.mkfifo(manifest)
+                elif shape == "directory":
+                    manifest.mkdir()
+                else:
+                    outside = target / "manifest-hardlink-source"
+                    outside.write_bytes(content)
+                    os.link(outside, manifest)
+                before = self.workspace_snapshot(target)
+
+                # Bounded so that a dispatch regression which sends a FIFO
+                # manifest down the vendored path fails here instead of
+                # blocking forever inside read_regular.
+                batch = self.run_installer(
+                    ["--all"],
+                    home=Path(home.name),
+                    timeout=60,
+                )
+
+                self.assertEqual(batch.returncode, 1, batch.stdout)
+                self.assertIn(diagnostic, batch.stderr)
+                suffix = " (vendored)" if vendored else ""
+                self.assertIn(f"failed: {target.resolve()}{suffix}\n", batch.stdout)
+                if not vendored:
+                    self.assertNotIn(f"{target.resolve()} (vendored)", batch.stdout)
+                self.assertIn("failed=1", batch.stdout)
+                self.assertEqual(self.workspace_snapshot(target), before)
+
+    def test_batch_probe_exception_does_not_abort_remaining_records(self) -> None:
+        home = tempfile.TemporaryDirectory()
+        broken_temp, broken = self.make_target()
+        healthy_temp, healthy = self.make_target()
+        self.addCleanup(home.cleanup)
+        self.addCleanup(broken_temp.cleanup)
+        self.addCleanup(healthy_temp.cleanup)
+        self.register_batch_targets(Path(home.name), broken, healthy)
+        # --register refuses the canonical source, so the only way a source
+        # record reaches the batch is a hand-edited registry; probe must leave
+        # it on the receipt path so the existing non-source diagnostic stands.
+        registry = Path(home.name) / ".config" / "cash-skills" / "projects.txt"
+        registry.write_text(
+            registry.read_text(encoding="utf-8") + f"{ROOT}\n",
+            encoding="utf-8",
+        )
+        (broken / ".cash-skills").write_bytes(b"not a directory\n")
+
+        batch = self.run_installer(["--all"], home=Path(home.name))
+
+        self.assertEqual(batch.returncode, 1, batch.stdout)
+        self.assertIn(f"failed: {broken.resolve()}\n", batch.stdout)
+        self.assertIn("managed parent is not a directory", batch.stderr)
+        self.assertIn(f"updated: {healthy.resolve()}\n", batch.stdout)
+        self.assertIn("Summary:", batch.stdout)
+        self.assertNotIn("Traceback (most recent call last)", batch.stderr)
+        self.assertIn(f"failed: {ROOT}\n", batch.stdout)
+        self.assertIn("target must be an existing non-source directory", batch.stderr)
+        self.assertNotIn("vendor target must be", batch.stderr)
+
+    def test_batch_force_converges_only_replaceable_vendored_bytes(self) -> None:
+        home = tempfile.TemporaryDirectory()
+        drifted_temp, drifted = self.make_target()
+        newer_temp, newer = self.make_target()
+        self.addCleanup(home.cleanup)
+        self.addCleanup(drifted_temp.cleanup)
+        self.addCleanup(newer_temp.cleanup)
+        self.register_batch_targets(Path(home.name), drifted, newer)
+        self.assert_vendored(drifted)
+        self.assert_vendored(newer)
+        self.set_manifest_bundle_version(newer, "9.0.0")
+        newer_residue = newer / ".cash-skills" / "receipt.tsv"
+        newer_residue.write_bytes(b"version\t2.20.0\n")
+        newer_before = self.workspace_snapshot(newer)
+        managed = ".cash-skills/lib/cash_cli/errors.py"
+        canonical = (ROOT / managed).read_bytes()
+        (drifted / managed).write_bytes(canonical + b"# drift\n")
+        owned = drifted / "project-owned.txt"
+        owned.write_bytes(b"project owned bytes\n")
+        residue = drifted / ".cash-skills" / "receipt.tsv"
+        residue.write_bytes(b"version\t2.20.0\n")
+        before = self.workspace_snapshot(drifted)
+
+        conflicted = self.run_installer(["--all"], home=Path(home.name))
+
+        self.assertEqual(conflicted.returncode, 1, conflicted.stdout)
+        self.assertIn(f"conflict: {drifted.resolve()} (vendored)\n", conflicted.stdout)
+        self.assertIn(f"newer: {newer.resolve()} (vendored)\n", conflicted.stdout)
+        self.assertTrue(
+            residue.is_file(),
+            "a conflict early return must not delete the receipt residue",
+        )
+        self.assertEqual(self.workspace_snapshot(drifted), before)
+        self.assertEqual(self.workspace_snapshot(newer), newer_before)
+
+        forced = self.run_installer(["--all", "--force"], home=Path(home.name))
+
+        self.assertEqual(forced.returncode, 0, forced.stderr)
+        self.assertIn(f"updated: {drifted.resolve()} (vendored)\n", forced.stdout)
+        self.assertIn(f"newer: {newer.resolve()} (vendored)\n", forced.stdout)
+        self.assertEqual((drifted / managed).read_bytes(), canonical)
+        self.assertEqual(owned.read_bytes(), b"project owned bytes\n")
+        self.assertFalse(
+            residue.exists(),
+            "a committed vendored publication must clear the receipt residue",
+        )
+        self.assertEqual(
+            self.workspace_snapshot(newer),
+            newer_before,
+            "a newer early return must stay zero-write even under --force",
+        )
+
+    def test_register_accepts_manifest_present_target(self) -> None:
+        home = tempfile.TemporaryDirectory()
+        temporary, target = self.make_target()
+        self.addCleanup(home.cleanup)
+        self.addCleanup(temporary.cleanup)
+        self.assert_vendored(target)
+        before = self.workspace_snapshot(target)
+
+        registered = self.run_installer(["--register", str(target)], home=Path(home.name))
+        repeated = self.run_installer(["--register", str(target)], home=Path(home.name))
+
+        self.assertEqual(registered.returncode, 0, registered.stderr)
+        self.assertEqual(repeated.returncode, 0, repeated.stderr)
+        registry = Path(home.name) / ".config" / "cash-skills" / "projects.txt"
+        records = registry.read_text(encoding="utf-8").split("\n")
+        self.assertEqual(records.count(str(target.resolve())), 1)
+        self.assertEqual(self.workspace_snapshot(target), before)
+
+    def test_batch_vendor_dispatch_requires_manifest_at_classification(self) -> None:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        sys.path.insert(0, str(ROOT / ".cash-skills" / "lib"))
+        from cash_cli.installer import InstallerError, install_vendored_target
+
+        before = self.workspace_snapshot(target)
+        with self.assertRaises(InstallerError) as raised:
+            install_vendored_target(
+                ROOT,
+                str(target),
+                dry_run=False,
+                force=False,
+                require_manifest=True,
+            )
+
+        self.assertIn("portable manifest disappeared", str(raised.exception))
+        self.assertFalse((target / ".cash-skills" / "manifest.tsv").exists())
+        self.assertEqual(self.workspace_snapshot(target), before)
 
     def test_concurrent_installer_loser_reclassifies_under_same_lock(self) -> None:
         temporary, target = self.make_target()

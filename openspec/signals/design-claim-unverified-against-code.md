@@ -2,9 +2,9 @@
 id: design-claim-unverified-against-code
 type: recurring-finding
 status: open
-occurrences: 16
+occurrences: 17
 first_seen: 2026-07-25
-last_seen: 2026-08-24
+last_seen: 2026-09-05
 links:
   - openspec/changes/align-cli-skill-contracts/reviews/propose-r1.md
   - openspec/changes/refine-cash-tdd-test-guards/reviews/apply-r3.md
@@ -30,6 +30,8 @@ links:
   - openspec/changes/tolerate-remount-device-renumbering/reviews/propose-r7.md
   - openspec/changes/default-spec-sync-on-archive/reviews/apply-r1.md
   - openspec/changes/guard-task-state-integrity/reviews/propose-r1.md
+  - openspec/changes/dispatch-vendored-targets-in-batch/reviews/propose-r1.md
+  - openspec/changes/dispatch-vendored-targets-in-batch/reviews/propose-r2.md
 ---
 
 # Design claim unverified against code
@@ -61,3 +63,4 @@ A design or proposal states a fact about the existing codebase as the premise of
 - 2026-08-22 — default-spec-sync-on-archive — cash-apply round 1 — IC1 第 6 點把「明確要求跳過同步後重跑」列為 delta parse／`requirement_identity_mismatch`／`validation_failed` 的出路，但該前提未對照 `.cash-skills/lib/cash_cli/commands/archive.py` 的實際呼叫順序——`build_sync_plan()` 無條件執行且排在 `skip_specs` 判斷之前，`validation_failed` 的閘門是 `--no-validate`，`--skip-specs` 對三者皆無效；實作照 contract 逐字寫入後才由 reviewer 實檔查出。
 - 2026-08-22 — guard-task-state-integrity — cash-propose round 1 — design 宣稱「記憶體內對齊、持久化交給既有寫入路徑」，但三條被點名的寫入路徑有兩條不會寫：`ensure_touched()` 在 state 檔已存在時零寫入，`touched record` 的 `items = list(...)` 為 shallow copy 使 `updated != touched` 對就地對齊恆為 False；而 `cash-commit` 直接 parse state 檔。該決策因此無法達成其宣稱的目的。
 - 2026-08-24 — refine-cash-tdd-test-guards — cash-apply round 3 — `design.md` §Risks 具名記錄「舊 suite 曾攔下、新 inventory 不再攔下」的覆蓋缺口時，只列出 2 句並明文宣稱「只有這兩種措辭會通過」。該句是把新機制的窄化代價正當化的基礎，卻是憑印象寫的：實測 HEAD 的 11 個 explicit forbidden literal 中有 10 個現已被 validator 接受，僅 `blank-red` 因逐字保留而仍被拒。教訓是 Risks 條目裡的「只有／僅有」這類封閉式枚舉，與 design 的 code-facing claim 同級，必須逐一對照實際執行結果而非依機制推想；窄化一個 detector inventory 時，被移除的每個舊 literal 都要實跑一次才能宣稱其涵蓋關係。
+- 2026-09-05 — dispatch-vendored-targets-in-batch — cash-propose rounds 1–2 — design 宣稱 unsafe manifest shape 會分派到 vendored 分支並由 `ensure_regular_shape` fail closed，實測 `path_is_present` 對 symlink 是 raise 而非回傳真（`ensure_contained` 逐段 `S_ISLNK`），FIFO 則在更早的 pre-lock `snapshots` 以 `read_regular` 開檔而永久阻塞（`ensure_regular_shape` 的 docstring 自身即記載該危害）；另宣稱 probe 置於 per-record try 即可讓例外計為 `failed`，但 `ensure_contained` 的 `os.lstat` 只捕捉 `FileNotFoundError`，原生 `PermissionError` 會逸出 `except InstallerError`。三條機制鏈都是「讀了函式名就推導行為、未追實際呼叫順序與例外型別」。

@@ -214,11 +214,11 @@ repo-vendored target 不使用 machine-local stable identity作為啟動 gate。
 | `--self` | canonical source repo | portable source | 支援 | 不支援 | 在同一 stable lock transaction 同步 canonical manifest、清除 source receipt residue；不發布 launcher、runtime、skills、config 或 guidance |
 | `--vendor <project>` | canonical source repo | portable target | 支援 | 支援 | 發布／更新 repo-vendored bundle，或明示把 valid receipt target 轉為 portable mode |
 | `--target <project>` | canonical source repo | receipt target | 支援 | 支援 | direct 安裝／升級 receipt-based target；遇到 portable manifest 時拒絕並指向 `--vendor` |
-| `--register <project>` / `--unregister <project>` / `--list` | canonical source repo | receipt registry | 不支援 | 不支援 | 維護 `$HOME/.config/cash-skills/projects.txt`；不得把 vendored target 納入 receipt workflow |
-| `--all` | canonical source repo | receipt registry targets | 支援 | 支援 | 對 registry 中全部 receipt-based target 批次安裝／升級 |
+| `--register <project>` / `--unregister <project>` / `--list` | canonical source repo | receipt registry | 不支援 | 不支援 | 維護 `$HOME/.config/cash-skills/projects.txt`；接受兩種發佈模式的 target，實際模式由 `--all` 在每次執行時重新判定 |
+| `--all` | canonical source repo | registry targets | 支援 | 支援 | 依每個 record 當下的發佈模式分派：regular manifest 走 repo-vendored publication，canonical source 自身與其餘 record 走 receipt-based 安裝／升級 |
 | `--init-receipt` | receipt-only target 專案根 | receipt target | 不支援 | 不支援 | 從現地已安裝 inventory 簽發 machine-local receipt |
 
-`--init-receipt` 是唯一不需要 source repo 且從 target 端執行的模式。它不會安裝、升級或修復任何 managed 檔案內容；receipt target 的內容更新由 `--target`／`--all` 負責，vendored target 則由 `--vendor` 負責。
+`--init-receipt` 是唯一不需要 source repo 且從 target 端執行的模式。它不會安裝、升級或修復任何 managed 檔案內容；receipt target 的內容更新由 `--target`／`--all` 負責；vendored target 由明示的 `--vendor` 負責，若已登錄於 registry 也會由 `--all` 以 repo-vendored publication 一併更新。
 
 receipt 首行的 `version` 取自 installer module 內嵌的 `BUNDLE_VERSION` 常數，因為 `cash-skills.version` 是 source-only 檔、target 上並不存在。`scripts/cash-skills/tests/test_installer_runtime.py` 以 contract test 斷言該常數恆等於 `cash-skills.version` 的內容，避免雙真相來源漂移。
 

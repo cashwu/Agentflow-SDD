@@ -2,9 +2,9 @@
 id: assertion-weaker-than-normative-statement
 type: recurring-finding
 status: open
-occurrences: 7
+occurrences: 8
 first_seen: 2026-07-25
-last_seen: 2026-08-29
+last_seen: 2026-09-05
 links:
   - openspec/changes/derive-version-assertion-and-add-cli-help/reviews/propose-r2.md
   - openspec/changes/harden-trace-path-containment-and-label-shape/reviews/propose-r1.md
@@ -13,6 +13,8 @@ links:
   - openspec/changes/guard-task-state-integrity/reviews/propose-r1.md
   - openspec/changes/per-change-tdd-override/reviews/apply-r1.md
   - openspec/changes/strengthen-archive-commit-guidance/reviews/propose-r1.md
+  - openspec/changes/dispatch-vendored-targets-in-batch/reviews/propose-r2.md
+  - openspec/changes/dispatch-vendored-targets-in-batch/reviews/propose-r4.md
 ---
 
 # 驗收斷言弱於其對應的 normative 陳述
@@ -28,3 +30,4 @@ spec 或 Implementation Contract 訂下一條較強的 MUST（例如排序、逐
 - 2026-08-22 — guard-task-state-integrity — cash-propose rounds 2、3、4 — 本 run 反覆出現：IC 訂下較強的 MUST，配套判準只斷言較弱的性質。實例包含 IC3 的接線義務只有「函式被定義」的判準而無「函式被呼叫」的判準；`task_desc` 不得改寫的守則綁定 `mark_task_done()` 的區域變數名 `existing`，攔不住新函式內的改寫；IC1 第 2 點要求刪除兩行而只有一行有段落判準（reviewer 以 mutation test 證實違規實作通過全部 14 條判準）；IC1／IC3 的縮排義務以 `rg -F` 加前導空格表達，`-F` 是子字串比對只能排除少於該縮排的情形，以 6 空格插入仍會命中。
 - 2026-08-27 — per-change-tdd-override — cash-apply round 1 — first-match contract 要求取第一個 `tdd:` 並忽略後續行，但測試只鎖 `first unindented` marker；修正為分別斷言 first-prefix、exact suffix 與 never-scan-later 義務。
 - 2026-08-29 — strengthen-archive-commit-guidance — cash-propose round 1 — design D4 規劃的守門 assertion literal（如 `.cash-skills/state/touched/`）已存在於現行 SKILL.md 步驟 5 內容，對新守門段落零鑑別力，且模板三段與守門規範元素（兩選項、靜默通過、唯讀）都沒有對應 literal，省略任一段仍會通過全部 assertion；修正為枚舉新內容獨有的逐段 literal 並明訂排除既有字串。
+- 2026-09-05 — dispatch-vendored-targets-in-batch — cash-propose rounds 2、4 — Implementation Contract 明訂 ` (vendored)` 後綴「與最終 label 無關」，但測試清單只涵蓋 `updated` 與 `would-update` 兩種成功 label，該 MUST 完全無驗證；補上 `failed`／`conflict` 載體後，round 4 再發現 `newer` 仍無斷言，且既有 batch 測試的 `assertIn(f"updated: {path}")` 對帶後綴的行同樣成立，無法偵測後綴外溢，需另加否定斷言。
