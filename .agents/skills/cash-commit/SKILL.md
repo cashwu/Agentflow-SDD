@@ -102,13 +102,17 @@ This is a **utility skill** (not a workflow step). It reads source file tracking
 
 3. **Collect artifact files**
 
-   Run `git status --porcelain` and filter the output to files under `openspec/changes/<name>/`. These are the change's artifact files (proposal, design, tasks, specs, etc.).
+   From the project root, run `git status --porcelain=v1 -z --untracked-files=all`. Parse NUL-delimited records, not lines or whitespace: each record starts with the two-character status and one space, followed by the raw path. Rename/copy records contain a second NUL field: the first path is the destination, the second is the source and has no status prefix. Do not strip characters from the second field or interpret paths as C-quoted strings. Preserve spaces, Unicode, and embedded newlines in paths.
+
+   Build an individual-file dirty set covering staged, unstaged, and untracked changes. Treat a rename as destination addition plus source deletion, so both paths are shown and evaluated against the allowlist independently. A copy's unchanged source is context only, not a dirty path. Never stage a directory entry or silently include a rename endpoint outside the confirmed set. Command failure, unmerged entries, or malformed/incomplete records stop the workflow before staging.
+
+   Filter the parsed dirty set to files under `openspec/changes/<name>/`. These are the change's artifact files (proposal, design, tasks, specs, etc.). All later status reads in this workflow MUST use the same command and parsing rules.
 
    When step 2a applies, use the artifact set it rebuilt instead of this filter.
 
 4. **Identify unrelated dirty files**
 
-   From the full `git status --porcelain` output, any dirty files NOT in the artifact set and NOT in the tracking file are "unrelated changes."
+   From the parsed dirty set in step 3, any dirty files NOT in the artifact set and NOT in the tracking file are "unrelated changes."
 
    As an explicit exception, a shared signal file excluded by the user's decision belongs in Unrelated Changes even though it remains in the tracking file. Preserve the `user-decision: excluded shared signal` note.
 
@@ -208,7 +212,7 @@ This is a **utility skill** (not a workflow step). It reads source file tracking
 
     After archive completes successfully:
 
-    1. Re-run `git status --porcelain` only to identify allowlisted archive outputs. Do not treat the full post-archive dirty state as archive output.
+    1. Re-run `git status --porcelain=v1 -z --untracked-files=all` using step 3's parsing rules only to identify allowlisted archive outputs. Do not treat the full post-archive dirty state as archive output.
     2. Add only these archive-related file changes to the commit set:
        - Deletions under `openspec/changes/<name>/`
        - Additions or modifications under `openspec/changes/archive/<date>-<change>/`
@@ -282,12 +286,14 @@ This is a **utility skill** (not a workflow step). It reads source file tracking
    Stage each confirmed file individually:
 
    ```bash
-   git add <file1>
-   git add <file2>
+   git --literal-pathspecs add -- <file1>
+   git --literal-pathspecs add -- <file2>
    ...
    ```
 
    **NEVER use `git add .` or `git add -A`.** Each file must be staged explicitly.
+
+   Pass each raw path as a separately quoted argument, including rename source deletions when confirmed. Do not split filenames on whitespace, expand glob characters, or pass the display form `old -> new` as a path.
 
 9. **Commit**
 

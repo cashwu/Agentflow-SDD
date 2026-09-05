@@ -237,7 +237,7 @@ The trigger is guidance only — it MUST NOT block apply from proceeding when th
      This command marks the checkbox in tasks.md AND records which files were modified for this task.
    - Continue to next task
 
-   **Parallel task dispatch**: When consecutive `[P]`-marked tasks are found and `parallel_tasks: true` is configured (see Step 5), dispatch them as parallel agents in a single message. If any `[P]` task fails, pause and report.
+   **Parallel task dispatch**: When consecutive `[P]`-marked tasks are found and `parallel_tasks: true` is configured (see Step 5), dispatch them as parallel agents in a single message. Workers MUST NOT edit task checkboxes or run `task done`; each returns its task ID, verification evidence, and exact project-root-relative source paths it changed (include both endpoints of a rename and tracked deletions; exclude `openspec/changes/` and internal state). The main agent verifies each result and serially runs `"$cash_cli" task done --change "<name>" <task-id> --path <path> [--path <path> ...]`. Use `--no-files` for a verified task with no source changes, never an omitted file list. Pass raw paths as separately quoted arguments. Shared files may appear in both task lists when both tasks modified disjoint regions; attribution is file-level, not hunk-level. Do not derive worker ownership from a whole-worktree diff. If any `[P]` task fails or its file list cannot be established, pause and report; do not mark that task done. Explicit attribution is also required for `[P]` tasks executed sequentially as a fallback. Ordinary non-`[P]` sequential tasks may retain the automatic snapshot-diff command above.
 
    **Pause if:**
    - Task is unclear → ask for clarification

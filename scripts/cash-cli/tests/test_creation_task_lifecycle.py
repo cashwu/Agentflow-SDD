@@ -463,6 +463,93 @@ class CreationTaskLifecycleTests(unittest.TestCase):
         repeated = mark_task_done(workspace, "demo", "2")
         self.assertEqual(repeated, touched)
 
+    def test_explicit_parallel_completion_preserves_each_tasks_files(self) -> None:
+        # Both workers finish before either records completion: the first must
+        # not claim the second worker's file, regardless of completion order.
+        for order in (("1", "2"), ("2", "1")):
+            with self.subTest(order=order):
+                temporary, root, workspace = self.make_workspace()
+                self.addCleanup(temporary.cleanup)
+                self.add_ready_change(root)
+                start_in_progress(workspace, "demo")
+                (root / "src/a.py").write_text("a = 2\n")
+                (root / "src/b.py").write_text("b = 1\n")
+                for task_id in order:
+                    path = "src/a.py" if task_id == "1" else "src/b.py"
+                    touched = mark_task_done(workspace, "demo", task_id, [path])
+                self.assertEqual(
+                    {entry["task_id"]: entry["files"] for entry in touched["touched"]},
+                    {"1": ["src/a.py"], "2": ["src/b.py"]},
+                )
+                self.assertEqual(touched["files"], ["src/a.py", "src/b.py"])
+                self.assertEqual(mark_task_done(workspace, "demo", order[-1], [path]), touched)
+
+    def test_explicit_completion_does_not_consume_sibling_snapshot(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        start_in_progress(workspace, "demo")
+        (root / "src/a.py").write_text("a = 2\n")
+        (root / "src/b.py").write_text("b = 1\n")
+        mark_task_done(workspace, "demo", "1", ["src/a.py"])
+        touched = mark_task_done(workspace, "demo", "2")
+        self.assertEqual(touched["touched"][1]["files"], ["src/b.py"])
+
+    def test_explicit_shared_file_and_empty_task(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        start_in_progress(workspace, "demo")
+        (root / "src/a.py").write_text("a = 2\n")
+        empty = mark_task_done(workspace, "demo", "1", [])
+        self.assertEqual(empty["files"], [])
+        mark_task_done(workspace, "demo", "2", ["src/a.py"])
+        touched = mark_task_done(workspace, "demo", "1", ["src/a.py"])
+        self.assertEqual([entry["files"] for entry in touched["touched"]], [["src/a.py"], ["src/a.py"]])
+
+    def test_invalid_explicit_paths_do_not_mark_or_publish_state(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        start_in_progress(workspace, "demo")
+        (root / "src/a.py").write_text("a = 2\n")
+        task_file = root / "openspec/changes/demo/tasks.md"
+        before = task_file.read_bytes()
+        snapshot = root / ".cash-skills/state/snapshots/demo.json"
+        baseline = snapshot.read_bytes()
+        for bad in ("../outside", "src/missing.py", "./src/a.py", "openspec/changes/demo/tasks.md", ".cash-skills/state/snapshots/demo.json", "unrelated.txt"):
+            with self.subTest(path=bad), self.assertRaises(CashError):
+                mark_task_done(workspace, "demo", "1", ["src/a.py", bad])
+            self.assertEqual(task_file.read_bytes(), before)
+            self.assertEqual(snapshot.read_bytes(), baseline)
+            self.assertFalse((root / ".cash-skills/state/touched/demo.json").exists())
+
+    def test_explicit_paths_include_deleted_and_renamed_paths(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        start_in_progress(workspace, "demo")
+        subprocess.run(["git", "-C", str(root), "mv", "src/a.py", "src/新 名.py"], check=True)
+        (root / "unrelated.txt").unlink()
+        touched = mark_task_done(workspace, "demo", "1", ["src/a.py", "src/新 名.py", "unrelated.txt"])
+        self.assertEqual(touched["files"], ["src/a.py", "src/新 名.py", "unrelated.txt"])
+
+    def test_task_cli_explicit_flags_and_parallel_guard(self) -> None:
+        root = self.enter_workspace()
+        self.add_ready_change(root)
+        task_file = root / "openspec/changes/demo/tasks.md"
+        task_file.write_text(task_file.read_text().replace("- [ ]", "- [ ] [P]"))
+        tasks.execute("in-progress", ["add", "demo"])
+        (root / "src/a.py").write_text("a = 2\n")
+        self.assert_execute_error("invalid_arguments", "task", ["done", "--change", "demo", "1"])
+        self.assert_execute_error("invalid_arguments", "task", ["done", "--change", "demo", "1", "--no-files", "--path", "src/a.py"])
+        self.assert_execute_error("invalid_arguments", "task", ["done", "--change", "demo", "1", "--path"])
+        tasks.execute("task", ["done", "--change", "demo", "1", "--path", "src/a.py"])
+        tasks.execute("task", ["done", "--change", "demo", "2", "--no-files"])
+        touched = json.loads((root / ".cash-skills/state/touched/demo.json").read_text())
+        self.assertEqual([entry["files"] for entry in touched["touched"]], [["src/a.py"], []])
+        self.assertEqual(task_file.read_text().count("- [x]"), 2)
+
     def test_git_fingerprints_cover_staged_untracked_delete_and_rename_ends(self) -> None:
         temporary, root, workspace = self.make_workspace()
         self.addCleanup(temporary.cleanup)

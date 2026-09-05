@@ -317,7 +317,16 @@ tests:
 
 首次`in-progress add` MUST建立`.cash-skills/state/snapshots/<name>.json`，shape為`{version: 1, change: string, paths: [{path: string, worktree: string, index: string, mode: string, state: string}]}`。既有相同change且schema有效的snapshot表示resume，MUST為no-op且 MUST NOT重設baseline；identity/version不符或partial state MUST fail closed。snapshot MUST涵蓋porcelain-v2 staged-only、unstaged、added、deleted、renamed/copied雙端path、typechange、unmerged及untracked狀態，排除ignored paths，並以`absent`表示missing content。
 
-`task done` MUST只標記唯一task，比較目前state與上次snapshot後寫入`.cash-skills/state/touched/<name>.json`：`{version: 1, change: string, legacy_import: null | {path: string, sha256: string, st_dev: non-negative integer, st_ino: positive integer}, touched: [{task_id: string, task_desc: string, files: string[]}], files: string[]}`。同task重跑 MUST union並stable-sort files；頂層`files` MUST恰為per-task files的stable union，後續update MUST保留`legacy_import`原值。只有成功寫入task attribution後才更新snapshot，且 MUST排除fingerprint未變的pre-existing dirty paths。
+`task done` MUST只標記唯一task，預設比較目前state與上次snapshot後寫入`.cash-skills/state/touched/<name>.json`：`{version: 1, change: string, legacy_import: null | {path: string, sha256: string, st_dev: non-negative integer, st_ino: positive integer}, touched: [{task_id: string, task_desc: string, files: string[]}], files: string[]}`。同task重跑 MUST union並stable-sort files；頂層`files` MUST恰為per-task files的stable union，後續update MUST保留`legacy_import`原值。只有成功寫入task attribution後才更新snapshot，自動差分模式 MUST排除fingerprint未變的pre-existing dirty paths。
+
+`task done --change <name> <task-id>` SHALL 支援重複的 `--path <path>`，或互斥的 `--no-files`，以明確指定本次任務歸屬；`[P]` 任務 MUST 使用其中一種，省略時以 `invalid_arguments` 拒絕。明確模式 MUST 只 union caller 指定的檔案，MUST NOT 加入 sibling 的工作樹差異；caller 負責以任務實作證據確認歸屬，CLI 的 dirty 檢查不代表能推導作者。每個 path MUST 是 canonical project-relative 且存在於目前非 ignored 的 dirty fingerprint 集合，包含 tracked deletion 與 rename 兩端；任一不合法 path MUST 在修改 tasks、touched 或 snapshot 前拒絕。已被另一任務記錄的 dirty 檔案 MAY 由本任務再次明確歸屬，以支援同檔案不同區域的平行修改。明確模式 MUST 只推進指定路徑的 snapshot，其他 baseline 保留；`--no-files` MUST 不吸收任何工作樹變更。checkbox、歸屬與 snapshot MUST 以同一 transaction 發布。
+
+#### Scenario: 平行任務完成順序不影響歸屬
+
+- **GIVEN** 任務 A 修改 `src/a.py`、任務 B 修改 `src/b.py`，兩者均已寫完
+- **WHEN** 主 agent 以各自的 `--path` 清單依任意順序完成任務
+- **THEN** A 的 files MUST 僅含 `src/a.py`，B 的 files MUST 僅含 `src/b.py`
+- **AND** 頂層 files MUST 為兩者聯集，重跑不增加重複路徑
 
 第一次Cash touched access MUST統一透過`touched ensure <name>`。Cash state缺失而legacy `.spectra/touched/<name>.json`存在時，只接受現行`{change, touched:[{task_id, task_desc, files}]}`shape；command MUST以no-follow FD驗證single-link regular identity與pathname/FD一致性，change、task ID、path或duplicate不合法時 MUST fail closed，合法mapping MUST建立Cash state並把legacy project-relative safe path、lowercase SHA-256及decimal `st_dev/st_ino`記入`legacy_import`。兩者皆缺失時 MUST建立`legacy_import: null`的合法empty Cash state。Cash state一旦存在即為唯一權威；後續ensure、`task done`、commit與archive lifecycle決策 MUST NOT再把legacy內容作為allowlist、attribution或merge輸入。`.spectra/snapshots/`是歷史spec snapshots，Cash runtime MUST NOT匯入或讀取。
 
