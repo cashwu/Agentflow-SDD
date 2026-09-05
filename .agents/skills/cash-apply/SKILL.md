@@ -204,6 +204,8 @@ The trigger is guidance only — it MUST NOT block apply from proceeding when th
 
    **Reminder: Track progress by editing checkboxes in the tasks file only. Do not use any built-in task tracker.**
 
+   Before processing any pending task, run the Implementation Notes Protocol's File creation rule below against the entry-state progress and implementation evidence. This happens before source edits or parallel dispatch, including partial resumes; do not wait until the quality gate to detect missing historical notes.
+
    For each pending task:
    - Show which task is being worked on
    - Re-read the sections of design and spec files that are relevant to this task's scope — do not rely on memory from earlier in the conversation, as context may have been compressed
@@ -267,13 +269,14 @@ The trigger is guidance only — it MUST NOT block apply from proceeding when th
    Design decisions that match the spec, ordinary tradeoffs, and small judgment calls do NOT belong here — they are already covered by `design.md`, `tasks.md`, and the review-loop round files. Keep this log narrow.
 
    **File creation rule (eager)**
-   - At the start of Step 7 (the task loop), before processing the first task, create `openspec/changes/<change>/implementation-notes.md` if it does not already exist.
-   - Initialize the file with a single-line HTML comment header (and nothing else):
+   - At the start of Step 7 (the task loop), before processing the first task or dispatching workers, check `openspec/changes/<change>/implementation-notes.md`. Preserve an existing file and append new entries normally. If absent, inspect entry-state completed tasks, change-related implementation diff/commits, task attribution, and prior apply review records. Unrelated worktree changes and proposal-only history are not implementation evidence.
+   - If any task was already complete or there is other prior implementation evidence, run Pre-gate notes recovery now, before continuing pending tasks. If whether implementation already occurred is uncertain, use reconstruction and disclose the gap rather than claiming a fresh start. Failure to read required evidence or write the log stops before implementation.
+   - Only for a confirmed first implementation, with no completed tasks or prior implementation evidence, initialize the file with a single-line HTML comment header (and nothing else):
      ```
      <!-- cash-apply implementation notes | change: <change-name> | initialized: <YYYY-MM-DD HH:MM> | no entries below means no deviations or open questions were recorded -->
      ```
    - Entries (see below) are appended in order beneath this header.
-   - Eager creation makes "no entries" an explicit positive signal (cash-apply ran and found nothing to report), distinct from file-absent which signals a workflow integrity failure.
+   - Ordinary eager initialization records the start of a fresh implementation; it cannot establish anything about an earlier unlogged run. A reconstructed log keeps its `reconstructed` header and recovery context when subsequent tasks append entries; never replace it with the ordinary initialization header.
 
    **Entry format**
 
@@ -310,7 +313,7 @@ The trigger is guidance only — it MUST NOT block apply from proceeding when th
 
    **Sub-agent reviewer requirement**
 
-   **Pre-gate notes recovery**: before entering any review run, including the `all_done` entry, check whether implementation-notes.md exists. Preserve an existing file unchanged. If absent and no task was processed in this invocation, inspect the current artifacts, implementation diff or relevant commits, available task attribution, and prior review records before writing a reconstructed log. Use a header explicitly saying `reconstructed` and add `## Recovery context` stating the reconstruction date, evidence inspected, observable current deviations, and historical gaps. Do not use the ordinary initialization header or claim that no past deviations occurred. Record confirmed deviations and unresolved contract questions using the normal four-field entry format. If evidence is insufficient to verify a contract item, record that uncertainty as an `open-question`; do not invent past decisions. Historical completeness alone is not a contract failure. If reconstruction cannot be written or artifacts cannot be safely read, stop before spawning reviewers and report the error. This check also runs after the normal task loop, where the eagerly initialized file should already exist.
+   **Pre-gate notes recovery**: use this procedure when the pre-task File creation rule detects missing historical notes, and check again before every review run, including the `all_done` entry. Preserve an existing file unchanged during this check. If absent, inspect the current artifacts, implementation diff or relevant commits, available task attribution, and prior review records before writing a reconstructed log, regardless of whether tasks were processed in this invocation. Use a header explicitly saying `reconstructed` and add `## Recovery context` stating the reconstruction date, evidence inspected, observable current deviations, and historical gaps. Do not use the ordinary initialization header or claim that no past deviations occurred. Record confirmed deviations and unresolved contract questions using the normal four-field entry format. If evidence is insufficient to verify a contract item, record that uncertainty as an `open-question`; do not invent past decisions. Historical completeness alone is not a contract failure. If reconstruction cannot be written or required evidence cannot be safely read, stop before implementation or reviewer dispatch, whichever would occur next, and report the error. Recovered in-scope open questions follow the existing pause/ingest rule before affected pending tasks proceed.
 
    Reviewer A — Adherence in the Sub-Agent Review/Rating/Fix Loop MUST, at the start of each full round, read `openspec/changes/<change>/implementation-notes.md`. In each micro round, Reviewer V MUST read the same file before verifying fixes.
 

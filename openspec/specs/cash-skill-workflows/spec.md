@@ -93,7 +93,7 @@ cash-commit 的 archive sub-flow SHALL 在 archive 成功後，以同一次 arch
 
 `cash-propose` SHALL 在建立前區分新建與續作。明確續作既有 active change 時 MUST 保留 schema、TDD 選擇、已完成任務與 review 紀錄，MUST NOT 對既有 change 或 artifact 執行 `new`。部分 specs 已存在時 SHALL 逐 capability 補齊缺檔。需求變更 SHALL handoff 至 ingest；僅補齊既有需求 SHALL 繼續建立、驗證與品質關卡。已完成 review round MUST NOT 被覆寫。
 
-`cash-apply` SHALL 在每次品質關卡前檢查 implementation notes，包含 `all_done` 入口。缺檔的歷史實作 MUST 根據 artifacts、diff／commits 與現存紀錄重建，明示 `reconstructed`、證據與歷史缺口，MUST NOT 用空初始化檔宣稱沒有歷史 deviation。可確認的 deviation 與未能驗證的 contract 問題 SHALL 依既有 entry protocol 記錄；純粹缺少歷史紀錄不單獨構成 Critical。
+`cash-apply` SHALL 在 task loop 處理第一個 pending task／派發 worker 前，以及每次品質關卡前檢查 implementation notes，包含部分續作與 `all_done` 入口。notes 缺失且入口已有完成任務或其他本 change 實作證據時，MUST 在繼續實作前根據 artifacts、diff／commits、task attribution 與 review 紀錄重建，明示 `reconstructed`、證據與歷史缺口，MUST NOT 用空初始化檔宣稱沒有歷史 deviation。不能確認是否已有實作時 SHALL 保守重建並揭露不確定性；無關 dirty files 與純 proposal 歷史不算實作證據。只有確認尚無完成任務與先前實作的首次實作才 SHALL 使用普通初始化。既有 notes SHALL 保留，後續追加 MUST 保留 reconstructed header 與 recovery context。gate 前若 notes 再次缺失，MUST 重建，不受本次是否處理過 task 限制。必要證據讀取或寫入失敗 MUST 在下一次實作或 reviewer dispatch 前停止。可確認的 deviation 與未能驗證的 contract 問題 SHALL 依既有 entry protocol 記錄；恢復的 in-scope open question MUST 依暫停／ingest 規則處理，純粹缺少歷史紀錄不單獨構成 Critical。
 
 #### Scenario: 部分 artifacts 的續作
 
@@ -108,6 +108,31 @@ cash-commit 的 archive sub-flow SHALL 在 archive 成功後，以同一次 arch
 - **WHEN** apply 進入品質關卡
 - **THEN** workflow MUST 先重建有證據來源的 notes，明示歷史資訊限制
 - **AND** reviewer MUST 評估當前 contract 證據，MUST NOT 將重建視為過去沒有 deviation 的證明
+
+#### Scenario: 部分續作在剩餘 task 前重建 notes
+
+- **GIVEN** 5 個 tasks 中已有 3 個完成，implementation-notes.md 不存在
+- **WHEN** apply 準備處理第 4 個 task
+- **THEN** MUST 先完成附歷史證據與缺口說明的 reconstructed notes，不能建立普通空白 notes
+- **AND** 第 4、5 個 tasks 的紀錄 SHALL 追加於同一檔案，保留 recovery context
+
+#### Scenario: 首次實作仍使用普通初始化
+
+- **GIVEN** 沒有完成任務或先前實作證據，notes 不存在，僅有 proposal artifacts
+- **WHEN** apply 開始第一個 task
+- **THEN** SHALL 使用普通初始化，不建立不必要的歷史恢復警告
+
+#### Scenario: 尚無完成 checkbox 但已有實作 diff
+
+- **GIVEN** 所有 tasks 尚未勾選，但本 change 已有實作 diff 且 notes 不存在
+- **WHEN** apply 續作
+- **THEN** MUST 在 source edits 前重建 notes，不得僅因 completed tasks 為零而視為首次實作
+
+#### Scenario: 本次 task loop 後 notes 遺失
+
+- **GIVEN** 本次已處理 tasks，但進入 gate 前 notes 已不存在
+- **WHEN** 執行 pre-gate recovery
+- **THEN** MUST 重建並揭露缺口，不得因本次已處理 task 而跳過
 
 ### Requirement: 品質關卡的 Safety exception
 
