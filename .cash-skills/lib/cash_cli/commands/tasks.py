@@ -419,11 +419,22 @@ def mark_task_done(
         key=lambda path: path.encode("utf-8"),
     )
     if paths is not None:
+        prior = load_or_import_touched(workspace, name)
+        prior_files = {
+            path
+            for entry in prior["touched"]
+            if entry["task_id"] == task_id
+            for path in entry["files"]
+        }
         selected = set()
         for path in paths:
             canonical = _safe_source_path(path)
-            if canonical != Path(canonical).as_posix() or canonical not in current:
-                raise CashError("touched_invalid", "Explicit task path must be a canonical dirty source path.")
+            if (
+                canonical != Path(canonical).as_posix()
+                or canonical.startswith(_IGNORED_PREFIXES)
+                or canonical not in current and canonical not in baseline and canonical not in prior_files
+            ):
+                raise CashError("touched_invalid", "Explicit task path must be canonical and have dirty, snapshot, or same-task attribution evidence.")
             selected.add(canonical)
         changed = sorted(selected, key=lambda path: path.encode("utf-8"))
     touched = ensure_touched(workspace, name)
@@ -456,7 +467,11 @@ def mark_task_done(
     next_baseline = current
     if paths is not None:
         next_baseline = baseline.copy()
-        next_baseline.update({path: current[path] for path in changed})
+        for path in changed:
+            if path in current:
+                next_baseline[path] = current[path]
+            else:
+                next_baseline.pop(path, None)
     updated_snapshot = {
         "version": 1,
         "change": name,

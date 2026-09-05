@@ -100,11 +100,17 @@ If no argument is provided, the workflow will extract requirements from conversa
 
 4. **Create the change directory**
 
+   Before creation, resolve whether the selected name is active, parked, archived, or absent using `"$cash_cli" list --json` and `"$cash_cli" list --parked --json`, and inspect an existing active change's status and artifacts. An explicit request to continue a named active change selects resume without another confirmation. If the name merely collides with a newly derived name, ask whether to resume or choose another name. Parked changes require an explicit unpark decision before resuming; archived identities are historical and must not be overwritten or reused.
+
+   **Resume branch**: do not run `new change`. Read existing artifacts and `"$cash_cli" status --change "<name>" --json`; retain the existing schema, TDD choice, completed tasks, and review history. If the requested requirement changes existing scope or decisions, hand off to `/cash-ingest <name>` with the agreed update and end this propose run. Otherwise continue step 4b, skip creation of every existing artifact, and create only missing artifacts in dependency order. Inventory expected capability spec paths from the proposal even when CLI status reports specs as done; fill missing capability files before treating `applyRequires` as complete. Validate the completed set and use the existing review re-run rules; allocate round filenames after the highest existing number even when the previous run passed, and never overwrite completed round files.
+
+   **New branch**: only when the name is absent, run:
+
    ```bash
    "$cash_cli" new change "<name>" --agent claude
    ```
 
-   If a change with that name already exists, suggest continuing the existing change instead of creating a new one.
+   If creation nevertheless reports an identity collision, stop and report it; do not overwrite or blindly retry.
 
 4b. **Record this change's TDD choice**
 
@@ -119,6 +125,8 @@ If no argument is provided, the workflow will extract requirements from conversa
    - If the append fails, report the exact write error and stop the workflow. Do not continue to proposal authoring with an unrecorded choice.
 
 5. **Write the proposal**
+
+   On resume, if proposal.md exists, read and reuse it, skip its `new artifact` command, and proceed to the impact advisory and step 6. Existing content that needs correction is edited during validation/review, not recreated with `new artifact`.
 
    **IMPORTANT — file path rules for the `## Impact` section:**
    - All file paths SHALL be written relative to the project root (e.g., `src/lib/foo.ts`, `src-tauri/crates/core/src/bar.rs`, `openspec/specs/auth/spec.md`).
@@ -165,6 +173,7 @@ If no argument is provided, the workflow will extract requirements from conversa
    Loop through artifacts in dependency order (skip proposal since it's already done):
 
    a. **For each artifact that is `ready` (dependencies satisfied)**:
+   - On resume, do not recreate an existing file even if the artifact is incomplete. Read it and retain its content; create only missing output files (for specs, compare the required capability paths individually). Correct invalid existing content through edits during validation, without discarding completed tasks. Stop and route to ingest if the correction changes the requested contract or scope.
    - **Check if the artifact is optional**: If the artifact is NOT in the dependency chain of any `applyRequires` artifact (i.e., removing it would not block reaching apply), it is optional. Get its instructions and read the `instruction` field. If the instruction contains conditional criteria (e.g., "create only if any apply"), evaluate whether any criteria apply to this change based on the proposal content. If none apply, skip the artifact and show: "⊘ Skipped <artifact-id> (not needed for this change)". Then continue to the next artifact.
    - Get instructions:
      ```bash
@@ -255,7 +264,7 @@ If no argument is provided, the workflow will extract requirements from conversa
 
    **Entry conditions**
    - For `cash-propose`, start this loop only after proposal, design, specs, and tasks artifacts required for apply are complete AND `"$cash_cli" validate "<name>"` has passed. If validation fixes are required, complete them before entering this loop.
-   - For `cash-apply`, start this loop only after all implementation tasks are complete and `tasks.md 全 [x]`.
+   - For `cash-apply`, start this loop only after all implementation tasks are complete and `tasks.md 全 [x]`, and Pre-gate notes recovery has checked or reconstructed implementation-notes.md.
    - Do not run this loop per artifact or per task; the granularity is per-change.
 
    **Pre-round mechanical self-check (main agent, inline)**
@@ -282,9 +291,10 @@ If no argument is provided, the workflow will extract requirements from conversa
      - `new`: the finding matches no prior blocking finding. A finding that matches only a prior non-blocking triage note remains `new`; record only a one-line cross-reference to the original triage note, not a duplicate triage note or signal.
    - Disposition matching uses the same artifact or file and the same defect mechanism; line ranges are advisory. If deduplicated findings disagree, a blocking disposition (`unresolved-prior` or `fix-introduced`) wins over `new`.
    - Before accepting a `new` tag, the main agent MUST inspect whether the finding is at a fix-touched location from this loop or, for a seeded re-run, the prior run. If the defect stems from those fix actions, correct it to `fix-introduced` and record the original tag, corrected tag, and evidence in `## Fix Actions`. Record every disposition correction; list blocking-to-non-blocking corrections in the completion output.
-   - A surviving `Critical` or `Warning` finding is blocking if and only if its verified disposition is `unresolved-prior` or `fix-introduced`. In a run's first round, every surviving `Critical` and `Warning` is blocking; a seeded re-run's first round instead uses the seeded cumulative blocking set.
-   - A finding whose latest state is a non-blocking triage note MUST NOT become blocking again merely because it is re-reported. The only exception is new evidence tying it to recorded fix actions, which returns it as `fix-introduced` with a traced correction.
-   - Every surviving `new` finding is non-blocking. Record it as a triage note in `## Fix Actions`, include it in the signals write step, and list it prominently in the completion output. For a non-blocking `Critical`, also recommend a follow-up change proposal.
+   - A surviving `Critical` or `Warning` finding is blocking if and only if its verified disposition is `unresolved-prior` or `fix-introduced`, or it meets the Safety exception below. In a run's first round, every surviving `Critical` and `Warning` is blocking; a seeded re-run's first round uses the seeded cumulative blocking set plus any newly verified Safety exception.
+   - **Safety exception**: a post-filter `Critical` or `Warning`, including `new`, MUST enter the cumulative blocking set when concrete evidence proves data loss or a security vulnerability introduced or permitted by the current change's in-scope artifacts or implementation. Require the affected path and scope declaration, a reachable trigger/input, and a reproduction or explicit code/contract causal chain proving the destructive outcome or security-boundary violation. A security-related label, hypothetical risk, pre-existing unrelated defect, or missing test alone is insufficient. Record the evidence and the reason for applying the exception in `## Fix Actions`; keep the true disposition (`new` is not relabeled `fix-introduced`). Confidence filtering, accepted-risk consent, grader protection, design circuit breaker, the round cap, and verified-resolution requirements still apply. An exception withheld from fixing remains blocking and uses the existing abort/accepted-risk exits.
+   - A finding whose latest state is a non-blocking triage note MUST NOT become blocking again merely because it is re-reported. Exceptions require new evidence tying it to recorded fix actions (return as `fix-introduced` with a traced correction), or new concrete evidence meeting the Safety exception (record the promotion and original triage reference). A promoted finding enters bucket 1 on abort, not bucket 2.
+   - Every surviving `new` finding that does not meet the Safety exception is non-blocking. Record it as a triage note in `## Fix Actions`, include it in the signals write step, and list it prominently in the completion output. For a non-blocking `Critical`, also recommend a follow-up change proposal.
    - Maintain a cumulative blocking set across the run. Every blocking finding enters the set in the round it is found. A member remains in the set even when a reviewer does not re-report it and leaves only through:
      1. verified resolution — a fix is recorded and a later reviewer confirms the fixed location is resolved without re-reporting the finding; or
      2. accepted risk — the member matches a user-consented accepted-risks entry.
@@ -345,6 +355,7 @@ If no argument is provided, the workflow will extract requirements from conversa
    - Direct artifact-requirement violations MUST score `100`, except the accepted-risks and cash-apply introduced-by downgrades below take precedence.
 
    **Confidence filter (applied by main agent before the decision)**
+   - Evaluate concrete Safety exception evidence before applying intentional-behavior false-positive exclusions. Merely documenting the destructive or insecure behavior in design.md, implementation-notes.md, or Non-Goals is not user-consented risk acceptance and MUST NOT alone suppress a proven in-scope safety defect. The accepted-risks ledger and introduced-by evidence rules still take precedence; speculative and unrelated pre-existing issues remain excluded.
    - Re-check every `text` finding; if its fix can affect behavior or design, reclassify it to `design`. The main agent MUST NOT reclassify a `design` finding to `text`.
    - For an accepted-risks match, set confidence ≤ 25 and record the downgrade trace.
    - In cash-apply, a Reviewer B `Critical` or `Warning` finding without verifiable `introduced_by` evidence MUST be reduced to confidence ≤ 25. Record the finding and unverifiable reason in `## Fix Actions`, and list every such downgrade in the completion output.
@@ -360,8 +371,8 @@ If no argument is provided, the workflow will extract requirements from conversa
    - Issues a linter, typechecker, formatter, or compiler would catch (missing imports, type errors, formatting, broken syntax). CI will fail separately; the review loop is not the right channel.
    - Pedantic style nitpicks that a senior engineer would not call out in review.
    - "Missing test coverage" complaints unless `tasks.md` or `design.md` explicitly required the test, or a spec `##### Example:` block is not exercised.
-   - Issues already documented as intentional in `design.md`, `implementation-notes.md`, the proposal's Non-Goals section, or `## Alternatives Considered`.
-   - Intentional behavior changes that align with the proposal's `## Proposed Solution`.
+   - Issues already documented as intentional in `design.md`, `implementation-notes.md`, the proposal's Non-Goals section, or `## Alternatives Considered`, unless concrete Safety exception evidence applies.
+   - Intentional behavior changes that align with the proposal's `## Proposed Solution`, unless concrete Safety exception evidence applies.
    - Suggestions to add abstractions, configurability, or defensive error handling that the spec/contract did not require — these conflict with Focused Implementation Discipline.
    - Suggestions to refactor unrelated code touched only incidentally — these conflict with Focused Implementation Discipline.
 

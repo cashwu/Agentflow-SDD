@@ -240,7 +240,7 @@ If the user mentioned a specific change name, read its artifacts for context.
 
 ### Capture decisions
 
-When the discussion converges, **proactively present a conclusion summary**. Don't wait to be asked — propose it, and let the user opt out.
+When the discussion converges, **proactively present a conclusion summary**. A discussion alone authorizes a summary, not artifact writes. Existing explicit authorization to record the conclusion remains valid; do not ask for it again.
 
 Summary format:
 
@@ -264,14 +264,14 @@ Where to capture:
 
 **Vocabulary drift** means the discussion surfaced a recurring concept that is missing, ambiguous, or pulling away from the shared vocabulary loaded in Step 0. Examples: the topic uses a term that the vocabulary lists as an `avoid` synonym, or the discussion repeatedly names a concept that has no entry yet. When this happens, name it as vocabulary drift in the conclusion summary and direct the capture to `openspec/LANGUAGE.md`. The conclusion summary SHALL preserve this contract — do not silently rewrite the term in the artifacts without recording the drift.
 
-Present the summary and say something like "I'll capture this to design.md unless you'd rather not." Default to capturing — the user can decline.
+Present the summary and the proposed capture location. Without recording authorization, end with the summary and suggested next workflow; silence or failure to opt out is not consent. With authorization, record a discussion note that does not change an existing change's contract directly. If the conclusion changes an existing change's requirements, scope, design, or tasks, hand the selected change and agreed decisions to `$cash-ingest` so it synchronizes the affected artifacts; do not edit only design.md or a master spec in discuss. If no change exists, recommend `$cash-propose` to formalize new work. Invoke a handoff only when the user has authorized that artifact update or workflow; otherwise recommend it. Do not implement code in discuss.
 
 ### Transition to action
 
 When the discussion converges on building something:
 
 - "Ready to formalize this? `$cash-propose`"
-- Or capture the decision in existing artifacts and continue
+- For an authorized update to an existing change, hand off to `$cash-ingest` with the selected change and the agreed decisions
 
 ---
 

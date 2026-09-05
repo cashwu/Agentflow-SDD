@@ -6,6 +6,49 @@ TBD - 由封存 change 'fork-spectra-skills-to-cash' 而建立。封存後請更
 
 ## Requirements
 
+### Requirement: 核心流程的授權與續作
+
+`cash-discuss` SHALL 預設只輸出結論；已有明確記錄授權時 MUST NOT 重複詢問。涉及既有 change contract／範圍／設計／tasks 的更新 MUST 透過 `cash-ingest` 同步 artifacts，MUST NOT 在 discuss 單獨改寫 design 或 master spec。未授權更新時 SHALL 只建議 handoff。
+
+`cash-propose` SHALL 在建立前區分新建與續作。明確續作既有 active change 時 MUST 保留 schema、TDD 選擇、已完成任務與 review 紀錄，MUST NOT 對既有 change 或 artifact 執行 `new`。部分 specs 已存在時 SHALL 逐 capability 補齊缺檔。需求變更 SHALL handoff 至 ingest；僅補齊既有需求 SHALL 繼續建立、驗證與品質關卡。已完成 review round MUST NOT 被覆寫。
+
+`cash-apply` SHALL 在每次品質關卡前檢查 implementation notes，包含 `all_done` 入口。缺檔的歷史實作 MUST 根據 artifacts、diff／commits 與現存紀錄重建，明示 `reconstructed`、證據與歷史缺口，MUST NOT 用空初始化檔宣稱沒有歷史 deviation。可確認的 deviation 與未能驗證的 contract 問題 SHALL 依既有 entry protocol 記錄；純粹缺少歷史紀錄不單獨構成 Critical。
+
+#### Scenario: 部分 artifacts 的續作
+
+- **GIVEN** active change 已有 proposal 與部分 capability specs
+- **WHEN** 使用者要求完成同一需求的 proposal workflow
+- **THEN** workflow SHALL 讀取並保留既有檔案，只建立缺少的 artifacts
+- **AND** workflow SHALL 驗證最終集合，而不是重跑既有檔案的 `new artifact`
+
+#### Scenario: 已完成實作缺少歷史 notes
+
+- **GIVEN** tasks 全部完成，但 implementation-notes.md 不存在
+- **WHEN** apply 進入品質關卡
+- **THEN** workflow MUST 先重建有證據來源的 notes，明示歷史資訊限制
+- **AND** reviewer MUST 評估當前 contract 證據，MUST NOT 將重建視為過去沒有 deviation 的證明
+
+### Requirement: 品質關卡的 Safety exception
+
+在共用 propose／apply review gate 中，通過 confidence filter 的 `Critical` 或 `Warning` 若有具體證據證明本 change 範圍內 artifacts 或實作引入或允許資料遺失／安全漏洞，SHALL 適用 Safety exception：即使 disposition 是 `new`，也 MUST 納入 cumulative blocking set。證據 MUST 包含檔案、scope declaration、可到達的 trigger／input，以及 reproduction 或明確 code／contract 因果鏈；假設性風險、安全相關標籤、無關既有缺陷或單純缺測試 MUST NOT 觸發例外。此例外優先於一般 `new` 非阻塞與先前 triage 維持非阻塞規則；新證據升級既有 triage 時 MUST 記錄原註記與升級理由，且 MUST 保留真實 disposition。
+
+Safety exception MUST 遵守既有 confidence filter、accepted-risk consent、grader protection、design circuit breaker、輪數上限與後續 reviewer 驗證解除的規則。已 seed 重跑第一輪 MUST 同時納入新確認的例外。例外成員未解決時 MUST NOT `passed`，abort 時 MUST 屬 bucket 1；其他 `new` findings 維持既有非阻塞收斂政策。
+
+主 agent MUST 在套用 intentional-behavior false-positive 排除前檢查具體安全證據；僅在 design、notes 或 Non-Goals 記載為刻意行為，MUST NOT 取代經使用者同意的 accepted-risks ledger，也 MUST NOT 單獨使已證明的範圍內安全缺陷降級。accepted-risk 與 introduced-by 證據規則仍優先。
+
+#### Scenario: 後續輪發現範圍內可重現資料遺失
+
+- **GIVEN** 第四輪發現 disposition 為 `new`、confidence 為 100 的範圍內資料遺失，並提供 trigger 與具體因果證據
+- **WHEN** 主 agent 驗證 Safety exception
+- **THEN** finding MUST 加入 cumulative blocking set 並記錄理由
+- **AND** 即使先前 blocking members 都已解決，本輪也 MUST NOT `passed`
+
+#### Scenario: 一般新發現維持非阻塞
+
+- **GIVEN** 第二輪有新的 Warning，但未證明資料遺失或安全漏洞
+- **WHEN** 先前 blocking members 已驗證解決
+- **THEN** workflow SHALL 記錄 triage 並通過，MUST NOT 僅因該新 Warning 延長迴圈
+
 ### Requirement: Cash skill 清單與所有權
 
 本 repository SHALL 為 Codex 與 Claude 兩者提供恰好以下十二個 cash workflow skills：`cash-analyze`、`cash-apply`、`cash-archive`、`cash-ask`、`cash-audit`、`cash-commit`、`cash-debug`、`cash-discuss`、`cash-drift`、`cash-ingest`、`cash-propose` 與 `cash-verify`。每個 cash skill 檔案 MUST 是由本 repository 擁有、納入版本控制的檔案。`.claude/skills/` 底下的十二個 SKILL.md 與 `scripts/cash-skills/blocks/review-gate.md` 是人工維護的權威源頭；`.agents/skills/` 底下的十二個 SKILL.md 是由 `scripts/cash-skills/generate.fish` 依 `scripts/cash-skills/variant-rules.yaml` 生成的輸出，MUST 與重新生成的結果一致，且 MUST NOT 以直接人工編輯作為維護方式。
@@ -1482,9 +1525,9 @@ tests:
 
 迴圈 SHALL 執行兩種輪型別：full 輪與 micro 輪（差異驗證輪）。一次迴圈執行的第一輪 MUST 是 full 輪。當某一輪的決策為 `next_round` 時，主 agent MUST 僅從下一輪在當前迴圈執行中的位置以機械方式推導其型別：當且僅當下一輪是本次執行的第四輪時，它才是 full 輪；否則下一輪是 micro 輪。連續的 micro 輪是有效的。修改行為的修正動作 MUST NOT 使下一輪的型別升級；第四輪 checkpoint 是本次執行第一輪之後唯一的完整重新掃描。micro 輪 MUST 計入 6 輪上限，且 MUST 如同其他輪一樣產生 round 檔案。
 
-除了未 seed 執行的第一輪之外，一輪中的每位 reviewer（micro 輪中的 Reviewer V；第四輪 checkpoint 或已 seed 重跑第一輪中的 Reviewer A 與 Reviewer B）MUST 為每個 `Critical` 或 `Warning` finding 標上 `disposition` 欄位，其值恰為下列之一：`unresolved-prior`——該 finding 符合本迴圈先前某輪的 blocking finding（或在重跑中，符合依 `Abort 後的 triage` requirement 自前次執行帶入的 bucket-1 finding），無論是否曾為其記錄修正：再次被回報本身就是任何已記錄修正未解決它的證據；`fix-introduced`——該 finding 經由 finding 中攜帶的明確 fix-action 參照，被歸因於本迴圈（或在已 seed 重跑中，前次執行）`## Fix Actions` 區段所記錄的一項或多項修改；這些輪的每位 reviewer——包括 Reviewer V 與 cash-propose 的 reviewers——在標記 `fix-introduced` 時 MUST 附上該參照；或 `new`——該 finding 不符合任何先前的 blocking finding；僅符合先前非 blocking triage 註記的 finding 也標為 `new` 並維持非 blocking，不產生重複的 triage 註記或 signal；其依 `審查輪的行動義務` requirement 記錄的動作是一行指名原輪 triage 註記的交叉參照註記，該註記既不是重複的 triage 註記也不是新的 signal。disposition 比對以相同 artifact 或檔案加上相同缺陷機制運作；記錄的行號範圍僅供參考，範圍位移不會破壞比對。為了讓 dispositions 可被評估，主 agent MUST 在本次執行第一輪之後每一輪的 reviewer 情境中，提供本迴圈每個先前的 round 檔案（在已 seed 重跑中，包括前次執行的 round 檔案或其摘錄）AND 當前累積 blocking 集合成員清單；當累積的 round 檔案超出實際可用的情境大小時，主 agent MUST 改為提供每輪摘錄，內含各輪的存活 findings 與完整的 `## Fix Actions` 內容，且 MUST 在當前輪的 `## Fix Actions` 記錄一行註記，指名以摘錄提供的輪次。主 agent MUST 對照先前的 round 檔案驗證每個 disposition 標記，且 MUST 更正不成立的標記；對每個標為 `new` 的 finding，主 agent MUST 額外檢查其位置是否曾被本迴圈——以及在已 seed 重跑中，前次執行——記錄的修正動作修改過，且當缺陷源自那些修改時，將標記更正為 `fix-introduced` 並在更正紀錄中提供 fix-action 參照；每次更正 MUST 記錄在該輪檔案的 `## Fix Actions` 中，指名該 finding、reviewer 的原始標記、更正後的標記與證據，且每次將 blocking disposition 改為非 blocking 的更正 MUST 列在完成輸出中。當以 `location + summary` 去重的 findings 帶有分歧的 `disposition` 值時，合併後的 finding MUST 取 blocking 的 disposition（`unresolved-prior` 或 `fix-introduced` 勝過 `new`）。已完成輪的 round 檔案在進行中的迴圈期間不可變：修正紀錄與 triage 註記 MUST 只寫在其發生的那一輪，且主 agent MUST NOT 回頭編輯先前的 round 檔案。
+除了未 seed 執行的第一輪之外，一輪中的每位 reviewer（micro 輪中的 Reviewer V；第四輪 checkpoint 或已 seed 重跑第一輪中的 Reviewer A 與 Reviewer B）MUST 為每個 `Critical` 或 `Warning` finding 標上 `disposition` 欄位，其值恰為下列之一：`unresolved-prior`——該 finding 符合本迴圈先前某輪的 blocking finding（或在重跑中，符合依 `Abort 後的 triage` requirement 自前次執行帶入的 bucket-1 finding），無論是否曾為其記錄修正：再次被回報本身就是任何已記錄修正未解決它的證據；`fix-introduced`——該 finding 經由 finding 中攜帶的明確 fix-action 參照，被歸因於本迴圈（或在已 seed 重跑中，前次執行）`## Fix Actions` 區段所記錄的一項或多項修改；這些輪的每位 reviewer——包括 Reviewer V 與 cash-propose 的 reviewers——在標記 `fix-introduced` 時 MUST 附上該參照；或 `new`——該 finding 不符合任何先前的 blocking finding；僅符合先前非 blocking triage 註記的 finding 也標為 `new`，除符合下文 Safety exception 外維持非 blocking，不產生重複的 triage 註記或 signal；其依 `審查輪的行動義務` requirement 記錄的動作是一行指名原輪 triage 註記的交叉參照註記，該註記既不是重複的 triage 註記也不是新的 signal。disposition 比對以相同 artifact 或檔案加上相同缺陷機制運作；記錄的行號範圍僅供參考，範圍位移不會破壞比對。為了讓 dispositions 可被評估，主 agent MUST 在本次執行第一輪之後每一輪的 reviewer 情境中，提供本迴圈每個先前的 round 檔案（在已 seed 重跑中，包括前次執行的 round 檔案或其摘錄）AND 當前累積 blocking 集合成員清單；當累積的 round 檔案超出實際可用的情境大小時，主 agent MUST 改為提供每輪摘錄，內含各輪的存活 findings 與完整的 `## Fix Actions` 內容，且 MUST 在當前輪的 `## Fix Actions` 記錄一行註記，指名以摘錄提供的輪次。主 agent MUST 對照先前的 round 檔案驗證每個 disposition 標記，且 MUST 更正不成立的標記；對每個標為 `new` 的 finding，主 agent MUST 額外檢查其位置是否曾被本迴圈——以及在已 seed 重跑中，前次執行——記錄的修正動作修改過，且當缺陷源自那些修改時，將標記更正為 `fix-introduced` 並在更正紀錄中提供 fix-action 參照；每次更正 MUST 記錄在該輪檔案的 `## Fix Actions` 中，指名該 finding、reviewer 的原始標記、更正後的標記與證據，且每次將 blocking disposition 改為非 blocking 的更正 MUST 列在完成輸出中。當以 `location + summary` 去重的 findings 帶有分歧的 `disposition` 值時，合併後的 finding MUST 取 blocking 的 disposition（`unresolved-prior` 或 `fix-introduced` 勝過 `new`）。已完成輪的 round 檔案在進行中的迴圈期間不可變：修正紀錄與 triage 註記 MUST 只寫在其發生的那一輪，且主 agent MUST NOT 回頭編輯先前的 round 檔案。
 
-當且僅當一個存活的 `Critical` 或 `Warning` finding 經驗證的 disposition 為 `unresolved-prior` 或 `fix-introduced` 時，它才是 blocking。在本迴圈中最近一次先前狀態為非 blocking triage 註記的 finding 維持非 blocking，且 MUST NOT 重新進入 blocking 集合，僅有一個例外：當後續證據將該 finding 歸因於已記錄的修正動作時，它經由留有紀錄的 disposition 更正以 `fix-introduced` 重新進入。其他每個 disposition 為 `new` 的存活 finding 都是非 blocking：主 agent MUST 將它記錄為該輪檔案 `## Fix Actions` 區段中的 triage 註記、MUST 將它納入 signals 寫入步驟的目標集合，且 MUST 將它列在完成輸出中；對於非 blocking 的 `Critical` finding，完成輸出 MUST 額外建議建立後續的 change 提案。非 blocking findings MUST NOT 導致 `next_round` 決策。
+當且僅當一個存活的 `Critical` 或 `Warning` finding 經驗證的 disposition 為 `unresolved-prior` 或 `fix-introduced`，或符合下文 Safety exception 時，它才是 blocking。在本迴圈中最近一次先前狀態為非 blocking triage 註記的 finding 維持非 blocking，且 MUST NOT 重新進入 blocking 集合，例外是後續證據將該 finding 歸因於已記錄的修正動作時，它經由留有紀錄的 disposition 更正以 `fix-introduced` 重新進入，或新證據符合 Safety exception 時保留原 disposition 並記錄升級理由。其他不符合 Safety exception 且 disposition 為 `new` 的存活 finding 都是非 blocking：主 agent MUST 將它記錄為該輪檔案 `## Fix Actions` 區段中的 triage 註記、MUST 將它納入 signals 寫入步驟的目標集合，且 MUST 將它列在完成輸出中；對於非 blocking 的 `Critical` finding，完成輸出 MUST 額外建議建立後續的 change 提案。非 blocking findings MUST NOT 導致 `next_round` 決策。
 
 主 agent MUST 額外維護本次執行的累積 blocking 集合：本次執行的每個 blocking finding 在被發現時進入該集合，即使沒有 reviewer 再次回報它，仍計入其後每一輪的決策，且只能經由恰好兩種移除事件之一離開該集合：(a) resolved——已為其記錄解決性修正 AND 後續某輪的 reviewer 驗證了該解決（該 finding 未被再次回報，且該驗證在修正位置確認了修正）；Reviewer V、第四輪 checkpoint 的 reviewers 與已 seed 重跑第一輪的 reviewers MUST 各自對每位成員回傳明確的 resolved/unresolved 裁定，且當裁定分歧時，任何 `unresolved` 裁定都使該成員留在集合中；每次 exit-(a) 移除 MUST 記錄在進行移除那一輪的 `## Fix Actions` 中，指名該成員、解決性修正參照與進行驗證的 reviewer；或 (b) accepted——該 finding 在相同 artifact 或檔案以相同缺陷機制，符合依 `接受風險 ledger` requirement 經同意的 accepted-risks 項目；主 agent MUST 每輪根據 accepted-risks ledger 重新評估該集合，且 MUST 將每次此類移除記錄為該輪檔案 `## Fix Actions` 中的 downgrade trace。受 grader 保護而被保留的成員沒有迴圈內的自主移除路徑——修正是被禁止的，只有經同意的 accepted-risks 出口 (b) 適用於它們。當累積 blocking 集合的每位成員都受 grader 保護而被保留且無法取得經同意的出口時，主 agent MUST NOT 再產生 reviewer 輪，且 MUST 以 `decision: aborted` 與 abort triage 結束迴圈；當此條件在某輪的修正階段、機械決策已推導之後才首次成立時，當前尚未定稿的輪檔案記錄 `decision: aborted` 與 abort triage，覆蓋原推導出的 `next_round`。除了未 seed 執行的第一輪之外，當且僅當信心過濾後累積 blocking 集合不含任何 `Critical` 也不含任何 `Warning` finding 時，一輪才通過。本次執行的第一輪保留未分割的通過條件：第一輪中每個存活的 `Critical` 或 `Warning` finding 都是 blocking。在累積 blocking 集合依 `Abort 後的 triage` requirement 被 seed 的重跑中，該次執行的第一輪 MUST 改用累積 blocking 集合的通過條件，且其 reviewers MUST 對照前次執行的 round 檔案標記 dispositions（最終 round 檔案中的 bucket-1 triage 列舉被 seed 的成員）。
 

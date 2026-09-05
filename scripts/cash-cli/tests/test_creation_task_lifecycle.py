@@ -495,6 +495,40 @@ class CreationTaskLifecycleTests(unittest.TestCase):
         touched = mark_task_done(workspace, "demo", "2")
         self.assertEqual(touched["touched"][1]["files"], ["src/b.py"])
 
+    def test_explicit_completion_records_restoration_to_clean(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        source = root / "src/a.py"
+        original = source.read_bytes()
+        source.write_text("a = 99\n")
+        start_in_progress(workspace, "demo")
+        source.write_bytes(original)
+        (root / "src/b.py").write_text("b = 1\n")
+        touched = mark_task_done(workspace, "demo", "1", ["src/a.py"])
+        self.assertEqual(touched["files"], ["src/a.py"])
+        snapshot = json.loads((root / ".cash-skills/state/snapshots/demo.json").read_text())
+        self.assertNotIn("src/a.py", [entry["path"] for entry in snapshot["paths"]])
+        touched = mark_task_done(workspace, "demo", "2")
+        self.assertEqual(touched["touched"][1]["files"], ["src/b.py"])
+
+    def test_explicit_completion_retry_after_commit_is_task_scoped(self) -> None:
+        temporary, root, workspace = self.make_workspace()
+        self.addCleanup(temporary.cleanup)
+        self.add_ready_change(root)
+        start_in_progress(workspace, "demo")
+        (root / "src/a.py").write_text("a = 2\n")
+        expected = mark_task_done(workspace, "demo", "1", ["src/a.py"])
+        subprocess.run(["git", "-C", str(root), "add", "src/a.py"], check=True)
+        subprocess.run(["git", "-C", str(root), "commit", "-qm", "complete source"], check=True)
+        self.assertEqual(mark_task_done(workspace, "demo", "1", ["src/a.py"]), expected)
+        # Once the consumed baseline is cleared, another task cannot claim a
+        # clean path solely because task 1 already owns it.
+        before = (root / "openspec/changes/demo/tasks.md").read_bytes()
+        with self.assertRaises(CashError):
+            mark_task_done(workspace, "demo", "2", ["src/a.py"])
+        self.assertEqual((root / "openspec/changes/demo/tasks.md").read_bytes(), before)
+
     def test_explicit_shared_file_and_empty_task(self) -> None:
         temporary, root, workspace = self.make_workspace()
         self.addCleanup(temporary.cleanup)

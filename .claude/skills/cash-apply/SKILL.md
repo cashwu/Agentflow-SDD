@@ -105,7 +105,7 @@ Implement tasks from a Cash change.
    **Handle states:**
    - Always read `missingArtifacts`; it is present in every state.
    - If `state: "blocked"`: show the non-empty `missingArtifacts` list and suggest using `/cash-propose` to create those artifacts first
-   - If `state: "all_done"`: continue to the cash quality gate before any archive guidance
+   - If `state: "all_done"`: run Pre-gate notes recovery below, then continue to the cash quality gate before any archive guidance
    - If `state: "ready"`: proceed to implementation
    - Any other state or missing required field is a contract error; report it and STOP.
 
@@ -309,10 +309,12 @@ The trigger is guidance only — it MUST NOT block apply from proceeding when th
 
    **Sub-agent reviewer requirement**
 
+   **Pre-gate notes recovery**: before entering any review run, including the `all_done` entry, check whether implementation-notes.md exists. Preserve an existing file unchanged. If absent and no task was processed in this invocation, inspect the current artifacts, implementation diff or relevant commits, available task attribution, and prior review records before writing a reconstructed log. Use a header explicitly saying `reconstructed` and add `## Recovery context` stating the reconstruction date, evidence inspected, observable current deviations, and historical gaps. Do not use the ordinary initialization header or claim that no past deviations occurred. Record confirmed deviations and unresolved contract questions using the normal four-field entry format. If evidence is insufficient to verify a contract item, record that uncertainty as an `open-question`; do not invent past decisions. Historical completeness alone is not a contract failure. If reconstruction cannot be written or artifacts cannot be safely read, stop before spawning reviewers and report the error. This check also runs after the normal task loop, where the eagerly initialized file should already exist.
+
    Reviewer A — Adherence in the Sub-Agent Review/Rating/Fix Loop MUST, at the start of each full round, read `openspec/changes/<change>/implementation-notes.md`. In each micro round, Reviewer V MUST read the same file before verifying fixes.
 
    - **File absent**: this is a Critical finding — cash-apply failed to initialize the running log, indicating either an aborted workflow or a skill-integrity failure. The round MUST NOT pass; recommend re-running cash-apply or back-filling the file before the next round.
-   - **File present with only the initialization comment and no entries**: treat as confirmed empty — cash-apply reached the task loop and found nothing requiring a `deviation` or `open-question` entry. No finding raised by virtue of emptiness alone.
+   - **File present with only the ordinary initialization comment and no entries**: treat as confirmed empty — cash-apply reached the task loop and found nothing requiring a `deviation` or `open-question` entry. No finding raised by virtue of emptiness alone. A reconstructed log is different: assess its cited current-state evidence and unresolved contract questions; never treat reconstruction as proof of an empty historical log. Do not raise a Critical solely because historical notes were unavailable and have now been explicitly reconstructed.
    - **File present with entries**:
      - `deviation` entries are evaluated for whether the divergence is justified. An unjustified deviation is a Critical finding; a justified-but-undocumented-in-`design.md` deviation is at minimum a Warning recommending the divergence be back-filled into `design.md` during Fix Actions.
      - Reviewer A and Reviewer V also evaluate every known-ceiling `deviation` for paired `限制`／`重訪條件` fields, an observable or measurable trigger, and a ceiling outside the current contract envelope. A missing field, vague trigger, or contract-invasive ceiling is part of the existing deviation-justification finding and does not create a new decision branch.
@@ -382,7 +384,7 @@ The trigger is guidance only — it MUST NOT block apply from proceeding when th
 
    **Entry conditions**
    - For `cash-propose`, start this loop only after proposal, design, specs, and tasks artifacts required for apply are complete AND `"$cash_cli" validate "<name>"` has passed. If validation fixes are required, complete them before entering this loop.
-   - For `cash-apply`, start this loop only after all implementation tasks are complete and `tasks.md 全 [x]`.
+   - For `cash-apply`, start this loop only after all implementation tasks are complete and `tasks.md 全 [x]`, and Pre-gate notes recovery has checked or reconstructed implementation-notes.md.
    - Do not run this loop per artifact or per task; the granularity is per-change.
 
    **Pre-round mechanical self-check (main agent, inline)**
@@ -409,9 +411,10 @@ The trigger is guidance only — it MUST NOT block apply from proceeding when th
      - `new`: the finding matches no prior blocking finding. A finding that matches only a prior non-blocking triage note remains `new`; record only a one-line cross-reference to the original triage note, not a duplicate triage note or signal.
    - Disposition matching uses the same artifact or file and the same defect mechanism; line ranges are advisory. If deduplicated findings disagree, a blocking disposition (`unresolved-prior` or `fix-introduced`) wins over `new`.
    - Before accepting a `new` tag, the main agent MUST inspect whether the finding is at a fix-touched location from this loop or, for a seeded re-run, the prior run. If the defect stems from those fix actions, correct it to `fix-introduced` and record the original tag, corrected tag, and evidence in `## Fix Actions`. Record every disposition correction; list blocking-to-non-blocking corrections in the completion output.
-   - A surviving `Critical` or `Warning` finding is blocking if and only if its verified disposition is `unresolved-prior` or `fix-introduced`. In a run's first round, every surviving `Critical` and `Warning` is blocking; a seeded re-run's first round instead uses the seeded cumulative blocking set.
-   - A finding whose latest state is a non-blocking triage note MUST NOT become blocking again merely because it is re-reported. The only exception is new evidence tying it to recorded fix actions, which returns it as `fix-introduced` with a traced correction.
-   - Every surviving `new` finding is non-blocking. Record it as a triage note in `## Fix Actions`, include it in the signals write step, and list it prominently in the completion output. For a non-blocking `Critical`, also recommend a follow-up change proposal.
+   - A surviving `Critical` or `Warning` finding is blocking if and only if its verified disposition is `unresolved-prior` or `fix-introduced`, or it meets the Safety exception below. In a run's first round, every surviving `Critical` and `Warning` is blocking; a seeded re-run's first round uses the seeded cumulative blocking set plus any newly verified Safety exception.
+   - **Safety exception**: a post-filter `Critical` or `Warning`, including `new`, MUST enter the cumulative blocking set when concrete evidence proves data loss or a security vulnerability introduced or permitted by the current change's in-scope artifacts or implementation. Require the affected path and scope declaration, a reachable trigger/input, and a reproduction or explicit code/contract causal chain proving the destructive outcome or security-boundary violation. A security-related label, hypothetical risk, pre-existing unrelated defect, or missing test alone is insufficient. Record the evidence and the reason for applying the exception in `## Fix Actions`; keep the true disposition (`new` is not relabeled `fix-introduced`). Confidence filtering, accepted-risk consent, grader protection, design circuit breaker, the round cap, and verified-resolution requirements still apply. An exception withheld from fixing remains blocking and uses the existing abort/accepted-risk exits.
+   - A finding whose latest state is a non-blocking triage note MUST NOT become blocking again merely because it is re-reported. Exceptions require new evidence tying it to recorded fix actions (return as `fix-introduced` with a traced correction), or new concrete evidence meeting the Safety exception (record the promotion and original triage reference). A promoted finding enters bucket 1 on abort, not bucket 2.
+   - Every surviving `new` finding that does not meet the Safety exception is non-blocking. Record it as a triage note in `## Fix Actions`, include it in the signals write step, and list it prominently in the completion output. For a non-blocking `Critical`, also recommend a follow-up change proposal.
    - Maintain a cumulative blocking set across the run. Every blocking finding enters the set in the round it is found. A member remains in the set even when a reviewer does not re-report it and leaves only through:
      1. verified resolution — a fix is recorded and a later reviewer confirms the fixed location is resolved without re-reporting the finding; or
      2. accepted risk — the member matches a user-consented accepted-risks entry.
@@ -472,6 +475,7 @@ The trigger is guidance only — it MUST NOT block apply from proceeding when th
    - Direct artifact-requirement violations MUST score `100`, except the accepted-risks and cash-apply introduced-by downgrades below take precedence.
 
    **Confidence filter (applied by main agent before the decision)**
+   - Evaluate concrete Safety exception evidence before applying intentional-behavior false-positive exclusions. Merely documenting the destructive or insecure behavior in design.md, implementation-notes.md, or Non-Goals is not user-consented risk acceptance and MUST NOT alone suppress a proven in-scope safety defect. The accepted-risks ledger and introduced-by evidence rules still take precedence; speculative and unrelated pre-existing issues remain excluded.
    - Re-check every `text` finding; if its fix can affect behavior or design, reclassify it to `design`. The main agent MUST NOT reclassify a `design` finding to `text`.
    - For an accepted-risks match, set confidence ≤ 25 and record the downgrade trace.
    - In cash-apply, a Reviewer B `Critical` or `Warning` finding without verifiable `introduced_by` evidence MUST be reduced to confidence ≤ 25. Record the finding and unverifiable reason in `## Fix Actions`, and list every such downgrade in the completion output.
@@ -487,8 +491,8 @@ The trigger is guidance only — it MUST NOT block apply from proceeding when th
    - Issues a linter, typechecker, formatter, or compiler would catch (missing imports, type errors, formatting, broken syntax). CI will fail separately; the review loop is not the right channel.
    - Pedantic style nitpicks that a senior engineer would not call out in review.
    - "Missing test coverage" complaints unless `tasks.md` or `design.md` explicitly required the test, or a spec `##### Example:` block is not exercised.
-   - Issues already documented as intentional in `design.md`, `implementation-notes.md`, the proposal's Non-Goals section, or `## Alternatives Considered`.
-   - Intentional behavior changes that align with the proposal's `## Proposed Solution`.
+   - Issues already documented as intentional in `design.md`, `implementation-notes.md`, the proposal's Non-Goals section, or `## Alternatives Considered`, unless concrete Safety exception evidence applies.
+   - Intentional behavior changes that align with the proposal's `## Proposed Solution`, unless concrete Safety exception evidence applies.
    - Suggestions to add abstractions, configurability, or defensive error handling that the spec/contract did not require — these conflict with Focused Implementation Discipline.
    - Suggestions to refactor unrelated code touched only incidentally — these conflict with Focused Implementation Discipline.
 
