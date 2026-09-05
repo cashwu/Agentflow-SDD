@@ -6,6 +6,52 @@ TBD - 由封存 change 'fork-spectra-skills-to-cash' 而建立。封存後請更
 
 ## Requirements
 
+### Requirement: Reviewer 失敗後保留義務並完整恢復
+
+propose／apply 遇到 reviewer 連續失敗時 MUST 在 aborted round 保存最後已知 cumulative blocking set、修正參照與有效 reviewer 輸出。失敗裁定 MUST NOT 解除成員或使已知 blocking counts 歸零。授權重跑時 SHALL 依 Failure-abort recovery 重建歷史未解決義務，以 full 第一輪逐一驗證且納入該輪全部存活 Critical／Warning。檔號 MUST 續號；歷史不足 MUST 明示，不能冒充已確認空集合。
+
+#### Scenario: 修正尚未驗證時 reviewer 失敗
+
+- **GIVEN** 第一輪 Warning 已有修正紀錄，第二輪 reviewer 連續失敗
+- **WHEN** 使用者要求重跑
+- **THEN** 該 Warning MUST 保留為待驗證成員，直到兩位 full reviewers 驗證解除
+- **AND** 恢復第一輪新發現的存活 Warning 也 MUST 阻塞
+
+#### Scenario: 失敗紀錄沒有 bucket
+
+- **GIVEN** 歷史 aborted round 沒有 bucket-1 區段
+- **WHEN** 恢復 review
+- **THEN** agent MUST 從可讀 round 紀錄重建成員，揭露歷史缺口並完整重審目前交付
+- **AND** MUST NOT 因沒有 bucket 就宣稱無待解決問題
+
+### Requirement: Apply 區分必要決策與範圍外建議
+
+apply 的 `open-question` SHALL 僅表示本次 contract／scope 需要使用者決定的未解問題。agent MUST 記錄後暫停受影響 task 並導向 cash-ingest，MUST NOT 以記錄假設代替授權繼續或 task done。contract 不變的內部手段選擇 SHALL 維持 blocker triage 的 deviation 繼續分支。前置分析的 inline artifact 修正 SHALL 僅限 contract-preserving 修正。
+
+範圍外建議 SHALL 放在 implementation-notes.md 的 `## Follow-up suggestions` 並在完成摘要列出，MUST NOT 單因尚待決定而阻塞。舊 open-question 若實為無關工作 SHALL 保留原文並追加附證據的 scope-classification note。此分類 MUST NOT 遮蔽未滿足 contract 或 in-scope Safety exception，已進 blocking set 的項目仍須 reviewer 驗證解除或使用者同意風險。
+
+#### Scenario: 發現無關的既有死碼
+
+- **WHEN** agent 發現不影響本次 contract 的既有死碼
+- **THEN** SHALL 列為 follow-up suggestion，不修改死碼、不建立阻塞 open-question
+- **AND** reviewer MUST NOT 僅因使用者尚未決定是否清理而產生 Warning
+
+#### Scenario: 缺少會改變 contract 的 schema 決策
+
+- **WHEN** task 所需 schema 欄位的語意需要使用者決定
+- **THEN** agent MUST 記錄 open-question、暫停並導向 cash-ingest
+- **AND** MUST NOT 先假設欄位語意實作或標記 task done
+
+### Requirement: Discuss 依證據充分度選擇模式
+
+discuss SHALL 依能否提出有根據的建議選擇 assumptions 或 interview mode，MUST NOT 以 source file 數量作為門檻。證據 SHALL 包含相關 specs、文件、測試、設定與已確認的對話決策。只在影響建議的決策仍缺證據或意圖時詢問，MUST NOT 重問既有明確決策或湊滿固定數量的假設。
+
+#### Scenario: 文件型專案已有充分需求
+
+- **GIVEN** 專案沒有三個 source files，但文件與對話已完整界定需求
+- **WHEN** 使用者要求討論方案
+- **THEN** discuss SHALL 直接提出有依據的建議並收斂，不因 source file 數量而強制訪談
+
 ### Requirement: Cash 自身變更的發布順序
 
 apply task loop 與 propose／apply review 或 self-check 若修改 managed runtime、任一 canonical skill 變體或 bundle version，MUST 在下一個 Cash command（包含 verification、task done 與 touched）之前完成 Managed bundle publication。一般 application／artifact 修改 MUST NOT 觸發此發布。canonical source SHALL 依權威來源生成變體、同步版本並執行 non-Cash 檢查後，以 `./install-cash-skills.fish --self` 更新 portable manifest，MUST NOT 稱為重新簽發 receipt。平行 bundle 寫入 MUST 全部完成後才發布，產出檔案 MUST 歸屬實際產生它們的任務。
@@ -1675,7 +1721,7 @@ micro 輪 MUST 恰好產生一位全新的驗證 reviewer sub-agent（`Reviewer 
 - **WHEN** 一個 cash-apply micro 輪開始
 - **THEN** Reviewer V 依 Implementation Notes Protocol 閱讀 `openspec/changes/<change>/implementation-notes.md`
 - **AND** 檔案缺失產生一個 `Critical` finding
-- **AND** 未解決的 `open-question` 項目產生一個 `Warning` finding
+- **AND** 未解決且影響本次 contract／scope 的 `open-question` 項目產生一個 `Warning` finding；附證據的範圍外建議不單因尚待決定而產生 finding
 
 #### Scenario: 分歧的 layer 值保守合併
 
@@ -2224,7 +2270,7 @@ tests:
 
 ### Requirement: Abort 後的 triage
 
-當審查迴圈因輪數上限、修正迴圈設計斷路器或完全受 grader 保護的短路而以 `decision: aborted` 結束時，主 agent MUST 將每個未解決的存活 finding 分流至三個 bucket 中恰好一個，並將該 triage 同時記錄在最終 aborted 輪檔案的 `## Fix Actions` 區段與完成輸出中：(1) 仍屬該 change 義務的 findings——每個未經由同意路徑被接受的累積 blocking 集合成員，無論其 disposition 為何或是否缺少 disposition（fix-introduced 回歸與 unresolved-prior findings 是典型情況）；(2) 在本迴圈中從未 blocking 的新發現或設計層級問題——該 finding 被寫入 signals，且對 `Critical` finding，輸出 MUST 建議建立後續的 change 提案；(3) 接受的取捨——該 finding 依 `接受風險 ledger` requirement 的同意規則寫入 accepted-risks ledger；當無法在當前 session 取得同意時，該 finding MUST 改分流至 bucket 1——它仍是該 change 的義務並 seed 重跑——並附註 accepted-risks 記錄已延後等待使用者同意。Bucket 2 MUST NOT 收納任何在本迴圈中曾為 blocking 的 finding。完成輸出 MUST NOT 在缺少此 triage 的情況下建議重跑同一迴圈。abort 後的迴圈重跑 MUST NOT 覆寫先前的 round 檔案：其 round 檔案自該 skill 最後一個既有 round 檔案接續編號，而 6 輪上限與輪型別推導以新執行中的位置運作（其第一輪是 full 輪）。重跑的第一輪 reviewer 情境 MUST 包含前次執行的 round 檔案（或依摘錄後備方案的摘錄），且重跑的累積 blocking 集合 MUST 以前次執行的 bucket-1 findings 進行 seed，使它們以 blocking 身分重新進入審查；重跑的第一輪 reviewers MUST 回傳與 Reviewer V 相同的每成員 resolved/unresolved 裁定，因此解決性修正已記錄於前次執行的 seed 成員可以在重跑的第一輪離開集合。當已 seed 重跑的整個被 seed 集合皆受 grader 保護而被保留且無法取得經同意的出口時，短路在產生重跑第一輪 reviewers 之前評估：該次執行恰好寫入一個承載該 triage 的 round 檔案（接續編號、`round_type: full`、無 reviewer findings、`decision: aborted`）、追加一列帶有相同 `round_type` 的 ledger 列，且其完成輸出 MUST 指引使用者在任何進一步重跑之前，為受保護成員取得同意，或經由與變體相稱的 `cash-ingest` 呼叫擴充該 change 的結構化範圍宣告。由連續 sub-agent 失敗造成的 aborts 保留既有的失敗處理行為並豁免於此 triage；proposal 層級的範圍錯誤 aborts 同樣豁免，因為該 change 預期從頭重新提案而非重跑。
+當審查迴圈因輪數上限、修正迴圈設計斷路器或完全受 grader 保護的短路而以 `decision: aborted` 結束時，主 agent MUST 將每個未解決的存活 finding 分流至三個 bucket 中恰好一個，並將該 triage 同時記錄在最終 aborted 輪檔案的 `## Fix Actions` 區段與完成輸出中：(1) 仍屬該 change 義務的 findings——每個未經由同意路徑被接受的累積 blocking 集合成員，無論其 disposition 為何或是否缺少 disposition（fix-introduced 回歸與 unresolved-prior findings 是典型情況）；(2) 在本迴圈中從未 blocking 的新發現或設計層級問題——該 finding 被寫入 signals，且對 `Critical` finding，輸出 MUST 建議建立後續的 change 提案；(3) 接受的取捨——該 finding 依 `接受風險 ledger` requirement 的同意規則寫入 accepted-risks ledger；當無法在當前 session 取得同意時，該 finding MUST 改分流至 bucket 1——它仍是該 change 的義務並 seed 重跑——並附註 accepted-risks 記錄已延後等待使用者同意。Bucket 2 MUST NOT 收納任何在本迴圈中曾為 blocking 的 finding。完成輸出 MUST NOT 在缺少此 triage 的情況下建議重跑同一迴圈。abort 後的迴圈重跑 MUST NOT 覆寫先前的 round 檔案：其 round 檔案自該 skill 最後一個既有 round 檔案接續編號，而 6 輪上限與輪型別推導以新執行中的位置運作（其第一輪是 full 輪）。重跑的第一輪 reviewer 情境 MUST 包含前次執行的 round 檔案（或依摘錄後備方案的摘錄），且重跑的累積 blocking 集合 MUST 以前次執行的 bucket-1 findings 進行 seed，使它們以 blocking 身分重新進入審查；重跑的第一輪 reviewers MUST 回傳與 Reviewer V 相同的每成員 resolved/unresolved 裁定，因此解決性修正已記錄於前次執行的 seed 成員可以在重跑的第一輪離開集合。當已 seed 重跑的整個被 seed 集合皆受 grader 保護而被保留且無法取得經同意的出口時，短路在產生重跑第一輪 reviewers 之前評估：該次執行恰好寫入一個承載該 triage 的 round 檔案（接續編號、`round_type: full`、無 reviewer findings、`decision: aborted`）、追加一列帶有相同 `round_type` 的 ledger 列，且其完成輸出 MUST 指引使用者在任何進一步重跑之前，為受保護成員取得同意，或經由與變體相稱的 `cash-ingest` 呼叫擴充該 change 的結構化範圍宣告。由連續 sub-agent 失敗造成的 aborts MUST 改用 Failure-abort recovery：保存既知 blocking 集合與有效 reviewer 結果，重跑時從歷史重建未解決成員；恢復第一輪 MUST 為 full，兩位 reviewers MUST 逐成員裁定，且該輪全部存活 Critical／Warning MUST 阻塞，不受一般 seeded 第一輪只接納既有成員與 Safety exception 的限制。歷史不完整時 MUST 揭露缺口、保留所有既知未解決成員並完整審查目前交付，不得把缺少 bucket 視為已清空集合。proposal 層級的範圍錯誤 aborts 仍豁免 bucket triage，MUST 先修正 scope 再完整重審，不代表提案通過。
 
 #### Scenario: 輪數上限 abort 產生三個 bucket 的 triage
 

@@ -57,21 +57,21 @@ Pull 2-5 keywords from the user's topic. For "search should support fuzzy matchi
 
 ### Step 2: Scout the codebase
 
-Use Grep and Glob to find related source files (not docs, not tests — source code). Spend no more than a few seconds on this. Read up to 5 of the most relevant files found.
+For code or requirement topics, first use `"$cash_cli" search "<query>" --limit 10 --json`; after a valid zero-result, fall back to Grep/Glob over specs and source. Include relevant documentation, tests, configuration, and conversation decisions as evidence, not only source code. Keep the scout focused and read the most relevant files; a specific change name selects its artifacts directly. Report command errors rather than treating them as zero results.
 
 ### Step 3: Pick a mode
 
-- **3+ related source files found** → **Assumptions mode**: you have enough context to form opinions. List your assumptions, let the user correct.
-- **Fewer than 3 related source files found** → **Interview mode**: not enough code to base assumptions on. Fall through to "How to Discuss" below and ask questions one at a time.
+- **Evidence supports a concrete recommendation** → **Assumptions mode**: state the recommendation and only the assumptions that materially affect it. Existing explicit decisions are established context, not questions to ask again.
+- **A material decision lacks evidence or user intent** → **Interview mode**: ask the one question whose answer changes the recommendation. File count and file type do not determine the mode; a document-only or single-file project may already provide sufficient context.
 
-Announce which mode you picked and why: "Found `search.rs`, `SearchPanel.svelte`, `search-store.ts` — I have enough context to list my assumptions." or "Didn't find much related code — I'll ask questions instead."
+Announce which mode you picked and the evidence or missing decision behind it, for example: "The spec and your confirmed constraints support a recommendation" or "The required retention period is still unknown and changes the storage choice — I'll ask about that first."
 
 ### Assumptions mode
 
-When you enter assumptions mode, present 3-5 assumptions. Each one MUST include:
+When you enter assumptions mode, present only material unconfirmed assumptions, if any. Each one MUST include:
 
 1. **Approach**: what you'd do and why
-2. **Evidence**: file path(s) that informed this assumption
+2. **Evidence**: relevant file path(s) or confirmed conversation context that informed this assumption
 3. **If wrong**: concrete consequence of getting this wrong
 
 Example:
@@ -92,7 +92,7 @@ Example:
    If wrong: moving to frontend means rewriting the scoring logic in TypeScript
 ```
 
-After presenting, ask: **"Which of these are wrong?"**
+If unconfirmed assumptions remain, ask: **"Which of these are wrong?"** Otherwise proceed directly to Convergence without an extra confirmation.
 
 - If the user says all are fine → proceed to Convergence with these as established context.
 - If the user flags corrections → for each one, ask ONE focused follow-up question to understand their intent, then proceed to Convergence with the corrected understanding.
@@ -128,7 +128,7 @@ Surface the answers in the conclusion (or the assumptions list, if you are in as
 
 ## How to Discuss
 
-_This section applies to interview mode — either chosen automatically (insufficient code context) or switched to manually by the user._
+_This section applies to interview mode — either chosen because a material decision lacks evidence or intent, or switched to manually by the user._
 
 **One question at a time.** Don't dump a list of 10 questions. Ask the most important one, listen, then follow up. Let the conversation breathe. If the user's initial description or previous answers already cover a question, skip it — don't ask what you already know.
 

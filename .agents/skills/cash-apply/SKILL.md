@@ -141,7 +141,7 @@ Run `"$cash_cli" analyze <change-name> --json` to check cross-artifact consisten
 - **Zero findings**: silently continue.
 - **Warning/Suggestion only**: display a one-line summary (e.g., "⚠ Artifact analysis: 2 warnings found") and continue automatically.
 - **Critical findings**: display each Critical finding (summary + location + recommendation), then use the **AskUserQuestion tool**:
-  - **Fix and continue** — fix the artifact issues inline, then proceed
+  - **Fix and continue** — fix contract-preserving artifact issues inline, re-run analysis, then proceed. If the fix changes contract/scope or requires a user decision, pause and hand off to `$cash-ingest`; this choice does not authorize guessing a new contract
   - **Continue anyway** — skip fixes and start implementation
   - **Stop** — end the workflow
 
@@ -252,7 +252,7 @@ The trigger is guidance only — it MUST NOT block apply from proceeding when th
 
 - 只實作 `tasks.md` 任務描述與 `design.md` Implementation Contract 要求的功能；不要為單一使用情境引入抽象層、設定選項或額外彈性，也不要為 contract 已排除或型別已保證的情境撰寫防禦性錯誤處理——只在系統邊界（外部輸入、外部 API）驗證。
 - 只修改任務直接需要的區塊，不順手改鄰近內容，也不重構沒有問題的既有程式碼；即使既有風格與你習慣不同也跟著現況走（match existing style），且只清除因本次改動而變成 orphan 的 import、變數與函式。
-- 若注意到不相關的死碼、bug 或可改進處，不要直接刪或改；依 Implementation Notes Protocol 在 `implementation-notes.md` 以 `open-question` 條目記錄，交給使用者決定。
+- 若注意到不相關的死碼、bug 或可改進處，不要直接刪或改；在 `implementation-notes.md` 的 `## Follow-up suggestions` 記錄位置、原因及範圍外依據，並在最終摘要列出。這是非阻塞建議，不建立 `open-question`，也不要求使用者先決定才能完成本次交付。
 - 驗收標準：本次 diff 的每一行，都能直接追溯到 `tasks.md` 中的某條任務或 `design.md` 中的 Implementation Contract 項目。
 - 以 future-self 或 reviewer 能在幾秒內理解每行意圖為清晰度判準；clarity 永遠優先於 brevity。
 - 違反上述任一條視同 task 未完成，在執行 `"$cash_cli" task done` 之前先修正。若刻意 deviate，依 Implementation Notes Protocol 寫一筆 `deviation` 條目並說明原因。
@@ -300,7 +300,7 @@ The trigger is guidance only — it MUST NOT block apply from proceeding when th
 
    **When to write an entry**
    - When task-level implementation diverges from `design.md` Implementation Contract, `tasks.md` description, or relevant `spec.md` requirements — write a `deviation` entry before marking the task done.
-   - When the task surfaces a question the user must decide (e.g. ambiguous requirement, missing schema field, contested naming) and the agent has to proceed under an assumption — write an `open-question` entry naming the assumption.
+   - When a task surfaces a question whose answer may change contract or scope and needs a user decision, write an `open-question` naming the unresolved decision, pause the affected task, and direct the user to `$cash-ingest`. Recording a note does not authorize proceeding under an assumption or calling `task done`. A contract-preserving internal mechanism choice follows blocker triage's continuation branch, not this pause rule.
    - Do not batch entries to the end of the session; record at the moment the decision is made, while context is fresh.
 
    **When NOT to write an entry**
@@ -319,7 +319,7 @@ The trigger is guidance only — it MUST NOT block apply from proceeding when th
    - **File present with entries**:
      - `deviation` entries are evaluated for whether the divergence is justified. An unjustified deviation is a Critical finding; a justified-but-undocumented-in-`design.md` deviation is at minimum a Warning recommending the divergence be back-filled into `design.md` during Fix Actions.
      - Reviewer A and Reviewer V also evaluate every known-ceiling `deviation` for paired `限制`／`重訪條件` fields, an observable or measurable trigger, and a ceiling outside the current contract envelope. A missing field, vague trigger, or contract-invasive ceiling is part of the existing deviation-justification finding and does not create a new decision branch.
-     - `open-question` entries are surfaced as Warning findings with a recommended `## Fix Actions` step naming how to obtain user confirmation before the round can pass.
+     - Unresolved in-scope `open-question` entries are surfaced as Warning findings with a recommended `## Fix Actions` step naming how to obtain user confirmation before the round can pass. `## Follow-up suggestions` is non-blocking. For legacy `open-question` entries about unrelated work, preserve the original and append a scope-classification note with evidence; reviewers must not raise a Warning solely because that unrelated suggestion awaits a decision. Do not use this classification to hide an unmet current contract item or an in-scope Safety exception. A finding already in the cumulative blocking set still requires reviewer-verified resolution or consented acceptance; the main agent cannot remove it by relabeling the note.
 
    The main agent derives the round decision mechanically from the post-filter reviewer findings and does not read this file directly; that round's reviewer findings already incorporate the notes context.
 
@@ -508,8 +508,9 @@ The trigger is guidance only — it MUST NOT block apply from proceeding when th
    - If a reviewer returns no response or malformed output, retry once with a fresh sub-agent invocation for the reviewer role.
    - If both full-round parallel reviewers fail in the same round, treat it as a single role failure (the reviewer role); retry once.
    - If the same role fails two consecutive times in a single round, abort the entire cash workflow.
-   - On abort from sub-agent failure, write the current round file with `decision: aborted` and include the failure note in `## Decision`.
+   - On abort from sub-agent failure, write the current round file with `decision: aborted` and include the failure note in `## Decision`. Preserve the last known cumulative blocking set, fix references, and any valid reviewer output in that file; a failed or missing verdict never resolves a member. Record known blocking counts, not zero merely because a reviewer failed.
    - Do not mark a malformed or failed round as passed, and do not continue to the next round after two consecutive failures.
+   - **Failure-abort recovery**: on an authorized re-run after reviewer failure, reconstruct unresolved members from the prior run's round files, including inherited seeds, recorded fixes, verified removals, and consented risks; do not rely on an absent bucket-1 section. Start a full recovery round with those known members and require both reviewers' explicit resolved/unresolved verdicts per member. Unlike an ordinary seeded re-run, every surviving Critical/Warning in this recovery first round is also blocking, so an incomplete prior scan cannot suppress new findings. If historical evidence is incomplete, disclose the gap and retain all known unresolved members while fully reviewing current artifacts/implementation; never interpret missing history as an empty verified set. If current review inputs cannot be safely read, stop. Continue filenames without overwriting history and use this run's positions for round types and the cap. Reviewer availability is the retry prerequisite; already-recorded fixes may await verification rather than another code change.
 
    **Decision record requirements**
    - Record the post-filter cumulative blocking set's Critical count and Warning count. In an unseeded run's first round, use all surviving Critical and Warning findings because all are blocking.
@@ -559,7 +560,7 @@ The trigger is guidance only — it MUST NOT block apply from proceeding when th
    - A re-run MUST continue numbering after the highest existing round file, include every prior round file or the extract fallback, seed the cumulative blocking set from the prior run's bucket-1 findings, and apply the cumulative-set pass condition in its first full round. Its first-round reviewers return an explicit resolved/unresolved verdict per member.
    - The 6-round cap and round type use positions within the new run, independent of global round-file numbers.
    - If a seeded re-run starts while all members are withheld under grader protection and no consented exit exists, short-circuit before reviewers: write one continued-number round file with no reviewer findings, `round_type: full`, `decision: aborted`, and triage; append one ledger row. The pre-spawn short-circuit round uses `round_type: full` and spawns no reviewer. The completion output MUST direct the user to obtain consent for the protected members or expand the structured scope declarations via `$cash-ingest` before any further re-run.
-   - Consecutive sub-agent failure aborts and proposal-level scope-error aborts are exempt from this triage.
+   - Consecutive sub-agent failure aborts use Failure-abort recovery instead of bucket triage; this is also the exception to the ordinary seeded first-round admission rule. Proposal-level scope-error aborts remain exempt from this triage and require corrected scope before a full re-proposal review; do not treat missing buckets as evidence that the proposal passed.
 
    <!-- GRADER-IMMUTABILITY -->
    **Grader immutability**
