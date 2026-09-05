@@ -212,7 +212,7 @@ This is a **utility skill** (not a workflow step). It reads source file tracking
     2. Add only these archive-related file changes to the commit set:
        - Deletions under `openspec/changes/<name>/`
        - Additions or modifications under `openspec/changes/archive/<date>-<change>/`
-       - Changes under `openspec/specs/` only when 6a-ii recorded the outcome `synced`
+       - Changes under `openspec/specs/` only when 6a-ii recorded the outcome `synced`, and only paths in the successful archive's `archive-manifest.json` `master_digests` whose current SHA-256 equals the recorded digest. Reuse step 2a's spec sync set rules. Other dirty master specs remain Unrelated Changes; directory membership alone is not attribution. If the manifest cannot be read or validated, stop before staging.
     3. Keep all other post-archive dirty files in Unrelated Changes unless they were part of the pre-archive confirmed commit set
     4. Display an **updated commit plan** showing all sections:
 
@@ -250,7 +250,7 @@ This is a **utility skill** (not a workflow step). It reads source file tracking
 
 7. **Generate commit message**
 
-   Read the proposal file at `openspec/changes/<name>/proposal.md`. Extract the first sentence from the Why section (or Problem/Summary section if Why is absent). When step 2a applies, read the proposal and the tasks file from the resolved archive directory instead — the active change directory no longer exists.
+   Read the proposal file at `openspec/changes/<name>/proposal.md`. Extract the first sentence from the Why section (or Problem/Summary section if Why is absent). When step 2a applies OR step 6a archived the change in this invocation, read the proposal and the tasks file from the resolved archive directory instead — the active change directory no longer exists. For step 6a, retain the successful archive destination and use it for both reads.
 
    Generate a message in this format:
 
@@ -277,6 +277,8 @@ This is a **utility skill** (not a workflow step). It reads source file tracking
 
 8. **Selective staging**
 
+   Before staging, run `git diff --cached --name-only -z --no-renames` from the project root and compare every staged path with the confirmed commit set. If any staged path is outside that set, stop and report those paths; do not unstage, reset, or commit them. Preserve the user's index and ask them to resolve the unrelated staged entries before retrying. A failed command or malformed output also stops the workflow.
+
    Stage each confirmed file individually:
 
    ```bash
@@ -289,8 +291,10 @@ This is a **utility skill** (not a workflow step). It reads source file tracking
 
 9. **Commit**
 
+   Immediately before committing, repeat the staged-path check above and require the staged path set to equal the confirmed dirty commit set. On any mismatch, stop without committing. Use a commit-message file and `--file` so multiline text and shell metacharacters are preserved literally.
+
    ```bash
-   git commit -m "<message>"
+   git commit --file <message-file>
    ```
 
 10. **Show result**

@@ -25,7 +25,7 @@ This tool resolves plan file references as ordinary paths relative to the curren
 
 **Prerequisites**: The project-local launcher initialized above is required. If root resolution, launcher validation, or a Cash command fails, report the exact error and STOP.
 
-**Input**: Optionally specify a plan file path or name.
+**Input**: Optionally specify an existing change name, or a plan file path or name. An existing change name selects the update target and uses conversation context as the requirement source.
 
 - `$cash-ingest agile-discovering-rocket.md`
 - `$cash-ingest agile-discovering-rocket`
@@ -36,6 +36,8 @@ This tool resolves plan file references as ordinary paths relative to the curren
 **Steps**
 
 1. **Locate the requirement source**
+
+   First, when an argument is provided, run `"$cash_cli" list --json` and `"$cash_cli" list --parked --json`. If it exactly matches an active or parked change name, retain that explicit target and use conversation context, then go to Step 3. This change-name match takes precedence over plan-file resolution below; an explicit path such as `./update-plan.md` selects a plan instead. If the context lacks the requested update, ask for that information; do not interpret the selected change as a missing plan file.
 
    a. **Argument provided** → treat as a plan file reference, resolve it relative to the current working directory or repository root, and append `.md` if needed
    - If the file exists → use it as the plan file source, proceed to Step 2
@@ -91,8 +93,9 @@ This tool resolves plan file references as ordinary paths relative to the curren
    ```
 
    Parse both JSON outputs to get the full list of changes (active + parked). Parked changes should be annotated with "(parked)" in any selection list.
-   - If one change exists (active or parked) → use the **AskUserQuestion tool** to confirm updating it
-   - If multiple changes exist → use the **AskUserQuestion tool** to let user pick which one to update
+   - If Step 1 retained an explicit target → use that target without asking the user to select again; Step 4's parked handling still applies
+   - Otherwise, if one change exists (active or parked) → use the **AskUserQuestion tool** to confirm updating it
+   - Otherwise, if multiple changes exist → use the **AskUserQuestion tool** to let user pick which one to update
    - If no changes at all (neither active nor parked) → tell the user: "No active change found. Use `$cash-propose` first to create one." and **stop**
 
 4. **Select the change**
