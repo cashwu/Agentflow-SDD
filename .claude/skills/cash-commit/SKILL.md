@@ -213,7 +213,7 @@ This is a **utility skill** (not a workflow step). It reads source file tracking
     After archive completes successfully:
 
     1. Re-run `git status --porcelain=v1 -z --untracked-files=all` using step 3's parsing rules only to identify allowlisted archive outputs. Do not treat the full post-archive dirty state as archive output.
-    2. Add only these archive-related file changes to the commit set:
+    2. Replace the pre-archive artifact set with the following actual post-archive dirty paths; do not merely append them to the old set. Retain the confirmed source/review-loop sets and other customizations, intersected with the current dirty set. An old untracked artifact moved into archive is absent, not a Git deletion, and MUST NOT remain as a staging target. Resolve the exact destination returned by this archive rather than selecting unrelated archive directories. Preserve explicit artifact exclusions across the move by mapping their old relative suffix to that destination; show excluded paths under Unrelated Changes. Rebuild from only:
        - Deletions under `openspec/changes/<name>/`
        - Additions or modifications under `openspec/changes/archive/<date>-<change>/`
        - Changes under `openspec/specs/` only when 6a-ii recorded the outcome `synced`, and only paths in the successful archive's `archive-manifest.json` `master_digests` whose current SHA-256 equals the recorded digest. Reuse step 2a's spec sync set rules. Other dirty master specs remain Unrelated Changes; directory membership alone is not attribution. If the manifest cannot be read or validated, stop before staging.

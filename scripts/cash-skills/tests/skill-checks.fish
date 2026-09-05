@@ -140,7 +140,7 @@ function assert_command_matrix
             'carry this warning into the final completion output' \
             '"$cash_cli" touched ensure "<change-name>"' \
             '"$cash_cli" touched record "<change-name>" --path <path>' \
-            'rebuild the receipt before the next cash command'
+            'This maintains the manifest, not a receipt.'
             assert_contains "$path" "$literal" "review-loop output tracking"
         end
     end

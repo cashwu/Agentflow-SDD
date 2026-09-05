@@ -6,6 +6,41 @@ TBD - 由封存 change 'fork-spectra-skills-to-cash' 而建立。封存後請更
 
 ## Requirements
 
+### Requirement: Cash 自身變更的發布順序
+
+apply task loop 與 propose／apply review 或 self-check 若修改 managed runtime、任一 canonical skill 變體或 bundle version，MUST 在下一個 Cash command（包含 verification、task done 與 touched）之前完成 Managed bundle publication。一般 application／artifact 修改 MUST NOT 觸發此發布。canonical source SHALL 依權威來源生成變體、同步版本並執行 non-Cash 檢查後，以 `./install-cash-skills.fish --self` 更新 portable manifest，MUST NOT 稱為重新簽發 receipt。平行 bundle 寫入 MUST 全部完成後才發布，產出檔案 MUST 歸屬實際產生它們的任務。
+
+vendored／receipt-based target MUST 透過含有所需變更的可信 source installer 與既有安裝模式發布，MUST NOT 用 source-only `--self`、手改 digest 或 `--init-receipt` 簽認修改內容。可信來源或安全更新路徑缺失時 SHALL 停止並保留 local edits；MUST NOT 以 force 覆寫不相關修改。任何 publication failure MUST 停止後續 Cash command，MUST NOT 降為 best-effort tracking warning。既有未知 drift MUST NOT 被當作本 task 的合法修改。
+
+#### Scenario: 修改 skill 後登記任務
+
+- **GIVEN** canonical source 的 apply task 修改了受管 skill
+- **WHEN** 即將呼叫 task done 或 Cash verification command
+- **THEN** workflow MUST 先生成變體、同步版本並成功發布 manifest
+- **AND** publication 失敗時 MUST NOT 登記 task 完成
+
+### Requirement: 品質關卡通過後重跑
+
+propose／apply 每次後續 review run，無論前次為 passed 或 aborted，MUST 從該 skill 最高既有 round 檔號之後續號，MUST NOT 覆寫 completed rounds 或重設 ledger。使用者要求在 passed 後重跑時 SHALL 開始 unseeded run，第一輪 MUST 為 full、blocking 集合重新建立，並重新讀取當前 artifacts／implementation 與 accepted-risks。先前 passed run 的 findings／fixes SHALL 僅為歷史背景，不自動繼承為 blockers 或 current-run fix actions；新 run 第一輪所有存活 Critical／Warning MUST 依一般規則阻塞。aborted 後 SHALL 保留 bucket-1 seeded 規則。輪型別與六輪上限 MUST 依本次 run 內的位置計算。
+
+#### Scenario: passed 後再次執行 apply
+
+- **GIVEN** apply-r1.md 與 apply-r2.md 已存在，前次 run 最後結果為 passed
+- **WHEN** 使用者要求重跑品質關卡
+- **THEN** 新 run SHALL 從 apply-r3.md 開始，round_type MUST 為 full
+- **AND** 既有紀錄 MUST 保留，新 findings MUST 經完整第一輪判定
+
+### Requirement: 封存後重建 commit artifacts
+
+cash-commit 的 archive sub-flow SHALL 在 archive 成功後，以同一次 archive 的確切 destination 與 NUL 格式 dirty set 重新建立 artifact 集合，MUST NOT 僅在舊集合追加檔案。原 active change 路徑只保留 Git 實際報告的 deletion；原本 untracked 的 artifact 搬走後 MUST NOT 作為不存在的 staging target。既有 source／review-loop 選擇與其他 customizations SHALL 保留並取當前 dirty 交集；明確排除的 artifact SHALL 依 relative suffix 對映到 archive destination 繼續排除。master spec 同步集合 SHALL 維持 archive manifest 路徑與 digest 限制。
+
+#### Scenario: 未追蹤的 artifacts 先封存再提交
+
+- **GIVEN** proposal.md 與 tasks.md 尚未納入 Git
+- **WHEN** 使用者選擇 Archive first, then commit together
+- **THEN** staging 集合 MUST 包含符合確認範圍的 archive 檔案
+- **AND** MUST NOT 包含已搬走、且並非 Git deletion 的 active artifact 路徑
+
 ### Requirement: 核心流程的授權與續作
 
 `cash-discuss` SHALL 預設只輸出結論；已有明確記錄授權時 MUST NOT 重複詢問。涉及既有 change contract／範圍／設計／tasks 的更新 MUST 透過 `cash-ingest` 同步 artifacts，MUST NOT 在 discuss 單獨改寫 design 或 master spec。未授權更新時 SHALL 只建議 handoff。
