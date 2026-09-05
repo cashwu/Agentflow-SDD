@@ -923,11 +923,11 @@ tests:
 
 ### Requirement: Bundle 安裝與 runtime receipt
 
-本 requirement的receipt publication與receipt-based direct／registry／batch語意適用於manifest缺失的target；manifest-present launcher、`--vendor`、source-only `--self`及approved launcher replacement分別由 `Portable manifest 啟動信任模式`、`Repo-vendored Cash bundle 發佈`與 `受控 launcher bootstrap migration` requirements治理。這些具名情境以其較窄契約優先，其餘既有receipt schema、inventory與fail-closed行為不變。
+本 requirement的receipt publication與receipt-based direct／registry／batch語意適用於manifest缺失的target；manifest-present launcher、`--vendor`、source-only `--self`及approved launcher replacement分別由 `Portable manifest 啟動信任模式`、`Repo-vendored Cash bundle 發佈`與 `受控 launcher bootstrap migration` requirements治理。這些具名情境以其較窄契約優先，其餘既有receipt schema、inventory與fail-closed行為不變。Stable record的identity比對條件與其失敗診斷另由 `Stable receipt identity 比對條件與 gate 診斷` requirement治理，並以其較窄契約優先。
 
 `install-cash-skills.fish` SHALL將stable launcher/lock、replaceable runtime generation、24個Cash skills與`.cash-skills/receipt.tsv`視為同一versioned inventory。`cash-skills.version` MUST恰含一個`MAJOR.MINOR.PATCH`值，三個分量各符合`0|[1-9][0-9]*`，不得含前導零、prerelease或build suffix。版本排序 MUST以每個digit string的長度再以lexical bytes比較任意長度分量，不得轉換為fixed-width integer或float。任何replaceable runtime/skill bytes或contract mode改變 MUST調升bundle version；相同版本 MUST綁定first-parent history中的引入commit，後續相同版本內容漂移 MUST使contract test失敗。Stable workspace-lock bytes不得隨bundle version改變；stable launcher bytes只有在bundle version嚴格調升且命中受控migration的exact transition時可改變，其他source drift MUST為execution error。
 
-preflight MUST在任何target write前驗證Python 3.11+、source version及完整bootstrap/runtime/skill inventory、destination boundaries、legacy full-body digests、mode與config migration。direct、register與batch targets MUST各自是Git worktree top-level；non-Git或Git子目錄target MUST fail closed。target的`openspec/config.yaml`存在時 MUST為安全可讀、schema-valid的regular file；缺檔 MUST NOT fail closed。三種形態的判定順序 MUST為unsafe先於missing、missing先於invalid：symlink、非regular file或hard link MUST以execution error失敗，MUST NOT被視為missing而觸發建立；存在且安全的檔案才進schema驗證，invalid schema MUST在首次target write前以execution error失敗。unsafe與invalid兩種失敗 MUST NOT被`--force`繞過。形狀判定 MUST在任何open之前以no-follow `lstat` metadata完成，因為以read開啟FIFO會阻塞到出現writer為止；FIFO MUST以execution error失敗，MUST NOT阻塞。缺檔在三種target mode的後續處置不同：direct與batch mode MUST由config deployment在同一transaction內建立canonical baseline；`--register`只登錄專案而不執行安裝，因此 MUST接受缺檔的target並完成登錄，且 MUST NOT建立該檔。`runtime_generation` MUST為replaceable runtime records依project-relative UTF-8 path bytes排序後，每筆以`<path>\t<lowercase-sha256>\t<four-digit-mode>\n`構成canonical UTF-8 stream的lowercase SHA-256。receipt MUST先記錄bundle version與runtime generation，再依canonical inventory順序為stable launcher/lock及每個replaceable runtime/skill path恰記一筆project-relative path、lowercase SHA-256及mode；stable records另 MUST記錄target-specific decimal `st_dev/st_ino`。launcher與installer取得stable lock後 MUST以`fstat`比對launcher/lock records、逐檔hash runtime records並重算generation，才可import runtime或分類current。invalid source version、generation或receipt的invalid version、欄位數、digest、mode、device/inode、path、順序、duplicate、missing或unknown record MUST在首次write前以execution error失敗，不得分類為missing、current、newer或conflict。launcher MUST為`0755`，lock與其他新建runtime/skill files MUST為`0644`。可刪除legacy standard skill MUST逐byte匹配`scripts/cash-skills/legacy-spectra-digests.tsv`的已知baseline且mode為`0644`。無法證明為已知baseline者（同名customization、unknown version或mode drift）MUST被保留、MUST NOT被刪除或修改，且 MUST NOT阻斷安裝：installer MUST繼續發布其餘managed inventory，並在該target的輸出逐筆列出被保留的path。只有可能導致刪除逃逸target邊界的形狀——symlink、hard link或目錄含額外內容——MUST在首次write前fail closed。legacy receipt migration只驗證舊schema實際記載的path與digest，MUST NOT以舊schema未記載的mode作為migration gate；managed skill的mode由本次transaction依contract mode正規化。
+preflight MUST在任何target write前驗證Python 3.11+、source version及完整bootstrap/runtime/skill inventory、destination boundaries、legacy full-body digests、mode與config migration。direct、register與batch targets MUST各自是Git worktree top-level；non-Git或Git子目錄target MUST fail closed。target的`openspec/config.yaml`存在時 MUST為安全可讀、schema-valid的regular file；缺檔 MUST NOT fail closed。三種形態的判定順序 MUST為unsafe先於missing、missing先於invalid：symlink、非regular file或hard link MUST以execution error失敗，MUST NOT被視為missing而觸發建立；存在且安全的檔案才進schema驗證，invalid schema MUST在首次target write前以execution error失敗。unsafe與invalid兩種失敗 MUST NOT被`--force`繞過。形狀判定 MUST在任何open之前以no-follow `lstat` metadata完成，因為以read開啟FIFO會阻塞到出現writer為止；FIFO MUST以execution error失敗，MUST NOT阻塞。缺檔在三種target mode的後續處置不同：direct與batch mode MUST由config deployment在同一transaction內建立canonical baseline；`--register`只登錄專案而不執行安裝，因此 MUST接受缺檔的target並完成登錄，且 MUST NOT建立該檔。`runtime_generation` MUST為replaceable runtime records依project-relative UTF-8 path bytes排序後，每筆以`<path>\t<lowercase-sha256>\t<four-digit-mode>\n`構成canonical UTF-8 stream的lowercase SHA-256。receipt MUST先記錄bundle version與runtime generation，再依canonical inventory順序為stable launcher/lock及每個replaceable runtime/skill path恰記一筆project-relative path、lowercase SHA-256及mode；stable records另 MUST記錄target-specific decimal `st_dev/st_ino`。launcher與installer取得stable lock後 MUST以`fstat`依 `Stable receipt identity 比對條件與 gate 診斷` requirement定義的條件比對launcher/lock records、逐檔hash runtime records並重算generation，才可import runtime或分類current。invalid source version、generation或receipt的invalid version、欄位數、digest、mode、device/inode欄位形狀、identity比對不符、path、順序、duplicate、missing或unknown record MUST在首次write前以execution error失敗，不得分類為missing、current、newer或conflict。launcher MUST為`0755`，lock與其他新建runtime/skill files MUST為`0644`。可刪除legacy standard skill MUST逐byte匹配`scripts/cash-skills/legacy-spectra-digests.tsv`的已知baseline且mode為`0644`。無法證明為已知baseline者（同名customization、unknown version或mode drift）MUST被保留、MUST NOT被刪除或修改，且 MUST NOT阻斷安裝：installer MUST繼續發布其餘managed inventory，並在該target的輸出逐筆列出被保留的path。只有可能導致刪除逃逸target邊界的形狀——symlink、hard link或目錄含額外內容——MUST在首次write前fail closed。legacy receipt migration只驗證舊schema實際記載的path與digest，MUST NOT以舊schema未記載的mode作為migration gate；managed skill的mode由本次transaction依contract mode正規化。
 
 Fresh、legacy adoption與known-old migration MUST使用monotonic bootstrap。read-only preflight後，installer以`O_CREAT|O_EXCL`建立project-root lock、立即取得exclusive lock，並以`fstat`與pathname no-follow lookup重驗相同device/inode；遇到`EEXIST`的並發installer MUST開啟現存lock、等待exclusive lock、重驗pathname/FD identity後重新分類。Stable lock一旦建立 MUST NOT unlink或rename；stable launcher除 `受控 launcher bootstrap migration` requirement明列的transactional replacement外，MUST NOT unlink或rename。一般receipt publication failure只回滾replaceable runtime、skills、config、guidance、target版控排除設定與receipt，保留canonical `lock-only`或`lock+launcher` prefix；受控launcher migration則依專用launcher／dynamic receipt journal與identity rebind契約rollback；下一次installer MUST在同一lock inode上恢復。launcher-without-lock、bootstrap drift、unknown partial state或pathname/FD mismatch MUST fail closed。Existing current/upgrade/force/batch MUST持有同一FD到transaction/rollback完成。新receipt MUST最後發佈並從target `fstat`產生stable identity records。Journal recovery會改變target state，因此installer MUST在recovery之後才定案installation inputs的target snapshot、legacy candidate plan與版控排除設定plan；Journal的存在偵測 MUST在read-only preflight內完成且 MUST早於版本比較的`newer` early return；該偵測 MUST為純讀取，MUST NOT持鎖，也 MUST NOT解讀target config，並 MUST以no-follow的`lstat`判定形狀——`JOURNAL_PATH`非regular file（含symlink）時 MUST以execution error fail closed，MUST NOT靜默視為無journal。恢復 MUST緊接在`newer` early return之後，且 MUST早於全部三個提前返回的分類分支：`legacy receipt drift`、`receipt-less Cash skill inventory is partial`與`managed target drift`；未完成journal存在時，installer MUST NOT先以其中任何一個返回而略過恢復，即使半發布bytes落在receipt-managed path亦然，且該恢復 MUST NOT要求`--force`。journal的schema version不被本bundle辨識時 MUST以execution error fail closed，且diagnostic MUST指出需要版本相符或更新的installer；`newer`排除的判準是receipt版本，而receipt是transaction的最後一筆operation，因此較新bundle在publishing階段的崩潰不會被`newer`排除，跨版本journal MUST由此條而非`newer`排除來處理。被分類為`newer`的target MUST維持零寫入返回且 MUST NOT執行recovery，其journal留待版本相符或更新的installer處理。非dry-run、target未分類為`newer`且偵測到journal時，installer MUST先執行既有的launcher-without-lock檢查，再取得既存stable lock後才執行recovery；該次取鎖 MUST NOT建立不存在的lock，journal存在而stable lock不存在 MUST fail closed，MUST NOT以`O_CREAT|O_EXCL`建立新的lock inode。recovery回傳真與回傳偽兩個分支 MUST都關閉lock descriptor，同一process在任一時刻 MUST至多持有一個stable lock descriptor。Journal recovery造成的rollback寫入 MUST NOT被視為違反`current`、`newer`或`conflict`分類的零寫入契約：該零寫入契約自recovery完成後的重新分類起適用，因此recovery之後若仍存在與該journal無關的drift，installer MUST回報`Result: conflict`、exit 2，且自重新分類起零寫入。當recovery實際處理並清除journal時，installer MUST釋放stable lock並依recovery後的state重新分類，MUST NOT因recovery自身造成的target變更而以publication前revalidation不一致為由fail closed；外部併發在取得lock之後修改target時，publication前revalidation的既有fail-closed契約 MUST維持不變。該重新分類 MUST在同一lock inode上恢復，且同一份journal MUST NOT再次觸發重新分類；釋放lock的時間窗內由外部併發產生的另一份journal可再觸發一次重新分類，屬既有併發語意。偵測到未完成journal時，installer MUST在早於`newer` early return的偵測點輸出一句與分類無關的通用diagnostic，僅陳述target存在未完成的journal；該句 MUST在dry-run與real run皆出現，且 MUST與最終分類無關而一律出現，包含`current`與`newer`。分類為`newer`時，installer MUST於`newer` early return之前另外輸出一句newer專屬補充，指出該journal需要版本相符或更新的installer才會恢復；該補充 MUST NOT併入通用句，因為通用句在版本比較之前發出，把newer專屬語意寫進去會對絕大多數會被本次執行恢復的target給出錯誤指引。`--dry-run` MUST NOT執行recovery並 MUST維持零寫入。
 
@@ -1103,7 +1103,8 @@ Installer SHALL提供source-only `--self [--dry-run]`模式。它 MUST從install
 
 #### Scenario: Invalid receipt fail closed
 
-- **GIVEN**target receipt包含invalid version、欄位數、digest、mode、device/inode、generation、path、順序、duplicate、missing或unknown record
+- **GIVEN**target receipt包含invalid version、欄位數、digest、mode、device/inode欄位形狀、generation、path、順序、duplicate、missing或unknown record
+- **AND**stable record的device值與現地觀察值不符不屬於本scenario
 - **WHEN**installer評估target
 - **THEN**installer以execution error失敗且零target write
 - **AND**target不被分類為missing、current、newer或conflict
@@ -1212,19 +1213,15 @@ Installer SHALL提供source-only `--self [--dry-run]`模式。它 MUST從install
 - **AND**取得shared lock後只載入receipt驗證過的完整generation
 
 <!-- @trace
-source: add-repo-vendored-cash-bundle
-updated: 2026-07-29
+source: tolerate-remount-device-renumbering
+updated: 2026-09-05
 code:
   - .cash-skills/bin/cash
   - .cash-skills/lib/cash_cli/installer.py
   - .cash-skills/manifest.tsv
   - scripts/cash-skills/tests/skill-checks.fish
-  - scripts/cash-skills/tests/test_bundle_version_history.py
-  - scripts/cash-skills/tests/test_init_receipt.py
   - scripts/cash-skills/tests/test_installer_runtime.py
 tests:
-  - scripts/cash-skills/tests/test_init_receipt.py
-  - scripts/cash-skills/tests/test_installer_runtime.py
 -->
 
 ### Requirement: Cash guidance deployment
@@ -1442,7 +1439,7 @@ tests:
 
 ### Requirement: Target 版控排除保護
 
-Installer 的direct、registry與batch模式 SHALL在preflight通過後、於同一transaction內確保target根目錄的`.gitignore`含有`.cash-skills/receipt.tsv`、`.cash-skills/state/`與`__pycache__/`三項規則。此保護存在的理由是receipt依既有contract記錄target-specific `st_dev/st_ino`，一旦被納入版控，任何inode不同的取得方式都會使該target的launcher以`receipt_invalid` fail closed。source-only `--self`不在本requirement範圍內。
+Installer 的direct、registry與batch模式 SHALL在preflight通過後、於同一transaction內確保target根目錄的`.gitignore`含有`.cash-skills/receipt.tsv`、`.cash-skills/state/`與`__pycache__/`三項規則。此保護存在的理由是receipt依既有contract記錄target-specific `st_ino`，一旦被納入版控，任何inode不同的取得方式都會使該target的launcher以`receipt_invalid` fail closed。receipt同時記錄的`st_dev`依 `Stable receipt identity 比對條件與 gate 診斷` requirement不參與比對，因此本保護的鑑別力 MUST僅由`st_ino`承擔，該requirement的識別與診斷契約以其較窄契約優先。installer為此輸出的version-control diagnostic MUST NOT把device描述為fail-closed的成因。source-only `--self`不在本requirement範圍內。
 
 判定 MUST在byte層進行：以`b"\n"`切行並逐行比對bytes，MUST NOT要求UTF-8。比對 MUST容忍行尾的`\r`，使CRLF檔案中的既有規則被正確辨識。判定 MUST為逐行精確比對，MUST NOT以前綴、萬用字元或路徑包含關係推論既有規則已涵蓋。
 
@@ -1514,6 +1511,7 @@ Installer MUST以唯讀version-control index查詢偵測target的`.cash-skills/r
 - **GIVEN** target的`.cash-skills/receipt.tsv`已被納入版控
 - **WHEN** installer執行
 - **THEN** stderr輸出指出該狀態與建議動作的diagnostic
+- **AND** 該diagnostic以inode而非device描述fail-closed的成因
 - **AND** 使用者的版控索引維持不變
 - **AND** target的結果分類與exit code不因此改變
 
@@ -1529,15 +1527,15 @@ Installer MUST以唯讀version-control index查詢偵測target的`.cash-skills/r
 | `*.tsv` | 不視為已滿足 |
 
 <!-- @trace
-source: guard-target-receipt-version-control
-updated: 2026-07-24
+source: tolerate-remount-device-renumbering
+updated: 2026-09-05
 code:
+  - .cash-skills/bin/cash
   - .cash-skills/lib/cash_cli/installer.py
+  - .cash-skills/manifest.tsv
   - scripts/cash-skills/tests/skill-checks.fish
   - scripts/cash-skills/tests/test_installer_runtime.py
 tests:
-  - scripts/cash-skills/tests/skill-checks.fish
-  - scripts/cash-skills/tests/test_installer_runtime.py
 -->
 
 ### Requirement: Drift 建議使用 variant 中立的 skill 名稱
@@ -2007,7 +2005,7 @@ inventory 完整性檢核 MUST 以獨立於現地觀察狀態的期望集合進�
 
 `BUNDLE_VERSION` 常數 MUST 由 contract test 斷言恆等於 `cash-skills.version` 的檔案內容；`BUNDLE_RUNTIME_PATHS` 常數 MUST 由 contract test 斷言恆等於 source 端 `source_inventory` 推導出的 runtime 路徑集合。
 
-source repository 的 `AGENTS.md` 與 `CLAUDE.md` Cash guidance 區塊 MUST 各含信任模式分流：manifest存在時直接使用portable mode且不得執行`--init-receipt`；只有manifest缺失的receipt-based target在receipt缺失出現`bootstrap_invalid`時才提供完整初始化指令。既有guidance部署 MUST把該分流帶到每個target的managed block；target端的發現管道由此承擔，MUST NOT依賴source-only檔案（如`CASH-SKILLS.md`）作為target端引導。
+source repository 的 `AGENTS.md` 與 `CLAUDE.md` Cash guidance 區塊 MUST 各含信任模式分流：manifest存在時直接使用portable mode且不得執行`--init-receipt`；只有manifest缺失的receipt-based target在receipt缺失出現`bootstrap_invalid`、或在stable record identity drift出現`receipt_invalid`時才提供完整初始化指令，且該分流 MUST同時載明stable record content drift不得以重新簽發處理、以及`.cash-skills/receipt.tsv`被納入版控時 MUST先解除追蹤再重新簽發。該分流 MUST NOT把fresh clone或任何取得方式陳述為無條件可以重新簽發的理由。該分流 MUST進一步限定identity drift這個入口只在診斷「僅」指名該stable record時適用；診斷同時指名`runtime`或`skill` record drift時 MUST改為指示還原該record或從可信source重新安裝，MUST NOT指示重新簽發。此限定不可省略，理由是前提不成立時的診斷逐字以identity drift的分類字串起頭，因此以字串比對套用該分流的讀者會在 `Stable receipt identity 比對條件與 gate 診斷` requirement的前提閘門正要擋下的情境執行重新簽發，把已漂移的runtime或skill內容簽為合法。既有guidance部署 MUST把該分流帶到每個target的managed block；target端的發現管道由此承擔，MUST NOT依賴source-only檔案（如`CASH-SKILLS.md`）作為target端引導。
 
 #### Scenario: Fresh clone 一次初始化後 CLI 可用
 
@@ -2093,7 +2091,18 @@ source repository 的 `AGENTS.md` 與 `CLAUDE.md` Cash guidance 區塊 MUST 各�
 - **GIVEN** source repository 的 `AGENTS.md` 與 `CLAUDE.md` Cash guidance 區塊含portable／receipt分流與 `--init-receipt` 指引段
 - **WHEN** installer 對任一 target 完成安裝或更新
 - **THEN** 該 target 的 `AGENTS.md` 與 `CLAUDE.md` managed guidance block 含同一信任模式分流
-- **AND** manifest-present target不被要求初始化，manifest缺失的receipt-based target在 `bootstrap_invalid` 情境下可由該指引得知初始化指令
+- **AND** manifest-present target不被要求初始化，manifest缺失的receipt-based target在 `bootstrap_invalid` 與stable record identity drift的 `receipt_invalid` 兩個情境下都可由該指引得知初始化指令
+- **AND** 該指引載明stable record content drift不得以重新簽發處理
+- **AND** 該指引載明receipt被納入版控時須先解除追蹤再重新簽發，且不把任何取得方式陳述為無條件可以重新簽發的理由
+
+#### Scenario: 前提不成立的診斷不被指引為重新簽發
+
+- **GIVEN** 一個manifest缺失的receipt-based target，其某筆stable record出現identity drift
+- **AND** 同一份receipt的某筆runtime或skill record同時漂移，因此gate輸出的是前提不成立的第三支診斷
+- **WHEN** 讀者依 `AGENTS.md` 或 `CLAUDE.md` managed guidance block的信任模式分流判斷下一步
+- **THEN** 該分流指出identity drift的初始化入口只在診斷僅指名該stable record時適用
+- **AND** 該分流對同時指名`runtime`或`skill` record drift的診斷指示還原該record或從可信source重新安裝
+- **AND** 該分流不指示對該診斷執行`--init-receipt`
 
 #### Scenario: Inventory 未擴充使既有 targets 正常升級
 
@@ -2103,19 +2112,15 @@ source repository 的 `AGENTS.md` 與 `CLAUDE.md` Cash guidance 區塊 MUST 各�
 - **AND** 沒有 target 因 record 集合不符而以 execution error 失敗
 
 <!-- @trace
-source: add-repo-vendored-cash-bundle
-updated: 2026-07-29
+source: tolerate-remount-device-renumbering
+updated: 2026-09-05
 code:
   - .cash-skills/bin/cash
   - .cash-skills/lib/cash_cli/installer.py
   - .cash-skills/manifest.tsv
   - scripts/cash-skills/tests/skill-checks.fish
-  - scripts/cash-skills/tests/test_bundle_version_history.py
-  - scripts/cash-skills/tests/test_init_receipt.py
   - scripts/cash-skills/tests/test_installer_runtime.py
 tests:
-  - scripts/cash-skills/tests/test_init_receipt.py
-  - scripts/cash-skills/tests/test_installer_runtime.py
 -->
 
 ### Requirement: Portable manifest 啟動信任模式
@@ -2707,5 +2712,147 @@ updated: 2026-08-25
 code:
   - scripts/cash-cli/tests/test_graph_instructions.py
   - scripts/cash-skills/tests/skill-checks.fish
+tests:
+-->
+
+### Requirement: Stable receipt identity 比對條件與 gate 診斷
+
+Receipt-based target的stable records（`.cash-skills/bin/cash`與`.cash-workspace.lock`）SHALL以digest、mode與`st_ino`三項與記錄值逐項相等作為identity比對的通過條件。launcher的receipt gate與installer的installed-receipt驗證 MUST NOT把record的`st_dev`欄位納入任何比對式。理由是`st_dev`是kernel在mount時配發給volume的編號而非檔案屬性：volume重新編號會使一個完全未被更動的target在使用者未做任何事的情況下同時失去launcher與installer兩條路徑，而該分量在stable path由project root推導、以no-follow開啟且digest與mode皆逐項比對的前提下不提供額外偵測力。
+
+Receipt schema MUST不變：stable record MUST仍恰為六欄，非stable record MUST仍不得帶identity欄位。`st_dev`與`st_ino`的欄位形狀 MUST在兩個gate採用相同判準——`st_dev` MUST為非負整數、`st_ino` MUST為正整數，違反者 MUST以既有的invalid-receipt路徑fail closed。此判準在installer的receipt parsing已經成立，launcher MUST同樣套用它；否則`st_dev`同時失去比對與範圍兩道閘門，會使negative device的receipt被接受。Receipt發佈端 MUST仍從現地no-follow `lstat`寫入當下的`st_dev`，使既有targets的receipt維持相同record集合與欄位數而可正常解析並走update路徑。該值自此不作為identity比對輸入，只作為machine-local provenance並受上述形狀閘門約束。
+
+本requirement的診斷分類 SHALL只涵蓋「該筆stable record已存在、形狀合法、且進入identity比對」之後的失敗。至少下列失敗出口 MUST沿用既有fail-closed路徑且 MUST NOT被歸入下列兩類：receipt缺少該筆stable record或其kind不是`stable`；stable record的device／inode欄位形狀不合法；receipt自身的runtime generation不符；stable path本身缺檔；stable path的形狀或mode使launcher在進入receipt gate之前即以`bootstrap_invalid`失敗。本段 MUST NOT被讀為窮舉，也 MUST NOT規定這些出口彼此之間的判定順序——它們各自沿用既有路徑，而各gate的既有執行序不同：launcher對stable path的形狀與mode檢查發生在receipt解析之前，因此缺record在launcher端不可能早於形狀判定。
+
+進入分類的失敗 SHALL分成兩類且 MUST指名該record的project-relative path：
+
+1. record的digest與現地觀察值不符時為content drift。診斷 MUST NOT包含`--init-receipt`，因為重新簽發會以現地bytes覆寫receipt，等同把內容漂移合法化。
+2. digest相符而mode或`st_ino`與記錄值不符時為identity drift。此時檔案內容可證明仍是receipt記錄的那份，重新簽發不引入新的信任，診斷 MUST在滿足下一段前提時包含執行`--init-receipt`的完整指令。mode漂移 MUST歸入本類而非content drift：`--init-receipt`依 `Target-local receipt 初始化` requirement本來就是mode正規化的授權入口，把它歸入content drift會與該requirement給出相反指引。
+
+判定順序 MUST為先digest後mode／inode：digest不符時 MUST判為content drift，不論mode或`st_ino`是否同時不符。
+
+identity drift的`--init-receipt`指引 MUST只在同一份receipt中該gate本來就會對現地檔案驗證的其餘records全數相符時附上。此前提 MUST依gate分別界定，MUST NOT要求任一gate新增它現行未執行的驗證：launcher面為每一筆runtime record的digest與mode，MUST NOT把24個skill records的逐檔digest納入前提——launcher現行不對skill bytes做digest比對，把它納入會使每次啟動新增24次檔案雜湊；installer面為每一筆runtime及skill record，因為installed-receipt驗證的迴圈本來就涵蓋這兩類。前提 MUST NOT納入runtime generation：launcher的generation重算是以receipt自身的runtime列進行的receipt內部一致性檢查，installer亦未對target重算generation，兩者都不是現地record漂移。理由是`--init-receipt`以現地bytes重簽整份inventory且不比對runtime或skill bytes，若在其他records已漂移時引導重簽，會把被竄改的內容簽為合法。
+
+前提不成立時，gate MUST改為回報該筆漂移的record，診斷 MUST同時指名出現identity drift的stable path與該筆漂移record的path，MUST NOT附上`--init-receipt`，且 MUST在該訊息尾端接上一句兩個gate共用、逐字相同的下一步句，指出把該筆record還原成receipt記錄的內容後重試、或從可信source重新安裝。該下一步句 MUST是訊息的一部分而非另一則輸出。identity drift被延後判定期間若命中前一句所述record漂移出口以外的既有fail-closed出口（例如receipt自身的generation不符、stable或runtime path的形狀不合法），MUST以該既有出口回報，identity drift不另行輸出，診斷亦 MUST NOT附上`--init-receipt`。identity drift的`--init-receipt`指引 MUST只在最終確定回報identity drift時才設定，MUST NOT在延後判定開始時預先設定，否則延後期間命中的其他出口會帶著無限定的指引輸出。沿用既有出口的唯一例外是error code：launcher在receipt gate內對runtime records逐檔取digest時 MUST以`receipt_invalid`回報失敗，MUST NOT沿用該檔案開啟路徑預設的`bootstrap_invalid`——既有guidance對`bootstrap_invalid`的處置是無條件執行一次`--init-receipt`，讓延後判定擴大該出口會繞過本段的前提閘門。
+
+identity drift的指引 SHALL在兩個gate採用同一組前提陳述，且 MUST NOT依賴任一gate對target版控狀態的查詢。指引 MUST內含版控前提，明白指出`.cash-skills/receipt.tsv`是machine-local identity、它被納入版控時 MUST先解除追蹤再重新簽發。指引 MUST NOT把「fresh clone」或任何取得方式陳述為無條件可以重新簽發的理由。理由有二：`Target 版控排除保護` requirement所守護的情境——receipt被誤納入版控後在別台機器clone——正好落在digest相符而inode不符的identity drift，而該requirement明白指名的執行面是launcher；launcher無法在不新增每次啟動一次版控查詢的前提下判定該狀態，installer亦只有direct、registry與batch路徑執行該查詢，`--vendor`路徑不執行。把限定寫進指引文字而非寫成查詢分支，使該限定在兩個gate的全部路徑一致生效，且不改變任何既有查詢的唯讀性、靜默略過與不影響分類的契約。
+
+兩個gate的指引措辭 MUST各自指向正確的執行位置：launcher在target內執行，指引 MUST指向該專案根；installer從source repository對另一個target執行，其診斷 MUST由訊息自身在指令以外的散文部分指名該target的resolved絕對路徑，使指令中交代執行位置的措辭有明確指涉；指令字串本身 MUST只含project-relative path，MUST NOT內嵌target的絕對路徑，因為內嵌會使含空白或shell metacharacter的路徑產生無法直接貼上執行的指令。該訊息 MUST NOT自加以target路徑起頭的前綴：批次模式已由呼叫端加上該前綴而訊息自帶會重複，direct與vendor模式則不帶任何前綴而必須由訊息散文承擔指名責任。指引 MUST NOT讓使用者誤以為應在目前所在的repository執行。
+
+launcher既有的source-repository提示 MUST優先於identity drift提示；launcher已因偵測到source layout而設定提示時，MUST NOT以identity drift提示覆寫它。
+
+兩個gate MUST NOT在identity drift時自動重新簽發或rebind receipt。`Target 版控排除保護` requirement的鑑別力在device不再參與比對後僅由`st_ino`承擔，自動rebind會靜默移除該保護；重新簽發 MUST維持為使用者主動的明示動作。
+
+本requirement只適用於manifest缺失的receipt-based target。Portable manifest依 `Portable manifest 啟動信任模式` requirement不記錄`st_dev`或`st_ino`，manifest-present target不受本requirement影響。
+
+#### Scenario: Volume 重新編號後 launcher 仍通過 gate
+
+- **GIVEN** 一個manifest缺失的receipt-based target，其receipt的兩筆stable records的digest、mode與`st_ino`皆與現地相符
+- **AND** 兩筆records記錄的`st_dev`因volume重新掛載而不等於現地觀察值
+- **WHEN** 執行 `.cash-skills/bin/cash list --json`
+- **THEN** launcher通過receipt gate並正常執行command
+- **AND** launcher不以 `receipt_invalid` 失敗
+
+#### Scenario: Volume 重新編號後 installer preflight 仍通過
+
+- **GIVEN** 同一個target與同一份receipt
+- **WHEN** 從source repository對該target執行installer的direct或vendor模式
+- **THEN** preflight不以stable receipt drift失敗
+- **AND** 安裝或遷移依既有分類正常完成
+
+#### Scenario: Content drift 不被引導重新簽發
+
+- **GIVEN** target的 `.cash-skills/bin/cash` bytes與receipt記錄的digest不符
+- **WHEN** 執行任一Cash command或installer preflight
+- **THEN** gate以content drift失敗並指名該path
+- **AND** 診斷不包含`--init-receipt`
+
+#### Scenario: Identity drift 提供可執行復原指令
+
+- **GIVEN** target的兩筆stable records digest與mode皆相符，但其中一筆的`st_ino`與記錄值不符
+- **AND** 該receipt在該gate前提範圍內的其餘records皆相符
+- **WHEN** 執行任一Cash command或installer preflight
+- **THEN** gate以identity drift失敗並指名該path
+- **AND** 診斷包含執行`--init-receipt`的完整指令
+
+#### Scenario: 指引一律內含版控前提且不背書任何取得方式
+
+- **GIVEN** 任一gate、任一路徑輸出identity drift的`--init-receipt`指引
+- **WHEN** 檢視該指引文字
+- **THEN** 文字指出`.cash-skills/receipt.tsv`是machine-local identity、被納入版控時須先解除追蹤再重新簽發
+- **AND** 文字不把fresh clone或任何取得方式陳述為無條件可以重新簽發的理由
+- **AND** 該文字不依賴任何對target版控狀態的查詢，因此在`--vendor`路徑上與direct路徑上一致
+
+#### Scenario: Mode 漂移歸入 identity drift
+
+- **GIVEN** target的某筆stable path其bytes與receipt記錄的digest相符，但mode與記錄值不符
+- **WHEN** installer評估該target
+- **THEN** gate判為identity drift而非content drift
+- **AND** 診斷指引與 `Target-local receipt 初始化` requirement的mode正規化行為一致
+
+#### Scenario: Content 與 identity 同時漂移時判為 content drift
+
+- **GIVEN** 同一筆stable record的digest與`st_ino`都與記錄值不符
+- **WHEN** 執行任一Cash command或installer preflight
+- **THEN** gate判為content drift
+- **AND** 診斷不包含`--init-receipt`
+
+#### Scenario: 其餘 records 同時漂移時改報該漂移並給出下一步
+
+- **GIVEN** target的某筆stable record出現identity drift
+- **AND** 同一份receipt的某筆runtime record的digest與現地不符
+- **WHEN** 執行任一Cash command或installer preflight
+- **THEN** gate回報該runtime漂移
+- **AND** 診斷同時指名該stable path與該runtime path
+- **AND** 診斷不包含`--init-receipt`，並指出可行的下一步是還原該record或從可信source重新安裝
+
+#### Scenario: 延後判定期間命中既有出口時以該出口回報
+
+- **GIVEN** target的某筆stable record出現identity drift
+- **AND** 同一份receipt的某筆runtime record所在路徑為hard link，其mode仍為`0644`因而通過mode比對後才在開檔階段失敗
+- **WHEN** launcher執行receipt gate
+- **THEN** launcher以`receipt_invalid`回報該runtime record的失敗
+- **AND** launcher不因延後判定而改以`bootstrap_invalid`結束
+- **AND** 診斷不包含`--init-receipt`
+
+#### Scenario: Installer 的指引指向目標專案而非來源專案
+
+- **GIVEN** 從source repository對另一個target執行installer且該target出現identity drift
+- **WHEN** installer輸出診斷
+- **THEN** 診斷在指令以外的散文部分指名該target的resolved絕對路徑
+- **AND** 指令字串本身不含該絕對路徑
+- **AND** 診斷不自加以target路徑起頭的前綴
+- **AND** 指引不指示使用者在source repository執行`--init-receipt`
+
+#### Scenario: Source repository 提示優先於 identity drift 提示
+
+- **GIVEN** launcher在canonical source repository執行且已偵測到source layout
+- **WHEN** stable record出現identity drift
+- **THEN** 診斷保留source-repository專屬提示
+- **AND** 診斷不以identity drift提示覆寫它
+
+#### Scenario: Negative device 的 receipt 在兩個 gate 皆 fail closed
+
+- **GIVEN** receipt的某筆stable record其`st_dev`為負整數，其餘欄位與現地相符
+- **WHEN** 執行任一Cash command或installer preflight
+- **THEN** 兩個gate都以既有的invalid-receipt路徑fail closed
+- **AND** 該record不因`st_dev`已不參與identity比對而被接受
+
+#### Scenario: 未修復的 target 不因 identity drift 被自動改寫
+
+- **GIVEN** target出現stable record identity drift
+- **AND** target沒有未完成的installer journal
+- **WHEN** installer評估該target
+- **THEN** installer在為本次安裝取得exclusive lock之前即以identity drift失敗
+- **AND** 該target的receipt bytes不被本次執行改寫
+
+<!-- @trace
+source: tolerate-remount-device-renumbering
+updated: 2026-09-05
+code:
+  - .cash-skills/bin/cash
+  - .cash-skills/lib/cash_cli/installer.py
+  - .cash-skills/manifest.tsv
+  - scripts/cash-skills/tests/skill-checks.fish
+  - scripts/cash-skills/tests/test_installer_runtime.py
 tests:
 -->
