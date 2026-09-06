@@ -52,6 +52,87 @@ class InstallerRuntimeTests(unittest.TestCase):
         )
         return temporary, target
 
+    def receipt_inventory_upgrade_target(self) -> Path:
+        temporary, target = self.make_target()
+        self.addCleanup(temporary.cleanup)
+        installed = self.install(target)
+        self.assertEqual(installed.returncode, 0, installed.stderr)
+        # A 2.21-shaped receipt fixture: its expected runtime set predates the
+        # lint-round addition. Keep all other recorded bytes and identities.
+        receipt_path = target / ".cash-skills/receipt.tsv"
+        rows = [line.split("\t") for line in receipt_path.read_text().splitlines()]
+        added = ".cash-skills/lib/cash_cli/commands/lint_round.py"
+        rows = [row for row in rows if not (row[0] == "runtime" and row[1] == added)]
+        rows[0][1] = "2.21.0"
+        stream = "".join("\t".join(row[1:]) + "\n" for row in rows if row[0] == "runtime")
+        rows[1][1] = hashlib.sha256(stream.encode()).hexdigest()
+        receipt_path.write_text("".join("\t".join(row) + "\n" for row in rows))
+        (target / added).unlink()
+        return target
+
+    def test_receipt_inventory_upgrade_preserves_identity_and_launches(self) -> None:
+        for vendor in (False, True):
+            with self.subTest(vendor=vendor):
+                target = self.receipt_inventory_upgrade_target()
+                install = self.vendor if vendor else self.install
+                receipt = target / ".cash-skills/receipt.tsv"
+                before = receipt.read_bytes()
+                identities = [(target / path).stat().st_ino for path in
+                              (".cash-skills/bin/cash", ".cash-workspace.lock")]
+                preview = install(target, "--dry-run")
+                self.assertEqual(preview.returncode, 0, preview.stderr)
+                self.assertIn("Result: update", preview.stdout)
+                self.assertEqual(receipt.read_bytes(), before)
+                self.assertFalse((target / ".cash-skills/lib/cash_cli/commands/lint_round.py").exists())
+                result = install(target)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertTrue((target / ".cash-skills/lib/cash_cli/commands/lint_round.py").is_file())
+                self.assertEqual(identities, [(target / path).stat().st_ino for path in
+                                            (".cash-skills/bin/cash", ".cash-workspace.lock")])
+                launched = subprocess.run([str(target / ".cash-skills/bin/cash"), "list", "--json"],
+                                          cwd=target, capture_output=True, text=True)
+                self.assertEqual(launched.returncode, 0, launched.stderr)
+                self.assertIn("changes", json.loads(launched.stdout))
+                again = install(target)
+                self.assertEqual(again.returncode, 0, again.stderr)
+                self.assertIn("current", again.stdout)
+
+    def test_receipt_inventory_upgrade_rejects_missing_old_record(self) -> None:
+        target = self.receipt_inventory_upgrade_target()
+        (target / ".cash-skills/lib/cash_cli/resources.py").unlink()
+        before = (target / ".cash-skills/receipt.tsv").read_bytes()
+        result = self.install(target)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("receipt-managed path is missing", result.stderr)
+        self.assertEqual((target / ".cash-skills/receipt.tsv").read_bytes(), before)
+
+    def test_receipt_inventory_upgrade_rejects_modern_receipt_with_old_inventory(self) -> None:
+        target = self.receipt_inventory_upgrade_target()
+        path = target / ".cash-skills/receipt.tsv"
+        content = path.read_text().replace("version\t2.21.0\n", "version\t2.22.0\n", 1)
+        path.write_text(content)
+        result = self.install(target)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("receipt has an invalid record count", result.stderr)
+        self.assertEqual(path.read_text(), content)
+
+    def test_receipt_inventory_upgrade_rejects_drift_and_added_path_collision(self) -> None:
+        for path in (".cash-skills/lib/cash_cli/resources.py",
+                     ".cash-skills/lib/cash_cli/commands/lint_round.py"):
+            for vendor in (False, True):
+                with self.subTest(path=path, vendor=vendor):
+                    target = self.receipt_inventory_upgrade_target()
+                    (target / path).write_text("# local modification\n")
+                    before = (target / ".cash-skills/receipt.tsv").read_bytes()
+                    result = (self.vendor if vendor else self.install)(target)
+                    if vendor:
+                        self.assertIn("Result: conflict", result.stdout)
+                    else:
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertIn(path, result.stderr)
+                    self.assertEqual((target / path).read_text(), "# local modification\n")
+                    self.assertEqual((target / ".cash-skills/receipt.tsv").read_bytes(), before)
+
     def make_bare_target(self) -> tuple[tempfile.TemporaryDirectory[str], Path]:
         temporary = tempfile.TemporaryDirectory()
         target = Path(temporary.name)
