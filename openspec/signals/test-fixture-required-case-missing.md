@@ -2,9 +2,9 @@
 id: test-fixture-required-case-missing
 type: recurring-finding
 status: open
-occurrences: 9
+occurrences: 10
 first_seen: 2026-07-24
-last_seen: 2026-08-24
+last_seen: 2026-09-06
 links:
   - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/apply-r6.md
   - openspec/changes/harden-installer-mode-and-recovery/reviews/propose-r1.md
@@ -15,6 +15,7 @@ links:
   - openspec/changes/add-global-cash-shim/reviews/apply-r1.md
   - openspec/changes/add-minimal-solution-discipline/reviews/apply-r1.md
   - openspec/changes/refine-cash-tdd-test-guards/reviews/propose-r1.md
+  - openspec/changes/add-host-derived-round-lint/reviews/apply-r3.md
 
 ---
 
@@ -38,3 +39,4 @@ A regression test claims to cover a task-required input shape, but its fixture d
 - 2026-08-23 — add-minimal-solution-discipline — cash-apply round 1 — known-ceiling checker 只驗證 `限制`／`重訪條件` 成對，沒有真正建立「之後需要時」或「規模變大時」的 entry fixture，因此空泛 trigger 仍可被接受；修正為驗證 trigger 值並加入兩個具體 negative fixtures。
 
 - 2026-08-24 — refine-cash-tdd-test-guards — cash-propose round 1 — 初稿的skill去重fixtures只有英文clauses，漏掉繁中canonical原文；resource contradiction inventory又漏carrier固定、強制mutation framework與每task強制新增測試等既有邊界。修正為五gate十個雙語fixtures，以及TDD三類、test-quality六類、tasks四類逐字固定fixtures。
+- 2026-09-06 — add-host-derived-round-lint — cash-apply round 3 — static lint-round fixture corpus 漏掉 apply rounds，且 acceptance suite 的部分承諾案例只有任務文字沒有可執行 fixture；補入 apply-r1/r2 並以真實 gate 執行完整 fixture 與邊界矩陣。

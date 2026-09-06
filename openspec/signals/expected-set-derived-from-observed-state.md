@@ -2,12 +2,13 @@
 id: expected-set-derived-from-observed-state
 type: recurring-finding
 status: open
-occurrences: 2
+occurrences: 3
 first_seen: 2026-07-28
-last_seen: 2026-08-24
+last_seen: 2026-09-05
 links:
   - openspec/changes/target-receipt-bootstrap/reviews/apply-r3.md
   - openspec/changes/refine-cash-tdd-test-guards/reviews/propose-r1.md
+  - openspec/changes/add-host-derived-round-lint/reviews/propose-r4.md
 ---
 
 # Expected set derived from observed state
@@ -25,3 +26,5 @@ links:
 - 2026-08-24 — refine-cash-tdd-test-guards — cash-propose round 1 — 初稿允許detector registry同時產生append-mutation cases；刪掉一個guard會同步刪掉其fixture，suite以受測集合自證完整而假綠。修正為detector與固定expected fixture inventories獨立定義、斷言exact keys，並要求guard-only deletion保留fixture且使primary非零。
 
 - 2026-07-28 — target-receipt-bootstrap — cash-apply round 3 — `--init-receipt` 的 D3 inventory 完整性檢核一步宣稱「inventory 完整性檢核：任何檔案缺失以 `init_inventory_invalid` 失敗」，但 `init_inventory` 的 runtime 條目來自 `library.rglob("*.py")` 的就地枚舉，只有 stable 與 24 個 skill 用常數推導。實測：target 少一個 `.cash-skills/lib/cash_cli/spec_merge.py` 時 init 回報 `initialized`、exit `0`、receipt 只有 18 筆 runtime record（正常 19 筆），launcher 的 `validate_receipt` 通過（它只驗證 receipt 已列出的 record，從不枚舉目錄），隨後 CLI 以 `ModuleNotFoundError: No module named 'cash_cli.spec_merge'` traceback 死亡——直接違反 Implementation Contract 第 1 項。反向：多一個 `.py` 時 init 同樣成功，但該 target 的 `install-cash-skills.fish --target`／`--all` 自此永久以 `receipt has an invalid record count` 失敗且 `--force` 不可繞過。名為 `test_missing_inventory_fails_closed` 的測試三個 case 全落在常數推導路徑上，剛好避開唯一會靜默縮水的部分。修法需引入 design 未定義的 runtime payload identity，觸發 Fix-loop design circuit breaker 並導向 `/cash-ingest`。相關：[[fixture-order-makes-assertion-vacuous]]、[[success-criterion-omits-consumer-gate]]。
+
+- 2026-09-05 — add-host-derived-round-lint — cash-propose round 4 — round file 序列的連續性規則錨定在「該序列**最小編號**」而非絕對起點 `1`，其自述目的是防止刪檔後重新對齊，但只攔得住中間缺號：刪掉序列前綴（刪 `r1`–`r3`、留 `r4` 起）後序列仍自其最小編號連續、無缺號，`r4` 反被判為新 run 的第一輪，正好完成刪檔者要的重新對齊。既有規則本已保證合法歷史必含 `r1`（round file 不得覆寫、re-run 續號），該絕對錨點是 host-derived 且零成本，卻因規則寫成相對於觀察到的集合而未被採用。

@@ -2,14 +2,15 @@
 id: ungoverned-exit-path
 type: recurring-finding
 status: open
-occurrences: 4
+occurrences: 5
 first_seen: 2026-07-16
-last_seen: 2026-08-23
+last_seen: 2026-09-05
 links:
   - openspec/changes/converge-plus-review-loop/reviews/propose-r1.md
   - openspec/changes/guard-task-state-integrity/reviews/propose-r1.md
   - openspec/changes/guard-task-state-integrity/reviews/apply-r1.md
   - openspec/changes/guard-task-state-integrity/reviews/apply-r2.md
+  - openspec/changes/add-host-derived-round-lint/reviews/propose-r1.md
 ---
 
 # Ungoverned exit path
@@ -24,3 +25,5 @@ A change adds a fallback or escape route for a gated obligation, but the fallbac
 - 2026-08-22 — guard-task-state-integrity — cash-apply round 1 — `touched_invalid` 同時代表 renamed 與 removed task，但 skill 唯一提供的「同步為 current description」復原方式只適用 renamed task；removed task 沒有 current description，仍會停在無可執行出口的失敗路徑。
 
 - 2026-08-23 — guard-task-state-integrity — cash-apply round 2 — ingest 後雖已定義 removed-task 恢復 contract，skill 卻以 `/cash-ingest <name>`／`$cash-ingest <change-name>` 導向該出口；cash-ingest 會把 argument 解讀成 plan file，使名義上的復原路徑仍不可執行。修正為無參數 invocation，並把目前錯誤與 change name 作為 conversation context。
+
+- 2026-09-05 — add-host-derived-round-lint — cash-propose round 1 — Stop hook 以 `stop_hook_active` 為真即放行，使阻擋成為一次性：第一次 exit 2 擋下後，agent 進行一個回合（可以完全不修正），第二次 stop 帶該旗標即 exit 0，session 在違規未修正的情況下結束。artifacts 同時宣稱這是阻擋型而非警告型 gate，且在 `## Alternatives Considered` 中特意排除了警告型——但在該短路之下，實效上限就是「阻擋一次並列出失敗項」。緩解是重入時仍執行判定並輸出當次未解決失敗項使放行留下紀錄，並在 Risks 逐字承認該上限。

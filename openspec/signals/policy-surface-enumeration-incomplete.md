@@ -2,9 +2,9 @@
 id: policy-surface-enumeration-incomplete
 type: recurring-finding
 status: open
-occurrences: 7
+occurrences: 8
 first_seen: 2026-07-19
-last_seen: 2026-08-22
+last_seen: 2026-09-05
 links:
   - openspec/changes/chinese-spec-content/reviews/propose-r1.md
   - openspec/changes/replace-spectra-cli-with-cash-cli/reviews/propose-r3.md
@@ -14,6 +14,7 @@ links:
   - openspec/changes/guard-task-state-integrity/reviews/propose-r1.md
 
   - openspec/changes/tolerate-remount-device-renumbering/reviews/propose-r4.md
+  - openspec/changes/add-host-derived-round-lint/reviews/propose-r1.md
 ---
 
 # Policy surface enumeration incomplete
@@ -32,3 +33,5 @@ A cross-cutting policy change (language rules, naming rules, format contracts) e
 
 - 2026-08-20 — tolerate-remount-device-renumbering — cash-propose round 4 — 新增的規範句寫成「installer 在其唯讀 version-control index 查詢判定 receipt 已被追蹤時……」，但 `validate_installed_receipt` 有兩個呼叫點，而執行該查詢的函式只由其中一個呼叫；另一條路徑（`--vendor`，也就是全域 shim 的預設）整條不做查詢。結果是同段的兩條 MUST 在該路徑互相封死，而該路徑正是 proposal 自己指名的主要修復路徑。修法是移除以查詢為分支條件的整套機制，改以不依賴查詢的文字限定，使規範在兩個 gate 的全部路徑一致生效。
 - 2026-08-22 — guard-task-state-integrity — cash-propose round 4 — D8 逐字宣告新失敗模式「在兩個會撞到它的 skill 都要有復原指引」並只列 `cash-commit` 與 `cash-apply`，但同一份 design 的 `## Risks` 自己證明 `archive` 是第三個撞擊點，而該 skill 的 Guardrails 又禁止使用者採取唯一直覺的動作。
+
+- 2026-09-05 — add-host-derived-round-lint — cash-propose round 1 — 新 gate 的列舉條件寫「`openspec/changes/` 下非 `archive` 的目錄」，而既有 CLI 的忽略集合是 `{"archive", ".parked"}`。差異有兩個後果：`.parked` 本身會被當成一個 change 列舉，且其下全部 parked change 完全不受檢——受審者只要對進行中的 change 執行 `cash park` 就能整個逃離該 gate。新增的列舉條件若與既有權威集合並存，必須逐字對齊而非重新表述。

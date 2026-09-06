@@ -2,9 +2,9 @@
 id: task-verification-coverage-incomplete
 type: recurring-finding
 status: open
-occurrences: 18
+occurrences: 24
 first_seen: 2026-07-14
-last_seen: 2026-08-24
+last_seen: 2026-09-06
 links:
   - openspec/changes/repair-all-uses-pinned-commit-inputs/reviews/apply-r1.md
   - openspec/changes/converge-plus-review-loop/reviews/apply-r2.md
@@ -25,6 +25,12 @@ links:
   - openspec/changes/add-minimal-solution-discipline/reviews/apply-r1.md
   - openspec/changes/strengthen-cash-tdd-evidence/reviews/propose-r1.md
   - openspec/changes/refine-cash-tdd-test-guards/reviews/propose-r1.md
+  - openspec/changes/add-host-derived-round-lint/reviews/apply-r3.md
+  - openspec/changes/add-host-derived-round-lint/reviews/apply-r5.md
+  - openspec/changes/add-host-derived-round-lint/reviews/apply-r7.md
+  - openspec/changes/add-host-derived-round-lint/reviews/apply-r8.md
+  - openspec/changes/add-host-derived-round-lint/reviews/apply-r10.md
+  - openspec/changes/add-host-derived-round-lint/reviews/apply-r11.md
 ---
 
 # Task verification coverage incomplete
@@ -55,3 +61,9 @@ A task is marked complete after testing the primary outcome but omits one or mor
 - 2026-08-24 — strengthen-cash-tdd-evidence — cash-propose round 1 — task contract 把 primary RED／GREEN target與相關 regression commands全部塞進未分型的 `verification`，實作者無法知道哪個 target必須 same-target轉綠；修正為獨立的 `verification` primary與 `regression` 欄位。
 
 - 2026-08-24 — refine-cash-tdd-test-guards — cash-propose round 1 — design與兩份delta要求canonical resources、四份skill、manifest及bundle version零修改，但兩個tasks只驗primary與suite，沒有任何change-scoped inventory assertion承載scope acceptance。修正為每個task在完成前手工確認自身edit inventory恰等於delivery path，並由final review檢查兩個affected-code paths。
+- 2026-09-06 — add-host-derived-round-lint — cash-apply round 3 — 9/9 tasks 勾選並未涵蓋 run boundary、declaration fallback、parked/archive/spec source、hook re-entry 與唯讀性等承諾分支；補上逐項 acceptance tests 並讓 static fixtures 實際通過 gate。
+- 2026-09-06 — add-host-derived-round-lint — cash-apply round 5 — launcher 唯讀測試雖已呼叫兩種 target，仍受外部 `PYTHONDONTWRITEBYTECODE` 影響而未必驗證 receipt bytecode 例外；補上明確環境控制與完整檔案／目錄狀態比較。
+- 2026-09-06 — add-host-derived-round-lint — cash-apply round 7 — acceptance test 初版未鎖定 Example 子樹反向案例與 repository 實際的 task description + `delivery:` 欄位形狀；補上兩個可使錯誤實作 fail 的 regression tests。
+- 2026-09-06 — add-host-derived-round-lint — cash-apply round 8 — 同行 affected-code 的附帶說明反向案例仍缺少測試；補上 `Affected code: Notes: ...` 的 fail-closed regression test。
+- 2026-09-06 — add-host-derived-round-lint — cash-apply round 10 — acceptance test 未涵蓋 `Notes:` 子樹內的 nested path；補上巢狀 Notes 反向案例，鎖定整棵子樹 fail closed。
+- 2026-09-06 — add-host-derived-round-lint — cash-apply round 11 — acceptance test 未涵蓋不同語言與冒號形式的非宣告父節點；補上繁中有冒號與無冒號的兩個 nested subtree cases。

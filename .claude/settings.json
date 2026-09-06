@@ -1,3 +1,16 @@
 {
-  "includeGitInstructions": false
+  "includeGitInstructions": false,
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.cash-skills/bin/cash lint-round --hook",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  }
 }

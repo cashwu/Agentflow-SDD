@@ -18,6 +18,13 @@ function run_python_tests --argument-names pattern
         -p "$pattern"; or fail "$pattern"
 end
 
+function run_lint_round_contracts
+    run_python_tests test_lint_round.py
+    set -lx PYTHONPATH "$root_dir/.cash-skills/lib"
+    set -l help_json ("$root_dir/.cash-skills/bin/cash" --help --json); or fail "lint-round help"
+    string match -q '*lint-round*' (string collect $help_json); or fail "lint-round missing from help"
+end
+
 switch "$test_group"
     case runtime-and-errors
         run_python_tests test_runtime_and_errors.py
@@ -49,6 +56,8 @@ switch "$test_group"
         run_python_tests test_sync_archive_transaction.py
         run_python_tests test_lexical_search.py
         run_python_tests test_runtime_and_errors.py
+    case lint-round
+        run_lint_round_contracts
     case all
         run_python_tests 'test_*.py'
     case '*'

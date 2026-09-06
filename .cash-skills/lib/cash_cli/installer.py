@@ -21,7 +21,7 @@ from typing import Iterable
 from .config import ConfigError, parse_cash_config, parse_openspec_config
 
 
-BUNDLE_VERSION = "2.21.0"
+BUNDLE_VERSION = "2.30.0"
 VERSION_RE = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
 DIGEST_RE = re.compile(r"[0-9a-f]{64}\Z")
 MODE_RE = re.compile(r"0[0-7]{3}\Z")
@@ -53,6 +53,7 @@ BUNDLE_RUNTIME_PATHS = (
     ".cash-skills/lib/cash_cli/commands/discovery.py",
     ".cash-skills/lib/cash_cli/commands/drift.py",
     ".cash-skills/lib/cash_cli/commands/lifecycle.py",
+    ".cash-skills/lib/cash_cli/commands/lint_round.py",
     ".cash-skills/lib/cash_cli/commands/search.py",
     ".cash-skills/lib/cash_cli/commands/tasks.py",
     ".cash-skills/lib/cash_cli/commands/validate.py",

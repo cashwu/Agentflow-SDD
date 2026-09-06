@@ -2,9 +2,9 @@
 id: review-fix-propagation-incomplete
 type: recurring-finding
 status: open
-occurrences: 19
+occurrences: 20
 first_seen: 2026-07-07
-last_seen: 2026-08-22
+last_seen: 2026-09-05
 links:
   - openspec/changes/add-micro-verification-round/reviews/propose-r3.md
   - openspec/changes/converge-plus-review-loop/reviews/propose-r5.md
@@ -36,6 +36,10 @@ links:
   - openspec/changes/tolerate-remount-device-renumbering/reviews/propose-r3.md
   - openspec/changes/default-spec-sync-on-archive/reviews/apply-r2.md
   - openspec/changes/guard-task-state-integrity/reviews/propose-r1.md
+  - openspec/changes/add-host-derived-round-lint/reviews/propose-r2.md
+  - openspec/changes/add-host-derived-round-lint/reviews/propose-r3.md
+  - openspec/changes/add-host-derived-round-lint/reviews/propose-r5.md
+  - openspec/changes/add-host-derived-round-lint/reviews/propose-r6.md
 ---
 
 # Review fix propagation incomplete
@@ -71,3 +75,5 @@ A review-round fix introduces or changes a rule, but claims about that rule else
 - 2026-08-20 — tolerate-remount-device-renumbering — cash-propose round 3 — 前一輪把「指引前提」改為依 gate 分寫，spec delta、Implementation Contract、tasks 與 proposal 四處都改了，卻漏掉同一節的契約總結句——而那句正是以「因此契約規定：」開頭的權威敘述。照該句實作會直接退回被修掉的缺陷。修法是把該句一併改寫並統一小標題用語，再以 grep 掃全部四份 artifact 確認無其他殘留。
 - 2026-08-22 — default-spec-sync-on-archive — cash-apply round 2 — round 1 的 fix 改寫了 IC1 第 9 點與 D5（跳過警告行改為純輸出文字），但 `tasks.md` task 1.1 的交付描述散文仍寫「跳過警告行改為佔位形式」，成為下一輪的 `fix-introduced` finding；同一輪另一筆同型：round 1 改寫 IC1 第 6 點後，`proposal.md` 與 tasks 交付描述中「preflight 失敗時的兩條出路」的舊框架措辭未同步（round 4 才查出）。
 - 2026-08-22 — guard-task-state-integrity — cash-propose rounds 2、4、5、6 — 本 run 最主要的復發根因：一筆 fix 觸及的概念未傳播到全部應提及它的 artifact。實例包含 round 1 把兩個 `cash-commit` 路徑加入 `## Impact` 後未更新 task 0.1 的乾淨工作樹閘門、`## Context` 相依段、`## Risks` 與 `## Proposed Solution`（round 4 才查出，閘門因此可在該路徑仍髒時放行）；round 4 把 D5 的捕捉範圍擴大後未同步 IC4 第 2 點（round 5 查出）；round 4 的 M2 修復未 propagate 到 `## Goals` 與 IC9（round 5 查出）。修復手段：round 5 起改以機械化跨 artifact 傳播檢查取代人工判斷，為每個關鍵概念宣告「MUST 提及它的 artifact 集合」並掃描五份 artifact，該檢查是 round 6 收斂的直接原因。
+
+- 2026-09-05 — add-host-derived-round-lint — cash-propose rounds 2、3、5、6 — 本 loop 唯一未被根治的失效來源，連續五輪出現，且第五、六兩輪的**全部** finding 都屬此類（無一為 `new`）。實例：刪 proposal 的 Non-Goal 卻留下 design 的平行條目；`.parked` 列舉修了四處漏掉 Implementation Contract 與 cash-cli scenario 兩處 normative；改了重入 scenario 的 GIVEN／THEN 卻漏掉 scenario **標題**；`__pycache__` 範圍限定只落在 design；D7 加了一般化段落卻沒改緊接其後的順序句。最值得記的是 round 6 的 W-A：round 5 已改用「程式化窮舉掃描」，但該掃描以**已知舊字串**比對，因此看不到同一義務改用同義措辭（`.pyc` vs `bytecode cache` vs `__pycache__`）的位置，也抓不到「新增的豁免被同一句中涵蓋同一對象的無條件子句抵銷」這種語意層問題。教訓：字串掃描能抓殘留，抓不到同義表述與語意抵銷；傳播檢查須額外做同義措辭檢索，並對每個新增的範圍限定檢查同段落是否有無條件子句將其抵銷。
